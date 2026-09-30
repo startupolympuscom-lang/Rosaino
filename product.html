@@ -1,0 +1,1997 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title id="page-meta-title">Rosaino — Curated Everyday Essentials</title>
+  <meta id="page-meta-desc" name="description" content="Order with Cash on Delivery across Morocco.">
+  <link rel="icon" href="/assets/icon.png">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    :root {
+      --primary: #147d86;
+      --primary-dark: #0e5b62;
+      --coral: #ff6554;
+      --gold: #f59e0b;
+      --ink: #173540;
+      --cloud: #f8fafb;
+      --line: #e2e8ea;
+    }
+    body {
+      background: #fdfefe;
+      color: var(--ink);
+    }
+    .landing-announcement {
+      background: var(--ink);
+      color: #fff;
+      text-align: center;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 3px rgba(16,185,129,0.3);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+      70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+      100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+    }
+    .landing-header {
+      padding: 16px 5%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .landing-header .brand img {
+      width: 130px;
+      height: auto;
+    }
+    .header-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .badge-guarantee {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e6f4ea;
+      color: #137333;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .landing-container {
+      max-width: 1120px;
+      margin: 32px auto 80px;
+      padding: 0 20px;
+    }
+    .product-hero-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+    /* Media Section */
+    .media-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 8px 30px rgba(23,53,64,0.04);
+      position: sticky;
+      top: 90px;
+    }
+    .main-image-wrap {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 12px;
+      background: #f7f9f9;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+    .main-image-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
+    .main-image-wrap:hover img {
+      transform: scale(1.03);
+    }
+    .media-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: var(--coral);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      box-shadow: 0 4px 12px rgba(255,101,84,0.3);
+    }
+    .thumbnails-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .thumb-item {
+      width: 74px;
+      height: 74px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      overflow: hidden;
+      cursor: pointer;
+      background: #f5f7f8;
+      flex-shrink: 0;
+    }
+    .thumb-item.active {
+      border-color: var(--primary);
+    }
+    .thumb-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Product Info Section */
+    .product-info-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .rating-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #4b6369;
+    }
+    .stars {
+      color: var(--gold);
+      font-size: 15px;
+    }
+    .product-hook-title {
+      font-size: clamp(28px, 3.2vw, 38px);
+      line-height: 1.15;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.5px;
+      color: var(--ink);
+    }
+    .product-subtitle {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #556c73;
+      margin: 0;
+    }
+
+    /* Pricing Display */
+    .price-banner {
+      background: #f0f8f7;
+      border: 1px solid #cce5e2;
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .price-main {
+      font-size: 34px;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: -0.5px;
+    }
+    .price-original {
+      font-size: 18px;
+      text-decoration: line-through;
+      color: #8c9fa3;
+      margin-left: 8px;
+    }
+    .price-savings {
+      background: #fee2e2;
+      color: #b91c1c;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Urgency Timer & Scarcity */
+    .urgency-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #92400e;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .timer-digits {
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 15px;
+      background: #fef3c7;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #fcd34d;
+    }
+
+    /* Quantity Pricing Table / Bundles */
+    .bundle-section {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 4px 20px rgba(23,53,64,0.03);
+    }
+    .bundle-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .bundle-heading h3 {
+      font-size: 16px;
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--ink);
+    }
+    .bundle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .bundle-card {
+      border: 2px solid #e3e8e6;
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: #fff;
+      position: relative;
+    }
+    .bundle-card:hover {
+      border-color: #a4cbcf;
+    }
+    .bundle-card.selected {
+      border-color: var(--primary);
+      background: #f2faf9;
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+    .bundle-badge {
+      position: absolute;
+      top: -10px;
+      right: 14px;
+      background: var(--coral);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .bundle-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .bundle-radio {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .bundle-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--ink);
+    }
+    .bundle-savings {
+      font-size: 12px;
+      color: #16a34a;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .bundle-price {
+      text-align: right;
+    }
+    .bundle-price-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .bundle-price-orig {
+      font-size: 12px;
+      text-decoration: line-through;
+      color: #8c9fa3;
+    }
+
+    /* Fast COD Form */
+    .fast-cod-box {
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 40px rgba(20,125,134,0.08);
+    }
+    .fast-cod-header {
+      text-align: center;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+      margin-bottom: 18px;
+    }
+    .fast-cod-header h3 {
+      font-size: 20px;
+      margin: 0 0 4px;
+      color: var(--ink);
+    }
+    .fast-cod-header p {
+      font-size: 13px;
+      color: #5d7278;
+      margin: 0;
+    }
+    .btn-submit-cod {
+      background: var(--coral);
+      color: #fff;
+      border: none;
+      width: 100%;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background 0.2s, transform 0.1s;
+      box-shadow: 0 6px 20px rgba(255,101,84,0.3);
+      margin-top: 10px;
+    }
+    .btn-submit-cod:hover {
+      background: #f75340;
+      transform: translateY(-2px);
+    }
+    .cod-trust-line {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: #556c73;
+      flex-wrap: wrap;
+    }
+
+    /* Features Grid */
+    .features-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 24px;
+      margin-top: 40px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+    .feature-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #e6f4f2;
+      color: var(--primary);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .feature-item h4 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .feature-item p {
+      margin: 0;
+      font-size: 12px;
+      color: #5d7278;
+      line-height: 1.5;
+    }
+
+    /* Reviews Section */
+    .reviews-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 24px;
+      margin-top: 30px;
+    }
+    .reviews-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .review-bubble {
+      background: #f8fafb;
+      border: 1px solid #e7ecee;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .review-user {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .review-bubble p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #4b6369;
+      margin: 0;
+    }
+
+    /* FAQ Accordion */
+    .faq-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 24px;
+      margin-top: 30px;
+    }
+    .faq-item {
+      border-bottom: 1px solid var(--line);
+      padding: 14px 0;
+    }
+    .faq-item:last-child {
+      border-bottom: none;
+    }
+    .faq-question {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .faq-answer {
+      font-size: 13px;
+      color: #556c73;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    /* Mobile Sticky Bar */
+    .mobile-sticky-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid var(--line);
+      padding: 12px 20px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+      z-index: 100;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sticky-price {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .sticky-btn {
+      background: var(--coral);
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* Language Switcher Dropdown */
+    .lang-selector-wrap {
+      position: relative;
+    }
+    .lang-dropdown-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .lang-dropdown-btn:hover {
+      background: #f8fafb;
+      border-color: var(--primary);
+    }
+    .lang-dropdown-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      min-width: 160px;
+      padding: 6px;
+      z-index: 200;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .lang-selector-wrap.open .lang-dropdown-menu {
+      display: flex;
+    }
+    .lang-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s;
+    }
+    .lang-option:hover {
+      background: #f0f7f7;
+      color: var(--primary);
+    }
+    .lang-option .tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: #8b9ea3;
+      background: #eef2f3;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* RTL Arabic Layout Support */
+    [dir="rtl"] {
+      direction: rtl;
+      text-align: right;
+      font-family: 'Segoe UI', 'Cairo', 'Amiri', Tahoma, sans-serif;
+    }
+    [dir="rtl"] .lang-dropdown-menu {
+      right: auto;
+      left: 0;
+    }
+    [dir="rtl"] .lang-option {
+      text-align: right;
+    }
+    [dir="rtl"] .media-badge {
+      left: auto;
+      right: 14px;
+    }
+    [dir="rtl"] .bundle-badge {
+      right: auto;
+      left: 14px;
+    }
+    [dir="rtl"] .price-original {
+      margin-left: 0;
+      margin-right: 8px;
+    }
+    [dir="rtl"] .bundle-price {
+      text-align: left;
+    }
+
+    /* Lower sections flex container */
+    .lower-sections-container {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+      margin-top: 30px;
+    }
+
+    @media (max-width: 860px) {
+      .product-hero-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
+      }
+      .media-card {
+        position: static;
+      }
+      .reviews-list {
+        grid-template-columns: 1fr;
+      }
+      .mobile-sticky-bar {
+        display: flex;
+      }
+      .landing-container {
+        margin-bottom: 120px;
+      }
+    }
+
+    /* In-Preview Interactive Visual Edit Mode Styles */
+    body.visual-edit-mode [data-cms-editable] {
+      position: relative;
+      cursor: pointer;
+      outline: 1.5px dashed rgba(20, 125, 134, 0.45);
+      outline-offset: 3px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+    body.visual-edit-mode [data-cms-editable]:hover {
+      outline: 2px dashed #147d86 !important;
+      outline-offset: 4px !important;
+      background: rgba(20, 125, 134, 0.08) !important;
+    }
+    body.visual-edit-mode [data-cms-editable]:focus,
+    body.visual-edit-mode [data-cms-editable][contenteditable="true"]:focus {
+      outline: 2.5px solid #147d86 !important;
+      outline-offset: 2px !important;
+      background: rgba(20, 125, 134, 0.12) !important;
+    }
+    body.visual-edit-mode [data-section-id] {
+      position: relative;
+      transition: box-shadow 0.2s ease;
+    }
+    body.visual-edit-mode [data-section-id]:hover {
+      box-shadow: 0 0 0 2px rgba(20, 125, 134, 0.35);
+    }
+    .preview-section-bar {
+      display: none;
+      position: absolute;
+      top: -12px;
+      right: 14px;
+      z-index: 60;
+      background: #183243;
+      color: #fff;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    [dir="rtl"] .preview-section-bar {
+      right: auto;
+      left: 14px;
+    }
+    body.visual-edit-mode [data-section-id]:hover > .preview-section-bar,
+    body.visual-edit-mode [data-section-id]:hover .preview-section-bar {
+      display: inline-flex;
+    }
+    .preview-section-bar button {
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      cursor: pointer;
+      line-height: 1;
+      transition: background 0.15s;
+    }
+    .preview-section-bar button:hover {
+      background: #147d86;
+    }
+    .visual-edit-banner-top {
+      display: none;
+      background: linear-gradient(90deg, #147d86, #0e5b62);
+      color: #fff;
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    body.visual-edit-mode .visual-edit-banner-top {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top In-Preview Visual Edit Mode Notification Banner -->
+  <div class="visual-edit-banner-top" id="visual-edit-banner-top">
+    ✏️ <strong>Mode Édition Directe Actif :</strong> Cliquez ou tapez sur n'importe quel texte ou élément ci-dessous pour modifier la page en direct !
+  </div>
+
+  <!-- Announcement Bar Section -->
+  <div class="landing-announcement" id="sec-announcement" data-section-id="announcement">
+    <div class="preview-section-bar">
+      <span>📢 Barre d'Annonce</span>
+      <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+      <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+      <button type="button" data-cms-jump="announcement" title="Configurer">⚙️</button>
+    </div>
+    <span class="pulse-dot"></span>
+    <span id="announcement-text" data-cms-editable="true" data-cms-field="announcement">⚡ Special Offer · Free Express Delivery Across Morocco · 100% Cash on Delivery</span>
+  </div>
+
+  <!-- Header with Store Navigation and Language Switcher -->
+  <header class="landing-header">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <a class="brand" href="/" aria-label="Rosaino Storefront">
+        <img src="/assets/logo.png" alt="Rosaino">
+      </a>
+      <a href="/" id="header-back-link" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+        ← Back to Storefront
+      </a>
+    </div>
+    <div class="header-links">
+      <span class="badge-guarantee" id="header-guarantee-badge">🛡️ Cash on Delivery Guaranteed</span>
+      <a href="/track" id="header-track-link" style="font-size:13px;font-weight:600;color:var(--primary);">Track Order 🚚</a>
+      
+      <!-- Language Switcher in Header -->
+      <div class="lang-selector-wrap" id="lang-selector-wrap">
+        <button type="button" class="lang-dropdown-btn" id="lang-dropdown-btn" title="Change Language (Français, English, العربية)">
+          <span id="current-lang-flag">🇫🇷</span>
+          <span id="current-lang-code">FR</span>
+          <span style="font-size:10px;margin-left:2px;">▾</span>
+        </button>
+        <div class="lang-dropdown-menu" id="lang-dropdown-menu">
+          <button type="button" class="lang-option" data-lang="fr">
+            <span><span class="flag">🇫🇷</span> Français</span>
+            <span class="tag">FR</span>
+          </button>
+          <button type="button" class="lang-option" data-lang="en">
+            <span><span class="flag">🇬🇧</span> English</span>
+            <span class="tag">EN</span>
+          </button>
+          <button type="button" class="lang-option" data-lang="ar">
+            <span><span class="flag">🇲🇦</span> العربية</span>
+            <span class="tag">AR</span>
+          </button>
+        </div>
+      </div>
+
+      <a id="header-whatsapp-btn" href="https://wa.me/212600000000?text=Hello%20Rosaino,%20I%20have%20a%20question%20about%20my%20order" target="_blank" rel="noopener" class="btn-wa" style="padding:6px 12px;font-size:12px;">
+        WhatsApp 💬
+      </a>
+    </div>
+  </header>
+
+  <div class="landing-container">
+    <!-- Breadcrumb navigation -->
+    <div id="cms-breadcrumb" style="display:flex;align-items:center;gap:8px;font-size:13px;color:#6b8288;margin-bottom:20px;">
+      <a href="/" style="color:var(--primary);text-decoration:none;font-weight:600;">Storefront</a>
+      <span>›</span>
+      <span id="breadcrumb-category">Catalog</span>
+      <span>›</span>
+      <strong id="breadcrumb-product-name" style="color:var(--ink);">Product</strong>
+    </div>
+
+    <div class="product-hero-grid">
+      <!-- Media Left Column -->
+      <div class="media-card" id="sec-hero_media" data-section-id="hero_media">
+        <div class="preview-section-bar">
+          <span>🖼️ Galerie & Photos</span>
+          <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+          <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+          <button type="button" data-cms-jump="hero_media" title="Configurer">⚙️</button>
+        </div>
+        <div class="main-image-wrap">
+          <span class="media-badge" id="cms-badge" data-cms-editable="true" data-cms-field="badgeText">LIMITED OFFER</span>
+          <img id="main-product-img" src="/assets/collection.png" alt="Product display">
+        </div>
+        <div class="thumbnails-row" id="thumbnails-container">
+          <div class="thumb-item active" data-src="/assets/collection.png">
+            <img src="/assets/collection.png" alt="Thumbnail 1">
+          </div>
+          <div class="thumb-item" data-src="/assets/pattern.png">
+            <img src="/assets/pattern.png" alt="Thumbnail 2">
+          </div>
+          <div class="thumb-item" data-src="/assets/ribbon.png">
+            <img src="/assets/ribbon.png" alt="Thumbnail 3">
+          </div>
+        </div>
+
+        <div id="parcel-contents-box" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:#556c73;line-height:1.6;">
+          <strong>📦 Inclus dans le colis :</strong> 1x Produit officiel Rosaino avec scellés de sécurité, certificat d'authenticité et garantie 14 jours.
+        </div>
+      </div>
+
+      <!-- Right Column: Hook, Pricing, Bundle Table & Fast COD Form -->
+      <div class="product-info-panel" id="product-info-panel">
+        
+        <!-- Hook & Copy Section -->
+        <div id="sec-hook_and_copy" data-section-id="hook_and_copy" style="display:flex;flex-direction:column;gap:18px;">
+          <div class="preview-section-bar">
+            <span>✨ Titre & Accroche</span>
+            <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+            <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+            <button type="button" data-cms-jump="hook_and_copy" title="Configurer">⚙️</button>
+          </div>
+          <div class="rating-row">
+            <span class="stars">★★★★★</span>
+            <span id="rating-text"><strong>4.9 / 5</strong> (184 avis vérifiés)</span>
+            <span id="stock-status-pill" style="color:#16a34a;font-weight:700;">● En Stock</span>
+          </div>
+
+          <h1 class="product-hook-title" id="cms-headline" data-cms-editable="true" data-cms-field="headline">Loading product...</h1>
+          <p class="product-subtitle" id="cms-subtitle" data-cms-editable="true" data-cms-field="subtitle">Thoughtful everyday essentials crafted for comfort and longevity.</p>
+
+          <!-- Price Banner -->
+          <div class="price-banner" id="price-banner">
+            <div>
+              <span class="price-main" id="display-price">490 MAD</span>
+              <span class="price-original" id="display-original-price">690 MAD</span>
+            </div>
+            <span class="price-savings" id="display-savings">Économisez 200 MAD (-29%)</span>
+          </div>
+        </div>
+
+        <!-- Urgency & Scarcity Section -->
+        <div class="urgency-bar" id="sec-urgency_bar" data-section-id="urgency_bar">
+          <div class="preview-section-bar">
+            <span>⏱️ Urgence & Compteur</span>
+            <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+            <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+            <button type="button" data-cms-jump="urgency_bar" title="Configurer">⚙️</button>
+          </div>
+          <div>🔥 <strong id="stock-text">Plus que 7 unités en stock</strong> à Casablanca</div>
+          <div><span id="urgency-label-text">Offre expire dans :</span> <span class="timer-digits" id="timer-digits">04:22:15</span></div>
+        </div>
+
+        <!-- Quantity Bundles / Pricing Table Section -->
+        <div class="bundle-section" id="sec-pricing_bundles" data-section-id="pricing_bundles">
+          <div class="preview-section-bar">
+            <span>🏷️ Packs & Offres</span>
+            <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+            <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+            <button type="button" data-cms-jump="pricing_bundles" title="Configurer">⚙️</button>
+          </div>
+          <div class="bundle-heading">
+            <h3 id="bundle-heading-title">Choisissez votre offre (Prix spécial)</h3>
+            <span id="bundle-shipping-badge" style="font-size:12px;color:#16a34a;font-weight:700;">Livraison gratuite</span>
+          </div>
+          <div class="bundle-list" id="bundle-list">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Fast Express COD Checkout Form Section -->
+        <div class="fast-cod-box" id="sec-cod_checkout" data-section-id="cod_checkout">
+          <div class="preview-section-bar">
+            <span>📝 Formulaire COD</span>
+            <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+            <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+            <button type="button" data-cms-jump="cod_checkout" title="Configurer">⚙️</button>
+          </div>
+          <div class="fast-cod-header">
+            <h3 id="cms-checkout-title" data-cms-editable="true" data-cms-field="checkoutHeadline">Finalisez votre commande ci-dessous</h3>
+            <p id="cms-checkout-sub" data-cms-editable="true" data-cms-field="checkoutSubtitle">Payez en espèces au livreur à votre porte dès réception.</p>
+          </div>
+
+          <form id="landing-cod-form" class="checkout-form">
+            <!-- Dynamic COD Form Fields Container -->
+            <div id="landing-cod-dynamic-fields" class="form-fields-container"></div>
+
+            <div style="background:#f8fafb;border:1px dashed #c0cecb;border-radius:8px;padding:12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <strong id="summary-pack-title">Sélectionné : 1 Pièce</strong><br>
+                <small id="summary-shipping-info" style="color:#556c73;">Livraison Express Gratuite partout au Maroc</small>
+              </div>
+              <div style="text-align:right;">
+                <span id="summary-cod-label" style="font-size:12px;color:#8c9fa3;">Total à payer (COD) :</span><br>
+                <strong style="font-size:20px;color:var(--primary);" id="summary-total-price">490 MAD</strong>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-submit-cod" id="btn-submit-landing" data-cms-editable="true" data-cms-field="submitButtonText">
+              CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ➔
+            </button>
+
+            <div class="cod-trust-line" id="cod-trust-badges">
+              <span id="trust-badge-1">🛡️ 100% Sans Risque</span>
+              <span id="trust-badge-2">🚚 Livraison Gratuite</span>
+              <span id="trust-badge-3">🔍 Ouvrez et vérifiez avant de payer</span>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lower Sections Container (Ordered dynamically) -->
+    <div class="lower-sections-container" id="lower-sections-container">
+      <!-- Feature Highlights Section -->
+      <div class="features-card" id="sec-features" data-section-id="features">
+        <div class="preview-section-bar">
+          <span>🌟 Avantages Clés</span>
+          <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+          <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+          <button type="button" data-cms-jump="features" title="Configurer">⚙️</button>
+        </div>
+        <h3 id="features-title" style="margin:0 0 16px;font-size:18px;">Pourquoi choisir Rosaino</h3>
+        <div class="features-grid" id="features-container">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- Customer Reviews Section -->
+      <div class="reviews-card" id="sec-reviews" data-section-id="reviews">
+        <div class="preview-section-bar">
+          <span>⭐ Avis Clients</span>
+          <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+          <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+          <button type="button" data-cms-jump="reviews" title="Configurer">⚙️</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 id="reviews-title" style="margin:0;font-size:18px;">Avis clients vérifiés au Maroc</h3>
+          <span class="stars" id="reviews-stars-header">★★★★★ 4.9/5 Rating</span>
+        </div>
+        <div class="reviews-list" id="reviews-container">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+      <!-- FAQ Accordion Section -->
+      <div class="faq-card" id="sec-faqs" data-section-id="faqs">
+        <div class="preview-section-bar">
+          <span>❓ FAQ</span>
+          <button type="button" data-cms-reorder="up" title="Monter">▲</button>
+          <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
+          <button type="button" data-cms-jump="faqs" title="Configurer">⚙️</button>
+        </div>
+        <h3 id="faqs-title" style="margin:0 0 16px;font-size:18px;">Foire aux questions (Paiement à la livraison)</h3>
+        <div id="faqs-container">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Sticky Bottom Bar -->
+  <div class="mobile-sticky-bar">
+    <div>
+      <span id="mobile-sticky-label" style="font-size:11px;color:#556c73;display:block;">Total COD :</span>
+      <span class="sticky-price" id="mobile-sticky-price">490 MAD</span>
+    </div>
+    <button class="sticky-btn" id="mobile-sticky-btn" onclick="document.getElementById('sec-cod_checkout').scrollIntoView({behavior:'smooth'})">
+      Commander (COD) ➔
+    </button>
+  </div>
+
+  <!-- Order Confirmation Modal -->
+  <dialog id="landing-success-dialog" style="width:min(520px, 94vw);border-radius:16px;">
+    <button class="close" data-close="landing-success-dialog">×</button>
+    <div style="text-align:center;padding:20px 10px;">
+      <div class="success-check">✓</div>
+      <h2 style="margin:0 0 8px;font-size:26px;" id="success-modal-title">Commande Confirmée !</h2>
+      <p style="color:#556c73;margin:0 0 16px;" id="success-modal-msg">Merci, <strong id="success-cust-name">Client</strong>. Votre commande avec paiement à la livraison a été enregistrée avec succès.</p>
+      
+      <div class="order-ref" id="success-order-id">RS-1024</div>
+
+      <div style="background:#f8fafb;border:1px solid #e1e7e5;border-radius:8px;padding:16px;margin:16px auto;text-align:left;font-size:13px;line-height:1.7;">
+        <div><strong id="success-lbl-prod">Produit :</strong> <span id="success-prod-name">Produit</span> (<span id="success-qty">1 unité</span>)</div>
+        <div><strong id="success-lbl-total">Total à payer à la livraison :</strong> <strong style="color:var(--primary);" id="success-amount">490 MAD</strong></div>
+        <div><strong id="success-lbl-dest">Destination :</strong> <span id="success-dest">Casablanca</span></div>
+        <div id="success-call-notice" style="margin-top:10px;padding-top:10px;border-top:1px dashed #ccd6d4;color:#147d86;">
+          📞 <strong>À quoi s'attendre :</strong> Notre agent de confirmation vous appellera sous 24h pour valider votre commande avant expédition.
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+        <a id="success-track-btn" href="/track" class="primary" style="display:inline-flex;align-items:center;gap:6px;">
+          🚚 Suivre le colis en direct ↗
+        </a>
+        <a id="success-explore-btn" href="/" style="padding:12px 18px;border:1px solid #d3dbd9;border-radius:5px;background:#fff;font-weight:600;">
+          Découvrir d'autres produits
+        </a>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const STORAGE_KEY = 'rosaino-operations-demo-v1';
+    const SAAS_LANG_KEY = 'rosaino_saas_lang';
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = n => new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD', maximumFractionDigits: 0 }).format(n);
+
+    let currentProduct = null;
+    let currentCms = null;
+    let selectedTierIndex = 0;
+    let toastTimer;
+    let currentLang = 'fr';
+
+    // Multi-Language Localization Dictionary
+    const I18N_LANDING = {
+      fr: {
+        code: 'FR',
+        flag: '🇫🇷',
+        dir: 'ltr',
+        backToStore: '← Retour à la boutique',
+        codGuaranteed: '🛡️ Paiement à la livraison garanti',
+        trackOrder: 'Suivre ma commande 🚚',
+        inStock: '● En stock',
+        verifiedBuyers: 'avis vérifiés au Maroc',
+        stockLeftText: n => `Plus que ${n} unités en stock`,
+        saleEndsIn: 'Offre expire dans :',
+        includedInParcel: '📦 Inclus dans le colis : 1x Produit officiel Rosaino avec scellés de sécurité, certificat d’authenticité et garantie 14 jours.',
+        choosePackage: 'Choisissez votre offre (Prix spécial)',
+        freeShippingPacks: 'Livraison gratuite sur tous les packs',
+        selectedPrefix: 'Sélectionné :',
+        freeExpressDelivery: 'Livraison Express Gratuite partout au Maroc',
+        totalCod: 'Total à payer (COD) :',
+        orderNowMobile: 'Commander (COD) ➔',
+        fullNameLabel: 'Nom complet *',
+        fullNamePlaceholder: 'ex. Fatima Zahra Bennani',
+        phoneLabel: 'Numéro de téléphone marocain *',
+        phoneHelp: 'Notre agent vous appelle pour confirmer la livraison.',
+        cityLabel: 'Ville *',
+        addressLabel: 'Adresse de livraison & quartier *',
+        addressPlaceholder: 'Rue, numéro de porte, quartier ou repère à proximité',
+        notesLabel: 'Instructions de livraison (Optionnel)',
+        notesPlaceholder: 'ex. Appeler avant d’arriver, laisser au concierge si absent',
+        submitOrder: 'CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ➔',
+        trustRiskFree: '🛡️ 100% Sans Risque',
+        trustFreeShipping: '🚚 Livraison Gratuite',
+        trustInspect: '🔍 Ouvrez et vérifiez avant de payer',
+        whyChooseTitle: 'Pourquoi choisir Rosaino',
+        reviewsTitle: 'Avis clients vérifiés au Maroc',
+        faqsTitle: 'Foire aux questions (Paiement à la livraison)',
+        orderConfirmed: 'Commande Confirmée !',
+        thankYou: name => `Merci ${name}. Votre commande avec paiement à la livraison a été enregistrée avec succès.`,
+        totalToPay: 'Total à payer à la livraison :',
+        destination: 'Destination :',
+        whatToExpect: '📞 À quoi s’attendre : Notre agent de confirmation vous appellera sous 24h pour valider votre commande avant expédition.',
+        trackStatusBtn: '🚚 Suivre le colis en direct ↗',
+        exploreMore: 'Découvrir d’autres produits'
+      },
+      en: {
+        code: 'EN',
+        flag: '🇬🇧',
+        dir: 'ltr',
+        backToStore: '← Back to Storefront',
+        codGuaranteed: '🛡️ Cash on Delivery Guaranteed',
+        trackOrder: 'Track Order 🚚',
+        inStock: '● In Stock',
+        verifiedBuyers: 'verified Moroccan buyers',
+        stockLeftText: n => `Only ${n} units left in stock`,
+        saleEndsIn: 'Sale ends in:',
+        includedInParcel: '📦 Included in parcel: 1x Official Rosaino product with security seals, certificate of authenticity, and 14-day warranty card.',
+        choosePackage: 'Choose Your Package (Special Pricing)',
+        freeShippingPacks: 'Free Shipping on all packs',
+        selectedPrefix: 'Selected:',
+        freeExpressDelivery: 'Free Express Delivery Across Morocco',
+        totalCod: 'Total to pay (COD):',
+        orderNowMobile: 'Order Now (COD) ➔',
+        fullNameLabel: 'Full Name *',
+        fullNamePlaceholder: 'e.g. Fatima Zahra Bennani',
+        phoneLabel: 'Moroccan Phone Number *',
+        phoneHelp: 'Our confirmation agent calls this number to verify dispatch.',
+        cityLabel: 'City *',
+        addressLabel: 'Delivery Address & Neighborhood *',
+        addressPlaceholder: 'Street, building number, apartment, nearby landmark',
+        notesLabel: 'Delivery Instructions (Optional)',
+        notesPlaceholder: 'e.g. Call before arrival, leave with concierge if unavailable',
+        submitOrder: 'CONFIRM CASH ON DELIVERY ORDER ➔',
+        trustRiskFree: '🛡️ 100% Risk Free',
+        trustFreeShipping: '🚚 Free Shipping',
+        trustInspect: '🔍 Open & Inspect Before Paying',
+        whyChooseTitle: 'Why Choose Rosaino',
+        reviewsTitle: 'Verified Customer Reviews',
+        faqsTitle: 'Frequently Asked Questions (Cash on Delivery)',
+        orderConfirmed: 'Order Confirmed!',
+        thankYou: name => `Thank you, ${name}. Your Cash on Delivery order has been successfully scheduled.`,
+        totalToPay: 'Total to pay upon delivery:',
+        destination: 'Destination:',
+        whatToExpect: '📞 What to expect: Our agent will call you within 24 hours to verify delivery time before dispatch.',
+        trackStatusBtn: '🚚 Track Order Status Live ↗',
+        exploreMore: 'Explore More Products'
+      },
+      ar: {
+        code: 'AR',
+        flag: '🇲🇦',
+        dir: 'rtl',
+        backToStore: '← العودة إلى المتجر',
+        codGuaranteed: '🛡️ الدفع عند الاستلام مضمون 100%',
+        trackOrder: 'تتبع طلبيتك 🚚',
+        inStock: '● متوفر في المخزون',
+        verifiedBuyers: 'مشترين موثقين في المغرب',
+        stockLeftText: n => `بقي فقط ${n} قطع في المخزون`,
+        saleEndsIn: 'ينتهي العرض الخاص خلال :',
+        includedInParcel: '📦 محتويات الطرد : منتج أصلي من روزاينو مع لواصق الضمان وشارة الجودة وضمان استبدال لمدة 14 يوماً.',
+        choosePackage: 'اختر باقتك المفضلة (تخفيضات خاصة)',
+        freeShippingPacks: 'شحن مجاني وسريع على جميع الباقات',
+        selectedPrefix: 'العرض المختار :',
+        freeExpressDelivery: 'توصيل مجاني وسريع إلى باب منزلك في جميع مدن المغرب',
+        totalCod: 'المجموع الإجمالي (الدفع عند الاستلام) :',
+        orderNowMobile: 'اطلب الآن والدفع عند الاستلام ➔',
+        fullNameLabel: 'الاسم الكامل *',
+        fullNamePlaceholder: 'مثال: فاطمة الزهراء بناني',
+        phoneLabel: 'رقم الهاتف المغربي *',
+        phoneHelp: 'سيتصل بك موظف خدمة العملاء على هذا الرقم لتأكيد التوصيل.',
+        cityLabel: 'المدينة *',
+        addressLabel: 'العنوان الكامل والحي السكني *',
+        addressPlaceholder: 'اسم الشارع، رقم العمارة أو المنزل، الطابق، ورقم الشقة أو أقرب نقطة معروفة',
+        notesLabel: 'ملاحظات إضافية للتوصيل (اختياري)',
+        notesPlaceholder: 'مثال: يرجى الاتصال بي قبل الوصول بنصف ساعة',
+        submitOrder: 'تأكيد الطلب والدفع عند الاستلام ➔',
+        trustRiskFree: '🛡️ 100% بدون أي مخاطرة',
+        trustFreeShipping: '🚚 توصيل مجاني وسريع',
+        trustInspect: '🔍 افتح الطرد وعاينه قبل الدفع',
+        whyChooseTitle: 'لماذا يفضل زبناؤنا التسوق من روزاينو',
+        reviewsTitle: 'آراء وتقييمات زبنائنا الموثقين في المغرب',
+        faqsTitle: 'الأسئلة الشائعة حول الدفع عند الاستلام والتوصيل',
+        orderConfirmed: 'تم تأكيد طلبك بنجاح !',
+        thankYou: name => `شكراً لك ${name}. تم تسجيل طلبك بنجاح وسيتكفل فريقنا بتجهيز شحنتك فوراً.`,
+        totalToPay: 'المبلغ المستحق عند الاستلام :',
+        destination: 'وجهة التوصيل :',
+        whatToExpect: '📞 الخطوة القادمة : سيتصل بك فريق التأكيد خلال ساعات للتحقق من العنوان وتحديد موعد التسليم المناسب لك.',
+        trackStatusBtn: '🚚 تتبع مسار الشحنة مباشرة ↗',
+        exploreMore: 'تصفح باقي المنتجات'
+      }
+    };
+
+    function toast(msg) {
+      const t = $('#toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('visible'), 2800);
+    }
+
+    function setLanguage(lang) {
+      if (!I18N_LANDING[lang]) lang = 'fr';
+      currentLang = lang;
+      try {
+        localStorage.setItem(SAAS_LANG_KEY, lang);
+      } catch {}
+
+      const dict = I18N_LANDING[lang];
+      document.documentElement.lang = lang;
+      document.documentElement.dir = dict.dir;
+      document.body.dir = dict.dir;
+
+      const flagEl = $('#current-lang-flag');
+      const codeEl = $('#current-lang-code');
+      if (flagEl) flagEl.textContent = dict.flag;
+      if (codeEl) codeEl.textContent = dict.code;
+
+      const wrap = $('#lang-selector-wrap');
+      if (wrap) wrap.classList.remove('open');
+
+      renderCms();
+    }
+
+    // Default CMS generator
+    const DEFAULT_COD_FIELDS = [
+      { id: 'f_name', key: 'name', label: 'Nom complet', placeholder: 'ex. Fatima Zahra Bennani', type: 'text', required: true, enabled: true },
+      { id: 'f_phone', key: 'phone', label: 'Numéro de téléphone marocain', placeholder: '06 12 34 56 78', type: 'tel', required: true, enabled: true, help: 'Notre agent vous appelle pour valider la livraison.' },
+      { id: 'f_city', key: 'city', label: 'Ville', type: 'select', required: true, enabled: true, options: 'Casablanca, Rabat, Marrakech, Tanger, Fès, Meknès, Agadir, Kénitra, Tétouan, Oujda, Mohammédia, El Jadida, Autre ville au Maroc' },
+      { id: 'f_address', key: 'address', label: 'Adresse de livraison & quartier', placeholder: 'Rue, numéro de porte, quartier ou repère', type: 'textarea', required: true, enabled: true },
+      { id: 'f_notes', key: 'notes', label: 'Instructions de livraison (Optionnel)', placeholder: 'ex. Appeler avant d\'arriver, laisser au concierge', type: 'text', required: false, enabled: true },
+      { id: 'f_whatsapp', key: 'whatsapp', label: 'Numéro WhatsApp (si différent)', placeholder: '06 .. .. .. ..', type: 'tel', required: false, enabled: false },
+      { id: 'f_phone2', key: 'phone2', label: 'Deuxième numéro de téléphone', placeholder: '06 / 07 .. .. .. ..', type: 'tel', required: false, enabled: false },
+      { id: 'f_delivery_time', key: 'delivery_time', label: 'Créneau horaire de livraison préféré', type: 'select', required: false, enabled: false, options: 'Matin (09h-13h), Après-midi (14h-19h), N\'importe quand / Flexible' }
+    ];
+
+    function generateDefaultCms(p) {
+      const price = Number(p.price) || 390;
+      const regularPrice = Math.round(price * 1.35 / 10) * 10;
+      return {
+        productId: p.id,
+        language: currentLang || 'fr',
+        pageTitle: `${p.name} — Rosaino Official Store`,
+        headline: `Découvrez l'élégance quotidienne de ${p.name}`,
+        subtitle: p.desc || 'Des silhouettes soignées et des matériaux nobles livrés directement chez vous au Maroc.',
+        announcement: '⚡ Offre Spéciale · Livraison Express Gratuite Partout au Maroc · 100% Paiement à la Livraison',
+        announcementEnabled: true,
+        badgeText: `🔥 OFFRE SPÉCIALE - ÉCONOMISEZ ${regularPrice - price} MAD`,
+        heroImage: p.image || '/assets/collection.png',
+        secondaryImage: '/assets/pattern.png',
+        galleryImage3: '/assets/ribbon.png',
+        sectionOrder: ['announcement', 'hero_media', 'hook_and_copy', 'pricing_bundles', 'urgency_bar', 'cod_checkout', 'features', 'reviews', 'faqs'],
+        sectionsEnabled: {
+          announcement: true,
+          hero_media: true,
+          hook_and_copy: true,
+          pricing_bundles: true,
+          urgency_bar: true,
+          cod_checkout: true,
+          features: true,
+          reviews: true,
+          faqs: true
+        },
+        pricingTableEnabled: true,
+        urgencyEnabled: true,
+        checkoutHeadline: 'Finalisez votre commande ci-dessous',
+        checkoutSubtitle: 'Payez en espèces au livreur à votre porte dès réception.',
+        submitButtonText: 'CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ➔',
+        supportPhone: '212600000000',
+        tiers: [
+          {
+            qty: 1,
+            title: '1 Pièce (Offre Standard)',
+            price: price,
+            originalPrice: regularPrice,
+            badge: 'Offre Standard',
+            savings: `Économisez ${regularPrice - price} MAD`
+          },
+          {
+            qty: 2,
+            title: '2 Pièces (Pack Duo)',
+            price: Math.round(price * 1.75 / 10) * 10,
+            originalPrice: regularPrice * 2,
+            badge: 'LE PLUS POPULAIRE 🔥',
+            savings: `Économisez ${regularPrice * 2 - Math.round(price * 1.75 / 10) * 10} MAD`
+          },
+          {
+            qty: 3,
+            title: '3 Pièces (Pack Famille + Cadeau)',
+            price: Math.round(price * 2.35 / 10) * 10,
+            originalPrice: regularPrice * 3,
+            badge: 'MEILLEURE VALEUR 🏆 + Cadeau',
+            savings: `Économisez ${regularPrice * 3 - Math.round(price * 2.35 / 10) * 10} MAD`
+          }
+        ],
+        features: [
+          { title: 'Confection Artisanale & Qualité', desc: 'Fabriqué à partir de matériaux minutieusement sélectionnés pour un confort et une durabilité exemplaires.' },
+          { title: 'Livraison Rapide Partout au Maroc', desc: 'Expédition soignée sous 24 à 48 heures dans toutes les villes du Royaume via nos transporteurs partenaires.' },
+          { title: 'Zéro Risque · Paiement à la Réception', desc: 'Pas de carte bancaire nécessaire. Ouvrez et vérifiez votre colis avant de régler en espèces au livreur.' },
+          { title: 'Échange Garanti 14 Jours', desc: 'Assistance client dédiée sur WhatsApp disponible pour tout échange ou question.' }
+        ],
+        countdownHours: 5,
+        stockLeft: Math.min(12, Math.max(3, p.stock || 8)),
+        rating: '4.9',
+        reviewCount: 184,
+        reviews: [
+          { name: 'Kenza Alaoui', city: 'Casablanca', rating: 5, comment: 'Commandé hier matin et reçu aujourd’hui à Maarif ! Conforme à la description, qualité superbe et le livreur a appelé avant.' },
+          { name: 'Youssef El Amrani', city: 'Rabat', rating: 5, comment: `Très satisfait du ${p.name}. Emballage soigné et le paiement en espèces à la livraison donne une totale tranquillité d’esprit.` }
+        ],
+        faqs: [
+          { q: 'Comment fonctionne le paiement à la livraison (COD) ?', a: 'Vous remplissez simplement votre nom, téléphone et adresse ci-dessus. Notre agent vous appelle pour confirmer, et vous réglez en espèces au livreur dès réception de votre colis.' },
+          { q: 'Puis-je ouvrir et inspecter le colis avant de payer ?', a: 'Oui, absolument ! Nous vous encourageons à vérifier le contenu et l’état du produit avant de remettre le montant au coursier.' },
+          { q: 'Quels sont les délais de livraison ?', a: 'La livraison à Casablanca, Rabat, Marrakech, Tanger et Fès prend 24 à 48h. Les autres villes sont livrées sous 48 à 72h.' }
+        ],
+        codFields: JSON.parse(JSON.stringify(DEFAULT_COD_FIELDS))
+      };
+    }
+
+    // Load product & CMS
+    let isVisualEditMode = false;
+
+    async function initPage() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let pId = urlParams.get('id');
+      const urlLang = urlParams.get('lang');
+      const isPreview = urlParams.get('preview') === '1';
+      const isEdit = urlParams.get('edit') === '1';
+
+      if (isPreview || isEdit) {
+        setVisualEditMode(true);
+      }
+
+      // Check pathname fallback: /p/p1
+      const pathMatch = window.location.pathname.match(/\/p\/([a-zA-Z0-9_-]+)/);
+      if (pathMatch) pId = pathMatch[1];
+
+      // Read from local storage
+      let db = null;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) db = JSON.parse(raw);
+      } catch {}
+
+      let prods = db?.products || [];
+      if (!prods.length) {
+        try {
+          const res = await fetch('/api/products');
+          if (res.ok) prods = await res.json();
+        } catch {}
+      }
+
+      currentProduct = prods.find(p => String(p.id) === String(pId)) || prods[0];
+      if (!currentProduct) {
+        currentProduct = { id: 'p1', name: 'Wireless Headphones', price: 490, desc: 'A softer soundtrack for your day.' };
+      }
+
+      // Check custom CMS config in db or API
+      if (db?.cmsPages && db.cmsPages[currentProduct.id]) {
+        currentCms = db.cmsPages[currentProduct.id];
+      } else {
+        try {
+          const cmsRes = await fetch(`/api/cms/${currentProduct.id}`);
+          if (cmsRes.ok) currentCms = await cmsRes.json();
+        } catch {}
+      }
+
+      if (!currentCms) {
+        currentCms = generateDefaultCms(currentProduct);
+      }
+
+      // Ensure codFields exists
+      if (!currentCms.codFields || !Array.isArray(currentCms.codFields) || !currentCms.codFields.length) {
+        currentCms.codFields = JSON.parse(JSON.stringify(DEFAULT_COD_FIELDS));
+      }
+
+      // Determine initial language
+      let chosenLang = urlLang || currentCms?.language || localStorage.getItem(SAAS_LANG_KEY) || 'fr';
+      if (!I18N_LANDING[chosenLang]) chosenLang = 'fr';
+      setLanguage(chosenLang);
+
+      startCountdown();
+      setupSectionReorderButtons();
+    }
+
+    // Dynamic COD Form Fields Renderer
+    function renderCodFormFields() {
+      const container = $('#landing-cod-dynamic-fields');
+      if (!container) return;
+
+      const t = I18N_LANDING[currentLang] || I18N_LANDING.fr;
+      const fields = (currentCms && Array.isArray(currentCms.codFields) && currentCms.codFields.length)
+        ? currentCms.codFields
+        : DEFAULT_COD_FIELDS;
+
+      let html = '';
+      fields.forEach(f => {
+        if (f.enabled === false) return;
+
+        let labelText = f.label || f.key;
+        let placeholder = f.placeholder || '';
+        let helpText = f.help ? `<small>${esc(f.help)}</small>` : '';
+        const reqStar = f.required ? ' *' : '';
+
+        // Localized defaults if matching key and not customized
+        if (f.key === 'name' && (!f.label || f.label === 'Nom complet')) {
+          labelText = t.fullNameLabel.replace('*', '').trim();
+          placeholder = t.fullNamePlaceholder;
+        } else if (f.key === 'phone' && (!f.label || f.label.includes('téléphone'))) {
+          labelText = t.phoneLabel.replace('*', '').trim();
+          placeholder = '06 12 34 56 78';
+          helpText = `<small>${t.phoneHelp}</small>`;
+        } else if (f.key === 'city' && (!f.label || f.label === 'Ville')) {
+          labelText = t.cityLabel.replace('*', '').trim();
+        } else if (f.key === 'address' && (!f.label || f.label.includes('Adresse'))) {
+          labelText = t.addressLabel.replace('*', '').trim();
+          placeholder = t.addressPlaceholder;
+        } else if (f.key === 'notes' && (!f.label || f.label.includes('Instructions'))) {
+          labelText = t.notesLabel;
+          placeholder = t.notesPlaceholder;
+        }
+
+        if (f.type === 'select') {
+          const opts = (f.options || 'Casablanca, Rabat, Marrakech, Tanger, Fès, Meknès, Agadir, Kénitra, Tétouan, Oujda, Mohammédia, El Jadida, Autre ville au Maroc')
+            .split(',')
+            .map(x => x.trim())
+            .filter(Boolean);
+
+          html += `
+            <div class="form-field" data-cms-editable="field" data-field-key="${esc(f.key)}" data-section-id="cod_checkout">
+              <label for="l-${esc(f.key)}">${esc(labelText)}${reqStar}</label>
+              <select id="l-${esc(f.key)}" name="${esc(f.key)}" ${f.required ? 'required' : ''}>
+                ${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}
+              </select>
+              ${helpText}
+            </div>
+          `;
+        } else if (f.type === 'textarea') {
+          html += `
+            <div class="form-field" data-cms-editable="field" data-field-key="${esc(f.key)}" data-section-id="cod_checkout">
+              <label for="l-${esc(f.key)}">${esc(labelText)}${reqStar}</label>
+              <textarea id="l-${esc(f.key)}" name="${esc(f.key)}" ${f.required ? 'required' : ''} placeholder="${esc(placeholder)}"></textarea>
+              ${helpText}
+            </div>
+          `;
+        } else if (f.type === 'checkbox') {
+          html += `
+            <div class="form-field" data-cms-editable="field" data-field-key="${esc(f.key)}" data-section-id="cod_checkout" style="margin-top:4px;">
+              <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:600;font-size:13px;cursor:pointer;">
+                <input type="checkbox" id="l-${esc(f.key)}" name="${esc(f.key)}" ${f.required ? 'required' : ''} style="width:18px;height:18px;">
+                ${esc(labelText)}${reqStar}
+              </label>
+              ${helpText}
+            </div>
+          `;
+        } else if (f.type === 'tel') {
+          html += `
+            <div class="form-field" data-cms-editable="field" data-field-key="${esc(f.key)}" data-section-id="cod_checkout">
+              <label for="l-${esc(f.key)}">${esc(labelText)}${reqStar}</label>
+              <input id="l-${esc(f.key)}" name="${esc(f.key)}" type="tel" ${f.required ? 'required' : ''} placeholder="${esc(placeholder)}" autocomplete="tel">
+              ${helpText}
+            </div>
+          `;
+        } else {
+          html += `
+            <div class="form-field" data-cms-editable="field" data-field-key="${esc(f.key)}" data-section-id="cod_checkout">
+              <label for="l-${esc(f.key)}">${esc(labelText)}${reqStar}</label>
+              <input id="l-${esc(f.key)}" name="${esc(f.key)}" type="text" ${f.required ? 'required' : ''} placeholder="${esc(placeholder)}">
+              ${helpText}
+            </div>
+          `;
+        }
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderCms() {
+      if (!currentProduct || !currentCms) return;
+      const cms = currentCms;
+      const p = currentProduct;
+      const t = I18N_LANDING[currentLang] || I18N_LANDING.fr;
+
+      // Meta and Title
+      document.title = cms.pageTitle || `${p.name} — Rosaino Store`;
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.content = cms.subtitle || p.desc || 'Order with Cash on Delivery across Morocco.';
+
+      // Static header and navigation elements translation
+      const backLink = $('#header-back-link');
+      if (backLink) backLink.textContent = t.backToStore;
+      const guarBadge = $('#header-guarantee-badge');
+      if (guarBadge) guarBadge.textContent = t.codGuaranteed;
+      const trackLink = $('#header-track-link');
+      if (trackLink) trackLink.textContent = t.trackOrder;
+
+      // Breadcrumbs
+      const catEl = $('#breadcrumb-category');
+      if (catEl) catEl.textContent = p.category || 'Collection';
+      const nameEl = $('#breadcrumb-product-name');
+      if (nameEl) nameEl.textContent = p.name;
+
+      // Dynamic Section Ordering and Visibility Engine
+      const order = cms.sectionOrder || ['announcement', 'hero_media', 'hook_and_copy', 'pricing_bundles', 'urgency_bar', 'cod_checkout', 'features', 'reviews', 'faqs'];
+      const enabled = cms.sectionsEnabled || {
+        announcement: true,
+        hero_media: true,
+        hook_and_copy: true,
+        pricing_bundles: true,
+        urgency_bar: true,
+        cod_checkout: true,
+        features: true,
+        reviews: true,
+        faqs: true
+      };
+
+      // Apply dynamic order and visibility to all section blocks
+      order.forEach((secId, idx) => {
+        const el = $(`[data-section-id="${secId}"]`);
+        if (!el) return;
+
+        let isVisible = enabled[secId] !== false;
+        if (secId === 'announcement' && cms.announcementEnabled === false) isVisible = false;
+        if (secId === 'urgency_bar' && cms.urgencyEnabled === false) isVisible = false;
+        if (secId === 'pricing_bundles' && cms.pricingTableEnabled === false) isVisible = false;
+
+        el.style.display = isVisible ? '' : 'none';
+        el.style.order = String(idx);
+      });
+
+      // Announcement Bar text
+      if ($('#announcement-text')) $('#announcement-text').textContent = cms.announcement || '';
+
+      // Hook and Subtitle
+      $('#cms-headline').textContent = cms.headline || p.name;
+      $('#cms-subtitle').textContent = cms.subtitle || p.desc;
+      if ($('#cms-badge')) {
+        $('#cms-badge').textContent = cms.badgeText || (currentLang === 'ar' ? 'عرض خاص' : currentLang === 'en' ? 'LIMITED OFFER' : 'OFFRE SPÉCIALE');
+        $('#cms-badge').style.display = cms.badgeText ? 'block' : 'none';
+      }
+
+      // Stock and rating
+      if ($('#stock-status-pill')) $('#stock-status-pill').textContent = t.inStock;
+      if ($('#rating-text')) $('#rating-text').innerHTML = `<strong>${cms.rating || '4.9'} / 5</strong> (${cms.reviewCount || 184} ${t.verifiedBuyers})`;
+      if ($('#stock-text')) $('#stock-text').textContent = t.stockLeftText(cms.stockLeft || 7);
+      if ($('#urgency-label-text')) $('#urgency-label-text').textContent = t.saleEndsIn;
+      if ($('#parcel-contents-box')) $('#parcel-contents-box').innerHTML = t.includedInParcel;
+
+      // Images & Thumbnails
+      const heroImg = cms.heroImage || p.image || '/assets/collection.png';
+      $('#main-product-img').src = heroImg;
+
+      const thumbsContainer = $('#thumbnails-container');
+      if (thumbsContainer) {
+        const thumbs = [heroImg, cms.secondaryImage || '/assets/pattern.png', cms.galleryImage3 || '/assets/ribbon.png'].filter(Boolean);
+        thumbsContainer.innerHTML = thumbs.map((src, i) => `
+          <div class="thumb-item ${i === 0 ? 'active' : ''}" data-src="${esc(src)}">
+            <img src="${esc(src)}" alt="Thumbnail ${i + 1}">
+          </div>
+        `).join('');
+
+        thumbsContainer.querySelectorAll('.thumb-item').forEach(el => {
+          el.onclick = () => {
+            thumbsContainer.querySelectorAll('.thumb-item').forEach(x => x.classList.remove('active'));
+            el.classList.add('active');
+            $('#main-product-img').src = el.dataset.src;
+          };
+        });
+      }
+
+      // Bundle section titles
+      if ($('#bundle-heading-title')) $('#bundle-heading-title').textContent = t.choosePackage;
+      if ($('#bundle-shipping-badge')) $('#bundle-shipping-badge').textContent = t.freeShippingPacks;
+
+      // Custom or translated Checkout Section Copy
+      if ($('#cms-checkout-title')) {
+        $('#cms-checkout-title').textContent = cms.checkoutHeadline || t.fullNameLabel;
+      }
+      if ($('#cms-checkout-sub')) {
+        $('#cms-checkout-sub').textContent = cms.checkoutSubtitle || '';
+      }
+      if ($('#btn-submit-landing')) {
+        $('#btn-submit-landing').textContent = cms.submitButtonText || t.submitOrder;
+      }
+
+      // Render Dynamic COD Form Fields
+      renderCodFormFields();
+
+      // Summary lines
+      if ($('#summary-shipping-info')) $('#summary-shipping-info').textContent = t.freeExpressDelivery;
+      if ($('#summary-cod-label')) $('#summary-cod-label').textContent = t.totalCod;
+      if ($('#mobile-sticky-label')) $('#mobile-sticky-label').textContent = t.totalCod;
+      if ($('#mobile-sticky-btn')) $('#mobile-sticky-btn').textContent = t.orderNowMobile;
+
+      // Trust badges
+      if ($('#trust-badge-1')) $('#trust-badge-1').textContent = t.trustRiskFree;
+      if ($('#trust-badge-2')) $('#trust-badge-2').textContent = t.trustFreeShipping;
+      if ($('#trust-badge-3')) $('#trust-badge-3').textContent = t.trustInspect;
+
+      // Lower section titles
+      if ($('#features-title')) $('#features-title').textContent = t.whyChooseTitle;
+      if ($('#reviews-title')) $('#reviews-title').textContent = t.reviewsTitle;
+      if ($('#faqs-title')) $('#faqs-title').textContent = t.faqsTitle;
+
+      // WhatsApp Customer Service Link
+      const waNumber = (cms.supportPhone || '212600000000').replace(/[^0-9]/g, '');
+      const waBtn = $('#header-whatsapp-btn');
+      if (waBtn) {
+        waBtn.href = `https://wa.me/${waNumber}?text=${encodeURIComponent(`Hello Rosaino, I would like to inquire about ${p.name}`)}`;
+      }
+
+      // Render Pricing Tiers / Bundles
+      renderBundles();
+
+      // Features list
+      const featContainer = $('#features-container');
+      if (featContainer && cms.features) {
+        const icons = ['✨', '🚚', '🛡️', '🔄'];
+        featContainer.innerHTML = cms.features.map((f, i) => `
+          <div class="feature-item" data-cms-editable="true" data-cms-field="features" data-item-index="${i}">
+            <div class="feature-icon">${icons[i % icons.length]}</div>
+            <div>
+              <h4 data-cms-editable="true" data-cms-field="feat_${i}_title">${esc(f.title)}</h4>
+              <p data-cms-editable="true" data-cms-field="feat_${i}_desc">${esc(f.desc)}</p>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Reviews list
+      const revContainer = $('#reviews-container');
+      if (revContainer && cms.reviews) {
+        revContainer.innerHTML = cms.reviews.map((r, i) => `
+          <div class="review-bubble" data-cms-editable="true" data-cms-field="reviews" data-item-index="${i}">
+            <div class="review-user">
+              <strong>${esc(r.name)} (${esc(r.city)})</strong>
+              <span class="stars">★★★★★</span>
+            </div>
+            <p data-cms-editable="true" data-cms-field="rev_${i}_comment">${esc(r.comment)}</p>
+          </div>
+        `).join('');
+      }
+
+      // FAQs list
+      const faqContainer = $('#faqs-container');
+      if (faqContainer && cms.faqs) {
+        faqContainer.innerHTML = cms.faqs.map((f, i) => `
+          <div class="faq-item" data-cms-editable="true" data-cms-field="faqs" data-item-index="${i}">
+            <div class="faq-question">
+              <span data-cms-editable="true" data-cms-field="faq_${i}_q">${esc(f.q)}</span>
+              <span>▾</span>
+            </div>
+            <div class="faq-answer" data-cms-editable="true" data-cms-field="faq_${i}_a">${esc(f.a)}</div>
+          </div>
+        `).join('');
+
+        faqContainer.querySelectorAll('.faq-question').forEach(q => {
+          q.onclick = () => {
+            const ans = q.nextElementSibling;
+            if (ans.style.display === 'none') {
+              ans.style.display = 'block';
+            } else {
+              ans.style.display = 'none';
+            }
+          };
+        });
+      }
+
+      // Refresh in-preview visual editing hooks if active
+      if (isVisualEditMode) {
+        enableVisualEditElements();
+      }
+    }
+
+    function renderBundles() {
+      const bundleList = $('#bundle-list');
+      if (!bundleList) return;
+      const tiers = currentCms.tiers || [
+        { qty: 1, title: '1 Piece', price: currentProduct.price, originalPrice: currentProduct.price * 1.35, badge: '', savings: '' }
+      ];
+
+      bundleList.innerHTML = tiers.map((t, idx) => {
+        const isSel = idx === selectedTierIndex;
+        return `
+          <div class="bundle-card ${isSel ? 'selected' : ''}" data-index="${idx}" data-cms-editable="true" data-cms-field="pricing_bundles" data-item-index="${idx}">
+            ${t.badge ? `<span class="bundle-badge">${esc(t.badge)}</span>` : ''}
+            <div class="bundle-left">
+              <input type="radio" name="bundle" class="bundle-radio" ${isSel ? 'checked' : ''}>
+              <div>
+                <div class="bundle-title">${esc(t.title)}</div>
+                <div class="bundle-savings">${esc(t.savings || 'Livraison Gratuite')}</div>
+              </div>
+            </div>
+            <div class="bundle-price">
+              <div class="bundle-price-val">${money(t.price)}</div>
+              ${t.originalPrice ? `<div class="bundle-price-orig">${money(t.originalPrice)}</div>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      bundleList.querySelectorAll('.bundle-card').forEach(card => {
+        card.onclick = () => {
+          selectedTierIndex = Number(card.dataset.index);
+          renderBundles();
+          updatePriceDisplay();
+        };
+      });
+
+      updatePriceDisplay();
+    }
+
+    function updatePriceDisplay() {
+      const t = I18N_LANDING[currentLang] || I18N_LANDING.fr;
+      const tiers = currentCms.tiers || [];
+      const currentTier = tiers[selectedTierIndex] || { qty: 1, price: currentProduct.price, originalPrice: currentProduct.price * 1.35 };
+
+      $('#display-price').textContent = money(currentTier.price);
+      if (currentTier.originalPrice) {
+        $('#display-original-price').textContent = money(currentTier.originalPrice);
+        $('#display-savings').textContent = currentTier.savings || 'Remise Exclusive';
+      }
+
+      $('#summary-pack-title').textContent = `${t.selectedPrefix} ${currentTier.title}`;
+      $('#summary-total-price').textContent = money(currentTier.price);
+      $('#mobile-sticky-price').textContent = money(currentTier.price);
+    }
+
+    // Countdown Timer
+    function startCountdown() {
+      let duration = (currentCms.countdownHours || 5) * 3600 + 18 * 60 + 32;
+      const el = $('#timer-digits');
+      if (!el) return;
+
+      setInterval(() => {
+        duration = Math.max(0, duration - 1);
+        const h = String(Math.floor(duration / 3600)).padStart(2, '0');
+        const m = String(Math.floor((duration % 3600) / 60)).padStart(2, '0');
+        const s = String(duration % 60).padStart(2, '0');
+        el.textContent = `${h}:${m}:${s}`;
+      }, 1000);
+    }
+
+    // Section Bar Buttons Handler (Reorder ▲ / ▼ and Jump ⚙️)
+    function setupSectionReorderButtons() {
+      document.addEventListener('click', e => {
+        const reorderBtn = e.target.closest('[data-cms-reorder]');
+        if (reorderBtn) {
+          const sec = reorderBtn.closest('[data-section-id]');
+          if (sec && sec.dataset.sectionId) {
+            const dir = reorderBtn.dataset.cmsReorder;
+            const delta = dir === 'up' ? -1 : 1;
+            if (window.parent) {
+              window.parent.postMessage({
+                type: 'ROSAINO_PREVIEW_REORDER_SECTION',
+                sectionId: sec.dataset.sectionId,
+                delta: delta
+              }, '*');
+            }
+          }
+          return;
+        }
+
+        const jumpBtn = e.target.closest('[data-cms-jump]');
+        if (jumpBtn) {
+          const secId = jumpBtn.dataset.cmsJump;
+          if (window.parent) {
+            window.parent.postMessage({
+              type: 'ROSAINO_PREVIEW_ELEMENT_CLICKED',
+              sectionId: secId,
+              fieldName: secId
+            }, '*');
+          }
+          return;
+        }
+      });
+    }
+
+    // In-Preview Visual Editing Engine
+    function setVisualEditMode(active) {
+      isVisualEditMode = !!active;
+      document.body.classList.toggle('visual-edit-mode', isVisualEditMode);
+      if (isVisualEditMode) {
+        enableVisualEditElements();
+      } else {
+        disableVisualEditElements();
+      }
+    }
+
+    function enableVisualEditElements() {
+      const editables = document.querySelectorAll('[data-cms-editable]');
+      editables.forEach(el => {
+        const tag = el.tagName.toLowerCase();
+        const isField = el.dataset.cmsEditable === 'field';
+
+        // Direct inline contenteditable for textual elements
+        if (!isField && ['h1', 'h2', 'h3', 'h4', 'p', 'span', 'strong'].includes(tag)) {
+          el.contentEditable = 'true';
+          el.title = 'Double-cliquez pour éditer ce texte en direct';
+
+          el.onblur = () => {
+            const field = el.dataset.cmsField;
+            const val = el.innerText.trim();
+            const secId = el.closest('[data-section-id]')?.dataset?.sectionId;
+            if (field && window.parent) {
+              window.parent.postMessage({
+                type: 'ROSAINO_PREVIEW_INLINE_EDIT',
+                field: field,
+                value: val,
+                sectionId: secId
+              }, '*');
+            }
+          };
+
+          el.onkeydown = e => {
+            if (e.key === 'Enter' && !e.shiftKey && ['h1', 'h2', 'h3', 'h4', 'span'].includes(tag)) {
+              e.preventDefault();
+              el.blur();
+            }
+          };
+        }
+
+        el.onclick = e => {
+          if (!isVisualEditMode) return;
+          // Don't stop propagation if typing inside contenteditable
+          if (document.activeElement === el) return;
+          e.stopPropagation();
+
+          const field = el.dataset.cmsField || el.dataset.fieldKey;
+          const secId = el.closest('[data-section-id]')?.dataset?.sectionId;
+
+          if (window.parent) {
+            window.parent.postMessage({
+              type: 'ROSAINO_PREVIEW_ELEMENT_CLICKED',
+              fieldName: field,
+              sectionId: secId
+            }, '*');
+          }
+        };
+      });
+    }
+
+    function disableVisualEditElements() {
+      document.querySelectorAll('[data-cms-editable]').forEach(el => {
+        el.contentEditable = 'false';
+        el.removeAttribute('title');
+        el.onblur = null;
+        el.onkeydown = null;
+      });
+    }
+
+    // Handle Form Submit (Supports all standard and custom COD fields)
+    $('#landing-cod-form').onsubmit = async e => {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+
+      const customer = formData.get('name')?.toString().trim() || 'Client Rosaino';
+      const phone = formData.get('phone')?.toString().trim() || formData.get('whatsapp')?.toString().trim() || '0600000000';
+      const city = formData.get('city')?.toString().trim() || 'Casablanca';
+      const address = formData.get('address')?.toString().trim() || 'Livraison à domicile';
+      const notes = formData.get('notes')?.toString().trim();
+
+      // Capture all additional and custom fields from form
+      const customFields = {};
+      const customFieldNotes = [];
+      for (const [k, v] of formData.entries()) {
+        if (!['name', 'phone', 'city', 'address', 'notes', 'bundle'].includes(k)) {
+          customFields[k] = v;
+          if (v) customFieldNotes.push(`${k}: ${v}`);
+        }
+      }
+
+      const tiers = currentCms.tiers || [];
+      const chosenTier = tiers[selectedTierIndex] || { qty: 1, price: currentProduct.price };
+      const orderId = 'RS-' + Math.floor(1000 + Math.random() * 9000);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const campaign = urlParams.get('utm_campaign') || 'Meta_Landing_Direct';
+      const creative = urlParams.get('utm_content') || 'landing_page_boost';
+      const rawSource = urlParams.get('utm_source') || 'Meta Ads';
+      const source = rawSource.toLowerCase().includes('meta') || rawSource.toLowerCase().includes('fb') ? 'Meta Ads' : rawSource.toLowerCase().includes('tiktok') ? 'TikTok Ads' : rawSource.toLowerCase().includes('snap') ? 'Snapchat Ads' : 'Storefront';
+
+      const allNotes = [
+        `Landing Page COD Order: ${chosenTier.title}`,
+        notes ? `Customer Note: ${notes}` : '',
+        ...customFieldNotes.map(cf => `[Custom Field] ${cf}`)
+      ].filter(Boolean);
+
+      const newOrder = {
+        id: orderId,
+        customer,
+        phone,
+        city,
+        address,
+        product: currentProduct.id,
+        quantity: chosenTier.qty || 1,
+        amount: chosenTier.price,
+        cost: (currentProduct.cost || chosenTier.price * 0.4) * (chosenTier.qty || 1),
+        status: 'New',
+        agent: '',
+        source,
+        campaign,
+        creative,
+        carrier: 'Digylog',
+        date: new Date().toISOString().slice(0, 10),
+        notes: allNotes,
+        customFields: customFields,
+        callback: '',
+        shipping: 35,
+        stockDeducted: false,
+        remittanceStatus: 'N/A'
+      };
+
+      // Save to localStorage
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        let db = raw ? JSON.parse(raw) : null;
+        if (db && Array.isArray(db.orders)) {
+          db.orders.unshift(newOrder);
+          db.activity.unshift({
+            text: `Landing page COD order ${newOrder.id} placed by ${customer} (${money(chosenTier.price)})`,
+            date: new Date().toISOString()
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch {}
+
+      // Sync to server API
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOrder)
+      }).catch(() => {});
+
+      const t = I18N_LANDING[currentLang] || I18N_LANDING.fr;
+
+      // Show confirmation dialog
+      $('#success-modal-title').textContent = t.orderConfirmed;
+      $('#success-modal-msg').innerHTML = t.thankYou(`<strong>${esc(customer)}</strong>`);
+      $('#success-order-id').textContent = orderId;
+      $('#success-prod-name').textContent = currentProduct.name;
+      $('#success-qty').textContent = chosenTier.title;
+      $('#success-amount').textContent = money(chosenTier.price);
+      $('#success-dest').textContent = `${city} · ${address}`;
+      $('#success-track-btn').href = `/track?id=${encodeURIComponent(orderId)}`;
+      $('#success-track-btn').textContent = t.trackStatusBtn;
+      $('#success-explore-btn').textContent = t.exploreMore;
+
+      $('#landing-success-dialog').showModal();
+      form.reset();
+    };
+
+    // Close buttons on dialogs
+    document.querySelectorAll('[data-close]').forEach(b => {
+      b.onclick = () => {
+        const d = $('#' + b.dataset.close);
+        if (d) d.close();
+      };
+    });
+
+    // Language switcher toggle and select
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('#lang-dropdown-btn');
+      const wrap = $('#lang-selector-wrap');
+      if (btn && wrap) {
+        wrap.classList.toggle('open');
+        return;
+      }
+      if (wrap && !e.target.closest('#lang-selector-wrap')) {
+        wrap.classList.remove('open');
+      }
+
+      const opt = e.target.closest('.lang-option');
+      if (opt && opt.dataset.lang) {
+        setLanguage(opt.dataset.lang);
+      }
+    });
+
+    // Real-time Live Preview Message Handler from CMS parent window
+    window.addEventListener('message', e => {
+      if (!e.data) return;
+
+      if (e.data.type === 'ROSAINO_CMS_UPDATE') {
+        if (e.data.cms) {
+          currentCms = e.data.cms;
+          if (currentCms.language && currentCms.language !== currentLang) {
+            setLanguage(currentCms.language);
+          } else {
+            renderCms();
+          }
+        }
+      }
+
+      if (e.data.type === 'ROSAINO_SET_EDIT_MODE') {
+        setVisualEditMode(e.data.editMode);
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', initPage);
+  </script>
+</body>
+</html>

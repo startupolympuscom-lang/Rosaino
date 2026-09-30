@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Rosaino Operations & ERP Portal</title>
+  <link rel="icon" href="../assets/icon.png">
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <!-- Simple Auth Login Overlay (shown if not logged in) -->
+  <div id="login-screen" style="display: none;">
+    <div class="login-card">
+      <div class="login-header">
+        <a href="/" title="Back to storefront"><img src="../assets/logo.png" alt="Rosaino"></a>
+        <h1>Operations & ERP Portal</h1>
+        <p>Sign in with your administrator credentials to access the workspace.</p>
+      </div>
+
+      <div class="credentials-box">
+        <strong>🔑 Default Super Admin Credentials:</strong><br>
+        Email: <code>superadmin@rosaino.com</code><br>
+        Password: <code>RosainoSuperAdmin2026!</code><br>
+        <button type="button" id="btn-autofill-superadmin" class="btn-autofill">
+          ⚡ Autofill Super Admin Credentials
+        </button>
+      </div>
+
+      <div id="login-error-msg" class="login-error"></div>
+
+      <form id="admin-login-form" class="login-form">
+        <div class="login-field">
+          <label for="login-email">Email Address</label>
+          <input id="login-email" type="email" name="email" required autocomplete="email" placeholder="superadmin@rosaino.com">
+        </div>
+
+        <div class="login-field">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" name="password" required autocomplete="current-password" placeholder="••••••••••••">
+        </div>
+
+        <button type="submit" class="primary" style="margin-top: 8px; justify-content: center;">
+          Sign In to Operations ↗
+        </button>
+      </form>
+
+      <div class="login-footer">
+        <a href="/" target="_self">← Return to Storefront</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Authenticated Workspace Sidebar -->
+  <aside id="sidebar">
+    <a class="logo" href="/" target="_self"><img src="../assets/logo.png" alt="Rosaino"></a>
+    <div class="workspace">OPERATIONS WORKSPACE <span>ERP/CMS</span></div>
+    <nav id="nav" aria-label="Operations"></nav>
+    <a class="back" href="/" target="_self">↗ Back to storefront</a>
+    <div class="profile" id="user-profile-badge">
+      <b id="profile-avatar">SA</b>
+      <div style="flex:1;">
+        <strong id="sidebar-user-name">Super Admin</strong>
+        <small id="sidebar-user-role">Super Admin</small>
+        <button type="button" id="sidebar-logout-btn" class="btn-logout" title="Sign out of admin session">Sign out ⎋</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main>
+    <header>
+      <button id="menu" aria-label="Toggle navigation">☰</button>
+      <div><span class="muted">Workspace /</span> <span id="breadcrumb">Overview</span></div>
+      <div class="header-right">
+        <!-- Language Switcher -->
+        <div class="lang-selector-wrap" id="lang-selector-wrap">
+          <button type="button" class="lang-dropdown-btn" id="lang-dropdown-btn" title="Change Language (FR / EN / AR)" aria-haspopup="true">
+            <span id="current-lang-flag">🇫🇷</span>
+            <span id="current-lang-label">Français</span>
+            <span class="chevron">▾</span>
+          </button>
+          <div class="lang-dropdown-menu" id="lang-dropdown-menu">
+            <button type="button" class="lang-option" data-lang="fr">
+              <span class="flag">🇫🇷</span> <span class="name">Français</span> <span class="tag">FR</span>
+            </button>
+            <button type="button" class="lang-option" data-lang="en">
+              <span class="flag">🇬🇧</span> <span class="name">English</span> <span class="tag">EN</span>
+            </button>
+            <button type="button" class="lang-option" data-lang="ar">
+              <span class="flag">🇲🇦</span> <span class="name">العربية</span> <span class="tag">AR (RTL)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="supabase-pill" id="supabase-status-pill" title="Supabase Database Status">
+          <span class="dot"></span> <span id="supabase-pill-text">Supabase Cloud</span>
+        </div>
+        <span id="header-user-tag"><strong id="header-role-name">Super Admin</strong></span>
+        <button id="switch-role-btn">Switch role ⇄</button>
+        <button id="header-logout-btn" style="color:#ac3838;font-size:12px;">Sign out</button>
+      </div>
+    </header>
+
+    <div class="demo-note">
+      Rosaino Operations Workspace · Connected to Supabase Database (Project: kwqbghlwarkibhlgbgft) · RBAC Active.
+    </div>
+
+    <section id="content"></section>
+  </main>
+
+  <dialog id="modal"><div id="modal-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="demo.js"></script>
+</body>
+</html>

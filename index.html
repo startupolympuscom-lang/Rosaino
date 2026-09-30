@@ -1,1 +1,140 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Rosaino Operations — Interactive Demo</title><link rel="icon" href="../assets/icon.png"><link rel="stylesheet" href="demo.css"></head><body><aside id="sidebar"><a class="logo" href="../"><img src="../assets/logo.png" alt="Rosaino"></a><div class="workspace">OPERATIONS WORKSPACE <span>DEMO</span></div><nav id="nav" aria-label="Operations"></nav><a class="back" href="../">↗ Back to storefront</a><div class="profile"><b>RA</b><div>Rosaino Admin<small>Demo workspace</small></div></div></aside><main><header><button id="menu" aria-label="Toggle navigation">☰</button><div><span class="muted">Workspace /</span> <span id="breadcrumb">Overview</span></div><div class="header-right"><span class="status-dot"></span> Local demo <button id="reset">Reset demo</button></div></header><div class="demo-note">Interactive demo · Fictional data saved only in this browser. Calls, payments and integrations are simulated. No admin authentication is connected.</div><section id="content"></section></main><dialog id="modal"><div id="modal-content"></div></dialog><div id="toast" role="status" aria-live="polite"></div><script src="demo.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rosaino — Curated Everyday Essentials</title>
+  <meta name="description" content="Thoughtful objects for daily rituals. Modern silhouettes, honest materials, and quiet craft.">
+  <meta property="og:title" content="Rosaino — Curated Everyday Essentials">
+  <meta property="og:description" content="Thoughtful objects for daily rituals. Modern silhouettes, honest materials, and quiet craft.">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="announcement">Discover our curated everyday essentials · Preview collection</div>
+  <header>
+    <a class="brand" href="/" aria-label="Rosaino home"><img src="assets/logo.png" alt="Rosaino"></a>
+    <form id="searchform" role="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input id="search" type="search" placeholder="Search discoveries..." autocomplete="off" aria-label="Search discoveries">
+    </form>
+    <div class="region">Worldwide delivery · USD</div>
+    <a href="/track" style="font-size:13px;font-weight:600;color:var(--teal);margin-left:8px;">Track Order 🚚</a>
+    <button class="bag-button" id="bag-open" aria-label="Open shopping bag">
+      <span>Bag</span>
+      <span id="bag-count">0</span>
+    </button>
+  </header>
+
+  <nav id="nav" aria-label="Product categories"></nav>
+
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">INTRODUCING ROSAINO</span>
+      <h1>Thoughtful <span>objects</span> for daily rituals.</h1>
+      <p>A curated collection of design-led everyday goods crafted for balance, tactile comfort, and mindful living.</p>
+      <a href="#shop" class="primary">Explore discoveries <span>↗</span></a>
+      <div class="hero-note"><i></i><span>PREVIEW COLLECTION · WORLDWIDE DELIVERY</span></div>
+    </div>
+    <div class="hero-art">
+      <div class="hero-crop"></div>
+      <div class="art-caption">Curated objects for living well.<br><strong>New season discoveries</strong></div>
+    </div>
+  </section>
+
+  <div class="brand-line">
+    <span>Living</span>
+    <span>·</span>
+    <span>Daily</span>
+    <span>·</span>
+    <span>Ritual</span>
+    <span class="line-tail">Design-led everyday objects crafted for balance</span>
+  </div>
+
+  <section class="section">
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow">CATEGORIES</span>
+        <h2>Curated collections.</h2>
+      </div>
+      <p>Explore our seasonal edits across living, home, and daily routine.</p>
+    </div>
+    <div id="categories" class="categories"></div>
+  </section>
+
+  <section class="section products-section" id="shop">
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow" id="active-filter">All collections</span>
+        <h2 id="product-title">Everyday favourites.</h2>
+      </div>
+      <span class="text-button" id="results">6 discoveries · USD</span>
+    </div>
+    <div class="filter-row">
+      <span>Selected objects with natural tones and tactile finishes</span>
+      <button id="reset" class="text-button">Reset filters</button>
+    </div>
+    <div id="products" class="products"></div>
+    <p class="catalog-note">Preview collection. Product availability and final specifications will be confirmed upon launch.</p>
+  </section>
+
+  <section class="story">
+    <div>
+      <span class="eyebrow">OUR PHILOSOPHY</span>
+      <h2>Simplicity with quiet distinction.</h2>
+      <p>At Rosaino, we create everyday pieces that feel gentle in your hands and bring intention into your spaces. Every detail is considered, from material warmth to enduring form.</p>
+      <a href="#shop" class="text-button">Explore the archive ↗</a>
+    </div>
+    <img src="assets/pattern.png" alt="Rosaino modular design pattern">
+  </section>
+
+  <footer>
+    <div class="footer-top">
+      <a class="brand" href="/" aria-label="Rosaino home"><img src="assets/logo.png" alt="Rosaino"></a>
+      <p>Everyday objects designed for mindful living. Modern silhouettes, honest materials, and quiet craft.</p>
+      <a href="#shop">Shop</a>
+      <a href="/track">Track Order</a>
+      <button id="footer-bag">Bag</button>
+      <a href="/admin/">Rosaino Admin Demo ↗</a>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year"></span> Rosaino. All rights reserved.</span>
+      <span>Interactive preview storefront</span>
+    </div>
+  </footer>
+
+  <dialog id="detail">
+    <button class="close" data-close="detail" aria-label="Close dialog">×</button>
+    <div id="detail-content"></div>
+  </dialog>
+
+  <dialog id="bag">
+    <button class="close" data-close="bag" aria-label="Close dialog">×</button>
+    <div class="bag-heading">
+      <h2>Your Bag</h2>
+    </div>
+    <div id="bag-items"></div>
+    <div id="bag-summary"></div>
+  </dialog>
+
+  <!-- Cash on Delivery Checkout Dialog -->
+  <dialog id="checkout" style="width: min(840px, 94vw);">
+    <button class="close" data-close="checkout" aria-label="Close checkout">×</button>
+    <div class="checkout-heading">
+      <h2>Checkout (Cash on Delivery)</h2>
+      <p>Confirm your delivery details. Payment is collected upon doorstep delivery.</p>
+    </div>
+    <div id="checkout-container"></div>
+  </dialog>
+
+  <!-- Order Success Confirmation Dialog -->
+  <dialog id="order-success" style="width: min(580px, 92vw);">
+    <button class="close" data-close="order-success" aria-label="Close confirmation">×</button>
+    <div id="order-success-content" class="order-success-wrap"></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

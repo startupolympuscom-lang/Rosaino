@@ -1,0 +1,8 @@
+{
+  "name": "Rosaino",
+  "description": "Rosaino Storefront and Operations Workspace Demo",
+  "version": "1.0.0",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

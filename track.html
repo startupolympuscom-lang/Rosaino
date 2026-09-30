@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Track Your Order — Rosaino</title>
+  <meta name="description" content="Track your Rosaino Cash on Delivery order in real time.">
+  <link rel="icon" href="/assets/icon.png">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .track-wrapper {
+      max-width: 860px;
+      margin: 40px auto 80px;
+      padding: 0 20px;
+    }
+    .track-search-box {
+      background: var(--cloud);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 30px;
+    }
+    .track-search-box h1 {
+      font-size: 26px;
+      margin: 0 0 8px;
+    }
+    .track-search-box p {
+      color: #5d7278;
+      margin: 0 0 16px;
+      font-size: 14px;
+    }
+    .track-search-form {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .track-search-form input {
+      flex: 1;
+      min-width: 240px;
+      background: #fff;
+      border: 1px solid #d3dbd9;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 15px;
+    }
+    .track-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 32px;
+      box-shadow: 0 10px 40px rgba(23,53,64,0.04);
+      margin-bottom: 24px;
+    }
+    .track-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+      margin-bottom: 26px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .track-id-badge {
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--teal);
+      letter-spacing: 0.5px;
+    }
+    .track-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .track-status-pill.new { background: #e9f3fb; color: #3477a5; }
+    .track-status-pill.confirmed { background: #e7f5ef; color: #29836c; }
+    .track-status-pill.in-transit { background: #fff4dc; color: #9a742d; }
+    .track-status-pill.delivered { background: #e6f4ea; color: #137333; }
+    .track-status-pill.returned { background: #fceeea; color: #b66a62; }
+    .track-status-pill.callback { background: #fef3c7; color: #92400e; }
+
+    /* Timeline Stepper */
+    .timeline {
+      position: relative;
+      margin: 35px 0 40px;
+    }
+    .timeline-track {
+      position: absolute;
+      top: 24px;
+      left: 20px;
+      right: 20px;
+      height: 4px;
+      background: #e3e8e6;
+      z-index: 1;
+    }
+    .timeline-track-fill {
+      height: 100%;
+      background: var(--teal);
+      transition: width 0.4s ease;
+    }
+    .timeline-steps {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      z-index: 2;
+    }
+    .timeline-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 100px;
+    }
+    .step-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #fff;
+      border: 3px solid #e3e8e6;
+      color: #8c9fa3;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 18px;
+      margin-bottom: 10px;
+      transition: 0.3s;
+    }
+    .timeline-step.completed .step-circle {
+      border-color: var(--teal);
+      background: var(--teal);
+      color: #fff;
+    }
+    .timeline-step.active .step-circle {
+      border-color: var(--coral);
+      background: #fff;
+      color: var(--coral);
+      box-shadow: 0 0 0 4px rgba(255,101,84,0.2);
+    }
+    .step-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #173540;
+    }
+    .step-time {
+      font-size: 11px;
+      color: #72868c;
+      margin-top: 4px;
+    }
+
+    /* Info Grid */
+    .track-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 28px;
+    }
+    .track-info-box {
+      background: var(--cloud);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .track-info-box h3 {
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #556b71;
+      margin: 0 0 12px;
+    }
+    .track-info-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px solid #e7ecea;
+    }
+    .track-info-row:last-child {
+      border-bottom: none;
+    }
+    .track-info-row span {
+      color: #657b81;
+    }
+    .track-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+    .track-actions button, .track-actions a {
+      font-size: 13px;
+      padding: 10px 16px;
+      border-radius: 6px;
+    }
+    .btn-whatsapp {
+      background: #25D366;
+      color: #fff;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .btn-whatsapp:hover {
+      background: #1ebc59;
+    }
+    .self-service-box {
+      border-top: 1px solid var(--line);
+      padding-top: 22px;
+      margin-top: 26px;
+    }
+    @media(max-width: 650px) {
+      .timeline-track { display: none; }
+      .timeline-steps { flex-direction: column; gap: 16px; align-items: flex-start; }
+      .timeline-step { flex-direction: row; gap: 14px; text-align: left; width: 100%; }
+      .step-circle { min-width: 40px; height: 40px; margin-bottom: 0; }
+      .track-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="announcement">Live Order Tracking · Cash on Delivery Support</div>
+  <header>
+    <a class="brand" href="/" aria-label="Rosaino home"><img src="/assets/logo.png" alt="Rosaino"></a>
+    <div class="region">Customer Delivery Portal</div>
+    <a href="/" class="text-button">← Back to Shop</a>
+  </header>
+
+  <div class="track-wrapper">
+    <div class="track-search-box">
+      <h1>Track Your Package</h1>
+      <p>Enter your Rosaino Order Reference (e.g. <code>RS-1024</code>) or your Moroccan phone number.</p>
+      <form id="track-form" class="track-search-form">
+        <input id="track-query" placeholder="Order ID (e.g. RS-1024) or Phone (06...)" required>
+        <button type="submit" class="primary">Track Order ↗</button>
+      </form>
+    </div>
+
+    <div id="track-results-container"></div>
+  </div>
+
+  <!-- Reschedule Modal -->
+  <dialog id="reschedule-modal" style="width: min(520px, 92vw);">
+    <button class="close" data-close="reschedule-modal">×</button>
+    <div class="checkout-heading">
+      <h2>Reschedule Delivery Date</h2>
+      <p>Select when you will be available at your delivery address to receive and pay for your package.</p>
+    </div>
+    <form id="reschedule-form" class="checkout-form">
+      <input type="hidden" id="reschedule-order-id">
+      <div class="form-field">
+        <label for="preferred-date">Preferred Delivery Date</label>
+        <input type="date" id="preferred-date" required>
+      </div>
+      <div class="form-field">
+        <label for="preferred-slot">Time of Day</label>
+        <select id="preferred-slot">
+          <option value="Morning (9:00 AM - 1:00 PM)">Morning (9:00 AM - 1:00 PM)</option>
+          <option value="Afternoon (1:00 PM - 5:00 PM)" selected>Afternoon (1:00 PM - 5:00 PM)</option>
+          <option value="Evening (5:00 PM - 8:00 PM)">Evening (5:00 PM - 8:00 PM)</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="reschedule-note">Delivery Note for Courier</label>
+        <textarea id="reschedule-note" placeholder="e.g. Call 10 minutes prior, leave with concierge if not answering"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+        <button type="button" data-close="reschedule-modal">Cancel</button>
+        <button type="submit" class="primary">Confirm Reschedule</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Update Address Modal -->
+  <dialog id="address-modal" style="width: min(520px, 92vw);">
+    <button class="close" data-close="address-modal">×</button>
+    <div class="checkout-heading">
+      <h2>Update Delivery Address</h2>
+      <p>Modify your delivery destination before parcel dispatch.</p>
+    </div>
+    <form id="address-form" class="checkout-form">
+      <input type="hidden" id="address-order-id">
+      <div class="form-field">
+        <label for="update-city">City</label>
+        <select id="update-city" required>
+          <option value="Casablanca">Casablanca</option>
+          <option value="Rabat">Rabat</option>
+          <option value="Marrakech">Marrakech</option>
+          <option value="Tangier">Tangier</option>
+          <option value="Fès">Fès</option>
+          <option value="Meknès">Meknès</option>
+          <option value="Agadir">Agadir</option>
+          <option value="Kenitra">Kenitra</option>
+          <option value="Tetouan">Tetouan</option>
+          <option value="Oujda">Oujda</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="update-address">Full Street Address & Landmark</label>
+        <textarea id="update-address" required placeholder="Street address, building name, apartment number, nearby landmark"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+        <button type="button" data-close="address-modal">Cancel</button>
+        <button type="submit" class="primary">Update Address</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = n => new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD', maximumFractionDigits: 0 }).format(n);
+
+    let activeOrder = null;
+    let toastTimer;
+    function toast(msg) {
+      const t = $('#toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('visible'), 2800);
+    }
+
+    async function fetchOrder(query) {
+      if (!query) return;
+      const clean = query.trim().toUpperCase();
+      try {
+        const res = await fetch(`/api/track/${encodeURIComponent(clean)}`);
+        if (!res.ok) {
+          renderNotFound(clean);
+          return;
+        }
+        const data = await res.json();
+        activeOrder = data;
+        renderOrder(data);
+      } catch (e) {
+        renderNotFound(clean);
+      }
+    }
+
+    function renderNotFound(q) {
+      $('#track-results-container').innerHTML = `
+        <div class="track-card empty">
+          <h3>No order found matching "${esc(q)}"</h3>
+          <p>Please check your Order ID (format RS-XXXX) or Moroccan phone number.</p>
+          <p style="margin-top:14px;"><a href="/" class="primary">Return to Storefront</a></p>
+        </div>
+      `;
+    }
+
+    function getSteps(status) {
+      // 5 Milestones: Received, Confirmed, Packed, In Transit, Delivered
+      const order = ['New', 'Callback', 'Confirmed', 'In transit', 'Delivered'];
+      let activeIndex = 0;
+      if (status === 'New' || status === 'Callback') activeIndex = 0;
+      else if (status === 'Confirmed') activeIndex = 2;
+      else if (status === 'In transit') activeIndex = 3;
+      else if (status === 'Delivered') activeIndex = 4;
+      else if (status === 'Returned') activeIndex = 3;
+
+      return [
+        { label: 'Order Received', icon: '1', completed: activeIndex >= 0, active: activeIndex === 0 },
+        { label: 'Confirmed by Agent', icon: '2', completed: activeIndex >= 1, active: activeIndex === 1 },
+        { label: 'Packed & Dispatched', icon: '3', completed: activeIndex >= 2, active: activeIndex === 2 },
+        { label: 'Out for Delivery', icon: '4', completed: activeIndex >= 3, active: activeIndex === 3 },
+        { label: 'Delivered (COD Paid)', icon: '✓', completed: activeIndex >= 4, active: activeIndex === 4 }
+      ];
+    }
+
+    function renderOrder(o) {
+      const steps = getSteps(o.status);
+      const completedSteps = steps.filter(s => s.completed).length;
+      const progressPercent = Math.max(0, Math.min(100, ((completedSteps - 1) / (steps.length - 1)) * 100));
+      const statusClass = esc(o.status.toLowerCase().replace(' ', '-'));
+
+      const isDelivered = o.status === 'Delivered';
+      const isReturned = o.status === 'Returned';
+
+      $('#track-results-container').innerHTML = `
+        <div class="track-card">
+          <div class="track-header">
+            <div>
+              <span class="eyebrow">ORDER REFERENCE</span>
+              <div class="track-id-badge">${esc(o.id)}</div>
+              <small style="color:#72868c;">Placed on ${esc(o.date)} · ${esc(o.source || 'Storefront')}</small>
+            </div>
+            <div style="text-align:right;">
+              <span class="track-status-pill ${statusClass}">
+                ● ${esc(o.status)}
+              </span>
+              <div style="font-size:12px;color:#72868c;margin-top:6px;">
+                Amount to pay on arrival: <strong>${money(o.amount)}</strong> (COD)
+              </div>
+            </div>
+          </div>
+
+          <!-- Stepper Timeline -->
+          <div class="timeline">
+            <div class="timeline-track">
+              <div class="timeline-track-fill" style="width: ${progressPercent}%;"></div>
+            </div>
+            <div class="timeline-steps">
+              ${steps.map(s => `
+                <div class="timeline-step ${s.completed ? 'completed' : ''} ${s.active ? 'active' : ''}">
+                  <div class="step-circle">${s.icon}</div>
+                  <div class="step-label">${s.label}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Information Grid -->
+          <div class="track-grid">
+            <div class="track-info-box">
+              <h3>📦 Package & Items</h3>
+              <div class="track-info-row">
+                <span>Product</span>
+                <strong>${esc(o.productName || 'Rosaino Essential')}</strong>
+              </div>
+              <div class="track-info-row">
+                <span>Quantity</span>
+                <strong>${o.quantity} unit(s)</strong>
+              </div>
+              <div class="track-info-row">
+                <span>Total Due on Arrival</span>
+                <strong style="color:var(--teal);">${money(o.amount)}</strong>
+              </div>
+              <div class="track-info-row">
+                <span>Payment Method</span>
+                <span>Cash on Delivery (COD)</span>
+              </div>
+            </div>
+
+            <div class="track-info-box">
+              <h3>🚚 Courier & Destination</h3>
+              <div class="track-info-row">
+                <span>Courier Service</span>
+                <strong>${esc(o.carrier || 'Digylog Express')}</strong>
+              </div>
+              <div class="track-info-row">
+                <span>City</span>
+                <strong>${esc(o.city)}</strong>
+              </div>
+              <div class="track-info-row">
+                <span>Address</span>
+                <span>${esc(o.address || 'Standard Delivery')}</span>
+              </div>
+              <div class="track-info-row">
+                <span>Customer Contact</span>
+                <span>${esc(o.phone)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer Self Service Actions -->
+          ${!isDelivered && !isReturned ? `
+            <div class="self-service-box">
+              <h3 style="font-size:15px;margin:0 0 10px;">Need to adjust your delivery?</h3>
+              <p style="font-size:13px;color:#5d7278;margin:0 0 16px;">
+                You can reschedule your delivery date or update your address before our courier departs.
+              </p>
+              <div class="track-actions">
+                <button class="primary" id="btn-reschedule">📅 Reschedule Delivery Date</button>
+                <button id="btn-update-address" style="border:1px solid #d3dbd9;">📍 Change Delivery Address</button>
+                <a class="btn-whatsapp" href="https://wa.me/212600000000?text=${encodeURIComponent('Hello Rosaino, I would like to inquire about my order ' + o.id)}" target="_blank" rel="noopener">
+                  💬 WhatsApp Support
+                </a>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      // Attach self service modal handlers
+      const btnReschedule = $('#btn-reschedule');
+      if (btnReschedule) {
+        btnReschedule.onclick = () => {
+          $('#reschedule-order-id').value = o.id;
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          $('#preferred-date').value = tomorrow.toISOString().slice(0, 10);
+          $('#preferred-date').min = new Date().toISOString().slice(0, 10);
+          $('#reschedule-modal').showModal();
+        };
+      }
+
+      const btnAddress = $('#btn-update-address');
+      if (btnAddress) {
+        btnAddress.onclick = () => {
+          $('#address-order-id').value = o.id;
+          $('#update-city').value = o.city;
+          $('#update-address').value = o.address || '';
+          $('#address-modal').showModal();
+        };
+      }
+    }
+
+    // Modal forms submission
+    $('#reschedule-form').onsubmit = async e => {
+      e.preventDefault();
+      const id = $('#reschedule-order-id').value;
+      const date = $('#preferred-date').value;
+      const slot = $('#preferred-slot').value;
+      const note = $('#reschedule-note').value;
+
+      try {
+        const res = await fetch(`/api/track/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'reschedule',
+            preferredDate: `${date} (${slot})`,
+            note
+          })
+        });
+        if (res.ok) {
+          toast('Delivery successfully rescheduled!');
+          $('#reschedule-modal').close();
+          fetchOrder(id);
+        } else {
+          toast('Error rescheduling delivery.');
+        }
+      } catch {
+        toast('Connection error.');
+      }
+    };
+
+    $('#address-form').onsubmit = async e => {
+      e.preventDefault();
+      const id = $('#address-order-id').value;
+      const city = $('#update-city').value;
+      const address = $('#update-address').value;
+
+      try {
+        const res = await fetch(`/api/track/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update_address',
+            city,
+            address
+          })
+        });
+        if (res.ok) {
+          toast('Delivery address updated successfully!');
+          $('#address-modal').close();
+          fetchOrder(id);
+        } else {
+          toast('Error updating address.');
+        }
+      } catch {
+        toast('Connection error.');
+      }
+    };
+
+    // Close buttons on dialogs
+    document.querySelectorAll('[data-close]').forEach(b => {
+      b.onclick = () => {
+        const d = $('#' + b.dataset.close);
+        if (d) d.close();
+      };
+    });
+
+    // Handle search form
+    $('#track-form').onsubmit = e => {
+      e.preventDefault();
+      const q = $('#track-query').value;
+      if (q) {
+        history.replaceState(null, '', `?id=${encodeURIComponent(q)}`);
+        fetchOrder(q);
+      }
+    };
+
+    // Check query params on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      if (id) {
+        $('#track-query').value = id;
+        fetchOrder(id);
+      }
+    });
+  </script>
+</body>
+</html>
