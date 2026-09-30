@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>Rosaino Operations & ERP Portal</title>
-  <link rel="icon" href="../assets/icon.png">
+  <link rel="icon" href="/assets/icon.png">
   <link rel="stylesheet" href="demo.css">
 </head>
 <body>
@@ -13,18 +13,9 @@
   <div id="login-screen" style="display: none;">
     <div class="login-card">
       <div class="login-header">
-        <a href="/" title="Back to storefront"><img src="../assets/logo.png" alt="Rosaino"></a>
-        <h1>Operations & ERP Portal</h1>
-        <p>Sign in with your administrator credentials to access the workspace.</p>
-      </div>
-
-      <div class="credentials-box">
-        <strong>🔑 Default Super Admin Credentials:</strong><br>
-        Email: <code>superadmin@rosaino.com</code><br>
-        Password: <code>RosainoSuperAdmin2026!</code><br>
-        <button type="button" id="btn-autofill-superadmin" class="btn-autofill">
-          ⚡ Autofill Super Admin Credentials
-        </button>
+        <a href="/" title="Back to storefront"><img src="/assets/logo.png" alt="Rosaino"></a>
+        <h1>Operations Portal</h1>
+        <p>Sign in with your administrator account to access the workspace.</p>
       </div>
 
       <div id="login-error-msg" class="login-error"></div>
@@ -32,44 +23,37 @@
       <form id="admin-login-form" class="login-form">
         <div class="login-field">
           <label for="login-email">Email Address</label>
-          <input id="login-email" type="email" name="email" required autocomplete="email" placeholder="superadmin@rosaino.com">
+          <input id="login-email" type="email" name="email" required autocomplete="email" placeholder="admin@rosaino.com">
         </div>
 
         <div class="login-field">
           <label for="login-password">Password</label>
-          <input id="login-password" type="password" name="password" required autocomplete="current-password" placeholder="••••••••••••">
+          <input id="login-password" type="password" name="password" required autocomplete="current-password" placeholder="Enter password">
         </div>
 
-        <button type="submit" class="primary" style="margin-top: 8px; justify-content: center;">
-          Sign In to Operations ↗
+        <button type="submit" class="primary" style="margin-top: 10px; justify-content: center; width: 100%;">
+          Sign In
         </button>
       </form>
 
-      <div class="login-footer" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-        <a href="/" target="_self">🛍️ Return to Storefront</a>
-        <span>·</span>
-        <a href="/product?id=p1" target="_self">✨ View Product Landing Page</a>
+      <div class="login-footer" style="display:flex;justify-content:center;margin-top:16px;">
+        <a href="/" target="_self" style="color:#64748b;font-size:12.5px;text-decoration:none;">← Return to Storefront</a>
       </div>
     </div>
   </div>
 
   <!-- Authenticated Workspace Sidebar -->
   <aside id="sidebar">
-    <a class="logo" href="/" target="_self"><img src="../assets/logo.png" alt="Rosaino"></a>
+    <a class="logo" href="/" target="_self"><img src="/assets/logo.png" alt="Rosaino"></a>
     <div class="workspace">OPERATIONS WORKSPACE <span>ERP/CMS</span></div>
-    <div style="padding: 10px 14px; background: #e6f3f2; border-radius: 8px; margin: 0 10px 12px; font-size: 11.5px; line-height: 1.5;">
-      <strong style="color: #147d86; display: block; margin-bottom: 4px;">Public Portals:</strong>
-      <a href="/" target="_self" style="color: #147d86; font-weight: 700; text-decoration: none; display: block; margin-bottom: 2px;">🛍️ View Storefront</a>
-      <a href="/product?id=p1" target="_blank" style="color: #183243; text-decoration: none; display: block;">✨ Product Landing Page ↗</a>
-    </div>
     <nav id="nav" aria-label="Operations"></nav>
-    <a class="back" href="/" target="_self">↗ Back to storefront</a>
+    <a class="back" href="/" target="_self">Back to storefront ↗</a>
     <div class="profile" id="user-profile-badge">
       <b id="profile-avatar">SA</b>
       <div style="flex:1;">
-        <strong id="sidebar-user-name">Super Admin</strong>
+        <strong id="sidebar-user-name">Administrator</strong>
         <small id="sidebar-user-role">Super Admin</small>
-        <button type="button" id="sidebar-logout-btn" class="btn-logout" title="Sign out of admin session">Sign out ⎋</button>
+        <button type="button" id="sidebar-logout-btn" class="btn-logout" title="Sign out">Sign out</button>
       </div>
     </div>
   </aside>
@@ -80,46 +64,38 @@
       <button id="menu" aria-label="Toggle navigation">☰</button>
       <div><span class="muted">Workspace /</span> <span id="breadcrumb">Overview</span></div>
       <div class="header-right">
-        <!-- Quick Public Portal Links -->
-        <a href="/" target="_self" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#e6f3f2;border:1.5px solid #147d86;border-radius:6px;color:#147d86;font-size:12px;font-weight:700;text-decoration:none;" title="Open customer-facing public storefront">
-          <span>🛍️</span> Front Store
-        </a>
-        <a href="/product?id=p1" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#fff;border:1.5px solid #b8d8cd;border-radius:6px;color:#183243;font-size:12px;font-weight:700;text-decoration:none;" title="Open customer-facing COD product landing page">
-          <span>✨</span> Product Landing ↗
+        <!-- Quick Storefront Link -->
+        <a href="/" target="_self" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:#f0f8f7;border:1px solid #c2dbd7;border-radius:6px;color:#147d86;font-size:12px;font-weight:600;text-decoration:none;" title="Open customer storefront">
+          Storefront ↗
         </a>
 
         <!-- Language Switcher -->
         <div class="lang-selector-wrap" id="lang-selector-wrap">
           <button type="button" class="lang-dropdown-btn" id="lang-dropdown-btn" title="Change Language (FR / EN / AR)" aria-haspopup="true">
-            <span id="current-lang-flag">🇫🇷</span>
+            <span id="current-lang-code" style="font-size:11.5px;font-weight:700;">FR</span>
             <span id="current-lang-label">Français</span>
-            <span class="chevron">▾</span>
+            <span class="chevron" style="font-size:10px;">▾</span>
           </button>
           <div class="lang-dropdown-menu" id="lang-dropdown-menu">
             <button type="button" class="lang-option" data-lang="fr">
-              <span class="flag">🇫🇷</span> <span class="name">Français</span> <span class="tag">FR</span>
+              <span class="tag">FR</span> <span class="name">Français</span>
             </button>
             <button type="button" class="lang-option" data-lang="en">
-              <span class="flag">🇬🇧</span> <span class="name">English</span> <span class="tag">EN</span>
+              <span class="tag">EN</span> <span class="name">English</span>
             </button>
             <button type="button" class="lang-option" data-lang="ar">
-              <span class="flag">🇲🇦</span> <span class="name">العربية</span> <span class="tag">AR (RTL)</span>
+              <span class="tag">AR</span> <span class="name">العربية</span>
             </button>
           </div>
         </div>
 
-        <div class="supabase-pill" id="supabase-status-pill" title="Supabase Database Status">
-          <span class="dot"></span> <span id="supabase-pill-text">Supabase Cloud</span>
+        <div class="supabase-pill" id="supabase-status-pill" title="Database Connection Status">
+          <span class="dot"></span> <span id="supabase-pill-text">Database Connected</span>
         </div>
-        <span id="header-user-tag"><strong id="header-role-name">Super Admin</strong></span>
-        <button id="switch-role-btn">Switch role ⇄</button>
-        <button id="header-logout-btn" style="color:#ac3838;font-size:12px;">Sign out</button>
+        <span id="header-user-tag"><strong id="header-role-name">Administrator</strong></span>
+        <button id="header-logout-btn" style="color:#ac3838;font-size:12px;background:none;border:none;cursor:pointer;padding:4px 8px;">Sign out</button>
       </div>
     </header>
-
-    <div class="demo-note">
-      Rosaino Operations Workspace · Connected to Supabase Database (Project: kwqbghlwarkibhlgbgft) · RBAC Active.
-    </div>
 
     <section id="content"></section>
   </main>
