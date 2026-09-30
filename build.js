@@ -8,21 +8,40 @@ const __dirname = path.dirname(__filename);
 const distDir = path.join(__dirname, 'dist');
 const distAdminDir = path.join(distDir, 'admin');
 const distAssetsDir = path.join(distDir, 'assets');
+const distProductDir = path.join(distDir, 'product');
+const distTrackDir = path.join(distDir, 'track');
+const distPDir = path.join(distDir, 'p');
 
-// Ensure directories exist
+// Ensure all output directories exist
 fs.mkdirSync(distDir, { recursive: true });
 fs.mkdirSync(distAdminDir, { recursive: true });
 fs.mkdirSync(distAssetsDir, { recursive: true });
+fs.mkdirSync(distProductDir, { recursive: true });
+fs.mkdirSync(distTrackDir, { recursive: true });
+fs.mkdirSync(distPDir, { recursive: true });
 
 // Copy storefront files
 fs.copyFileSync(path.join(__dirname, 'index.html'), path.join(distDir, 'index.html'));
 fs.copyFileSync(path.join(__dirname, 'style.css'), path.join(distDir, 'style.css'));
 fs.copyFileSync(path.join(__dirname, 'app.js'), path.join(distDir, 'app.js'));
+if (fs.existsSync(path.join(__dirname, 'demo.css'))) {
+  fs.copyFileSync(path.join(__dirname, 'demo.css'), path.join(distDir, 'demo.css'));
+}
+if (fs.existsSync(path.join(__dirname, 'demo.js'))) {
+  fs.copyFileSync(path.join(__dirname, 'demo.js'), path.join(distDir, 'demo.js'));
+}
+
+// Copy public track portal (both as file and folder index for trailingSlash tolerance)
 if (fs.existsSync(path.join(__dirname, 'track.html'))) {
   fs.copyFileSync(path.join(__dirname, 'track.html'), path.join(distDir, 'track.html'));
+  fs.copyFileSync(path.join(__dirname, 'track.html'), path.join(distTrackDir, 'index.html'));
 }
+
+// Copy dedicated product landing page (both as file and folder index for trailingSlash tolerance)
 if (fs.existsSync(path.join(__dirname, 'product.html'))) {
   fs.copyFileSync(path.join(__dirname, 'product.html'), path.join(distDir, 'product.html'));
+  fs.copyFileSync(path.join(__dirname, 'product.html'), path.join(distProductDir, 'index.html'));
+  fs.copyFileSync(path.join(__dirname, 'product.html'), path.join(distPDir, 'index.html'));
 }
 
 // Copy admin demo files
@@ -30,12 +49,16 @@ fs.copyFileSync(path.join(__dirname, 'admin', 'index.html'), path.join(distAdmin
 fs.copyFileSync(path.join(__dirname, 'admin', 'demo.css'), path.join(distAdminDir, 'demo.css'));
 fs.copyFileSync(path.join(__dirname, 'admin', 'demo.js'), path.join(distAdminDir, 'demo.js'));
 
-// Copy asset files
+// Copy asset files (both into dist/assets and root of dist)
 const assets = ['collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png'];
 for (const asset of assets) {
   const src = path.join(__dirname, 'assets', asset);
   if (fs.existsSync(src)) {
     fs.copyFileSync(src, path.join(distAssetsDir, asset));
+    fs.copyFileSync(src, path.join(distDir, asset));
+  } else if (fs.existsSync(path.join(__dirname, asset))) {
+    fs.copyFileSync(path.join(__dirname, asset), path.join(distAssetsDir, asset));
+    fs.copyFileSync(path.join(__dirname, asset), path.join(distDir, asset));
   }
 }
 
@@ -50,4 +73,4 @@ if (fs.existsSync(uploadsSrc)) {
   }
 }
 
-console.log('Build completed successfully. Artifacts created in dist/');
+console.log('Build completed successfully. Artifacts created in dist/ for Storefront, Landing Page, and Admin Dashboard.');

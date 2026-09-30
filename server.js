@@ -926,11 +926,15 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Rosaino server running at http://${HOST}:${PORT}`);
-  console.log(`Storefront: http://${HOST}:${PORT}/`);
-  console.log(`Customer Tracking: http://${HOST}:${PORT}/track`);
-  console.log(`Operations Demo: http://${HOST}:${PORT}/admin/`);
-  console.log(`Supabase URL: ${SUPABASE_URL}`);
-  console.log(`Super Admin Credentials: superadmin@rosaino.com / RosainoSuperAdmin2026!`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, HOST, () => {
+    console.log(`Rosaino server running at http://${HOST}:${PORT}`);
+    console.log(`Storefront: http://${HOST}:${PORT}/`);
+    console.log(`Customer Tracking: http://${HOST}:${PORT}/track`);
+    console.log(`Operations Demo: http://${HOST}:${PORT}/admin/`);
+    console.log(`Supabase URL: ${SUPABASE_URL}`);
+    console.log(`Super Admin Credentials: superadmin@rosaino.com / RosainoSuperAdmin2026!`);
+  });
+}
+
+export default app;

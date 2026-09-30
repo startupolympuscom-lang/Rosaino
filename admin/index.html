@@ -45,8 +45,10 @@
         </button>
       </form>
 
-      <div class="login-footer">
-        <a href="/" target="_self">← Return to Storefront</a>
+      <div class="login-footer" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a href="/" target="_self">🛍️ Return to Storefront</a>
+        <span>·</span>
+        <a href="/product?id=p1" target="_self">✨ View Product Landing Page</a>
       </div>
     </div>
   </div>
@@ -55,6 +57,11 @@
   <aside id="sidebar">
     <a class="logo" href="/" target="_self"><img src="../assets/logo.png" alt="Rosaino"></a>
     <div class="workspace">OPERATIONS WORKSPACE <span>ERP/CMS</span></div>
+    <div style="padding: 10px 14px; background: #e6f3f2; border-radius: 8px; margin: 0 10px 12px; font-size: 11.5px; line-height: 1.5;">
+      <strong style="color: #147d86; display: block; margin-bottom: 4px;">Public Portals:</strong>
+      <a href="/" target="_self" style="color: #147d86; font-weight: 700; text-decoration: none; display: block; margin-bottom: 2px;">🛍️ View Storefront</a>
+      <a href="/product?id=p1" target="_blank" style="color: #183243; text-decoration: none; display: block;">✨ Product Landing Page ↗</a>
+    </div>
     <nav id="nav" aria-label="Operations"></nav>
     <a class="back" href="/" target="_self">↗ Back to storefront</a>
     <div class="profile" id="user-profile-badge">
@@ -73,6 +80,14 @@
       <button id="menu" aria-label="Toggle navigation">☰</button>
       <div><span class="muted">Workspace /</span> <span id="breadcrumb">Overview</span></div>
       <div class="header-right">
+        <!-- Quick Public Portal Links -->
+        <a href="/" target="_self" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#e6f3f2;border:1.5px solid #147d86;border-radius:6px;color:#147d86;font-size:12px;font-weight:700;text-decoration:none;" title="Open customer-facing public storefront">
+          <span>🛍️</span> Front Store
+        </a>
+        <a href="/product?id=p1" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#fff;border:1.5px solid #b8d8cd;border-radius:6px;color:#183243;font-size:12px;font-weight:700;text-decoration:none;" title="Open customer-facing COD product landing page">
+          <span>✨</span> Product Landing ↗
+        </a>
+
         <!-- Language Switcher -->
         <div class="lang-selector-wrap" id="lang-selector-wrap">
           <button type="button" class="lang-dropdown-btn" id="lang-dropdown-btn" title="Change Language (FR / EN / AR)" aria-haspopup="true">

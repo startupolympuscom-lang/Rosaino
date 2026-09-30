@@ -1,6 +1,16 @@
 {
-  "buildCommand": null,
-  "outputDirectory": "dist",
+  "version": 2,
   "cleanUrls": true,
-  "trailingSlash": true
+  "buildCommand": "node build.js",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/product", "destination": "/product.html" },
+    { "source": "/product/(.*)", "destination": "/product.html" },
+    { "source": "/p/(.*)", "destination": "/product.html" },
+    { "source": "/track", "destination": "/track.html" },
+    { "source": "/track/(.*)", "destination": "/track.html" },
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/admin/", "destination": "/admin/index.html" }
+  ]
 }
