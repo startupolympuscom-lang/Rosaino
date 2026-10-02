@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, configurePersistence } from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,52 +27,12 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kwqbghlwarkibhlgbgft.s
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_-Uik0W47t9fLoE8_JETPZg_U0xY-je7';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Simple Auth Users Database
-const ADMIN_USERS = [
-  {
-    id: 'usr_superadmin',
-    name: 'Rosaino Super Admin',
-    email: 'superadmin@rosaino.com',
-    password: 'RosainoSuperAdmin2026!',
-    role: 'Super Admin',
-    avatar: 'SA'
-  },
-  {
-    id: 'usr_admin',
-    name: 'Operations Admin',
-    email: 'admin@rosaino.com',
-    password: 'RosainoAdmin2026!',
-    role: 'Admin',
-    avatar: 'AD'
-  },
-  {
-    id: 'usr_ops',
-    name: 'Lina Benali',
-    email: 'operations@rosaino.com',
-    password: 'OpsManager2026!',
-    role: 'Operations manager',
-    avatar: 'LB'
-  },
-  {
-    id: 'usr_agent',
-    name: 'Sara Amrani',
-    email: 'agent@rosaino.com',
-    password: 'Agent2026!',
-    role: 'Confirmation agent',
-    avatar: 'SA'
-  },
-  {
-    id: 'usr_finance',
-    name: 'Tariq Mansouri',
-    email: 'finance@rosaino.com',
-    password: 'Finance2026!',
-    role: 'Finance viewer',
-    avatar: 'TM'
-  }
-];
-
-// Active sessions in memory
-const activeSessions = new Map();
+// Admin data (users, roles, audit) is only persisted with a service role key,
+// because those tables intentionally have no public RLS policies.
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (SUPABASE_SERVICE_ROLE_KEY) {
+  configurePersistence(createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } }));
+}
 
 // In-Memory Fallback State (synchronizes with Supabase when tables are created)
 let memoryProducts = [
@@ -201,82 +162,24 @@ function cleanPhone(p) {
   return String(p || '').replace(/[^0-9]/g, '');
 }
 
-// Simple Auth Endpoints
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
+// Strip fields only staff may set from anonymous storefront orders.
+const STAFF_ONLY_ORDER_FIELDS = ['status', 'agent', 'stockDeducted', 'remittanceStatus', 'remittanceRef', 'remittedDate', 'courierFeeCharged', 'discrepancyNote', 'isDuplicate', 'trustScore', 'cost'];
+function sanitizePublicOrder(body) {
+  if (!body || typeof body !== 'object') return body;
+  const order = { ...body };
+  STAFF_ONLY_ORDER_FIELDS.forEach(k => delete order[k]);
+  order.status = 'New';
+  if (memoryOrders.some(o => String(o.id) === String(order.id))) {
+    order.id = 'RS-' + Date.now().toString(36).toUpperCase();
   }
+  return order;
+}
 
-  const user = ADMIN_USERS.find(
-    u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
-  );
-
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid administrator credentials' });
-  }
-
-  const token = 'tok_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-  const session = {
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar
-    },
-    createdAt: new Date().toISOString()
-  };
-
-  activeSessions.set(token, session);
-  return res.json({ success: true, ...session });
-});
-
-app.get('/api/auth/me', (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.query.token;
-
-  if (!token || !activeSessions.has(token)) {
-    return res.status(401).json({ authenticated: false });
-  }
-
-  const session = activeSessions.get(token);
-  return res.json({ authenticated: true, user: session.user });
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.body?.token;
-  if (token) activeSessions.delete(token);
-  return res.json({ success: true });
-});
-
-app.get('/api/auth/credentials', (req, res) => {
-  res.json({
-    superAdmin: {
-      email: 'superadmin@rosaino.com',
-      password: 'RosainoSuperAdmin2026!',
-      role: 'Super Admin',
-      description: 'Master Administrator with full RBAC permission matrix and user management.'
-    },
-    admin: {
-      email: 'admin@rosaino.com',
-      password: 'RosainoAdmin2026!',
-      role: 'Admin',
-      description: 'Standard Operations administrator.'
-    },
-    operationsManager: {
-      email: 'operations@rosaino.com',
-      password: 'OpsManager2026!',
-      role: 'Operations manager',
-      description: 'Leads, calls, routing, shipping, and inventory.'
-    }
-  });
-});
+// Authentication, user management, roles and audit trail
+registerAuthRoutes(app);
 
 // Database & Supabase Status Endpoint
-app.get('/api/database/status', async (req, res) => {
+app.get('/api/database/status', requireAuth(), async (req, res) => {
   let supabaseConnected = false;
   let productsTableExists = false;
   let ordersTableExists = false;
@@ -316,7 +219,7 @@ app.get('/api/database/status', async (req, res) => {
 });
 
 // SQL Schema Endpoint
-app.get('/api/schema', (req, res) => {
+app.get('/api/schema', requireAuth('integrations'), (req, res) => {
   try {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema.sql'), 'utf-8');
     res.setHeader('Content-Type', 'text/plain');
@@ -338,7 +241,7 @@ app.get('/api/products', async (req, res) => {
   return res.json(memoryProducts);
 });
 
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', requireAuth('products', 'cms'), async (req, res) => {
   const productData = req.body;
   if (!productData || !productData.name) {
     return res.status(400).json({ error: 'Product name is required' });
@@ -357,11 +260,12 @@ app.post('/api/products', async (req, res) => {
     console.warn('Supabase upsert product notice:', e.message);
   }
 
+  audit(req.user, 'product.saved', `${productData.id || ''} ${productData.name}`.trim(), req);
   return res.json({ success: true, product: productData });
 });
 
 // Orders API
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', requireAuth(), async (req, res) => {
   try {
     const { data, error } = await supabase.from('orders').select('*').order('date', { ascending: false });
     if (!error && data && data.length > 0) {
@@ -372,8 +276,10 @@ app.get('/api/orders', async (req, res) => {
   return res.json(memoryOrders);
 });
 
-app.post('/api/orders', async (req, res) => {
-  const orderData = req.body;
+app.post('/api/orders', optionalAuth, async (req, res) => {
+  // Public storefront checkouts may only create new, unassigned orders.
+  const staff = can(req.user, 'orders');
+  const orderData = staff ? req.body : sanitizePublicOrder(req.body);
   if (!orderData || !orderData.customer || !orderData.phone) {
     return res.status(400).json({ error: 'Customer and phone are required' });
   }
@@ -424,11 +330,14 @@ app.post('/api/orders', async (req, res) => {
   return res.json({ success: true, order: enrichedOrder });
 });
 
-app.patch('/api/orders/:id', async (req, res) => {
+app.patch('/api/orders/:id', requireAuth('orders', 'calls', 'shipping'), async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   const order = memoryOrders.find(o => String(o.id) === String(id));
   if (order) {
+    if (updates?.status && updates.status !== order.status) {
+      audit(req.user, 'order.status', `${id}: ${order.status} → ${updates.status}`, req);
+    }
     Object.assign(order, updates);
   }
 
@@ -492,7 +401,7 @@ function evaluateTrustScore(phone) {
 }
 
 // Customer Trust API
-app.get('/api/customer-trust/:phone', (req, res) => {
+app.get('/api/customer-trust/:phone', requireAuth(), (req, res) => {
   const { phone } = req.params;
   const trust = evaluateTrustScore(phone);
   const pastOrders = memoryOrders.filter(o => cleanPhone(o.phone) === cleanPhone(phone));
@@ -505,11 +414,11 @@ app.get('/api/customer-trust/:phone', (req, res) => {
 });
 
 // Blacklist API
-app.get('/api/blacklist', (req, res) => {
+app.get('/api/blacklist', requireAuth(), (req, res) => {
   res.json({ blacklistedPhones: Array.from(blacklistedPhones) });
 });
 
-app.post('/api/blacklist', (req, res) => {
+app.post('/api/blacklist', requireAuth('orders', 'calls', 'team'), (req, res) => {
   const { phone, action } = req.body || {};
   const cPhone = cleanPhone(phone);
   if (!cPhone) return res.status(400).json({ error: 'Valid phone is required' });
@@ -519,6 +428,7 @@ app.post('/api/blacklist', (req, res) => {
   } else {
     blacklistedPhones.add(cPhone);
   }
+  audit(req.user, action === 'remove' ? 'blacklist.removed' : 'blacklist.added', cPhone, req);
   res.json({ success: true, count: blacklistedPhones.size });
 });
 
@@ -576,11 +486,11 @@ app.patch('/api/track/:id', (req, res) => {
 });
 
 // Supplier Purchase Orders (PO) & Landed Cost Engine API
-app.get('/api/purchase-orders', (req, res) => {
+app.get('/api/purchase-orders', requireAuth(), (req, res) => {
   res.json(memoryPurchaseOrders);
 });
 
-app.post('/api/purchase-orders', (req, res) => {
+app.post('/api/purchase-orders', requireAuth('suppliers'), (req, res) => {
   const po = req.body;
   if (!po || !po.productId || !po.quantity) {
     return res.status(400).json({ error: 'Product and quantity required' });
@@ -625,7 +535,7 @@ app.post('/api/purchase-orders', (req, res) => {
 });
 
 // Receive PO: Automatically increments product inventory and updates unit cost
-app.post('/api/purchase-orders/:id/receive', (req, res) => {
+app.post('/api/purchase-orders/:id/receive', requireAuth('suppliers', 'products'), (req, res) => {
   const { id } = req.params;
   const po = memoryPurchaseOrders.find(p => p.id === id);
   if (!po) return res.status(404).json({ error: 'Purchase Order not found' });
@@ -640,11 +550,12 @@ app.post('/api/purchase-orders/:id/receive', (req, res) => {
     prod.cost = po.landedCostPerUnit; // update true landed cost!
   }
 
+  audit(req.user, 'purchase_order.received', `${po.id} · +${po.quantity} ${po.productName}`, req);
   res.json({ success: true, purchaseOrder: po, updatedStock: prod?.stock, landedCost: po.landedCostPerUnit });
 });
 
 // Ad Campaign & Delivered ROAS Attribution API
-app.get('/api/attribution', (req, res) => {
+app.get('/api/attribution', requireAuth('reports', 'overview'), (req, res) => {
   // Aggregate real orders by acquisition campaign
   const campaignsMap = {
     'Meta_WarmNeutral_Headphones': { name: 'Meta · Warm Neutral Headphones V1', platform: 'Meta Ads', spend: 3200, creative: 'vid_neutral_aesthetic_v1' },
@@ -690,7 +601,7 @@ app.get('/api/attribution', (req, res) => {
 });
 
 // Courier COD Cash Reconciliation & Audit API
-app.get('/api/reconciliation', (req, res) => {
+app.get('/api/reconciliation', requireAuth('reconciliation', 'finance'), (req, res) => {
   const deliveredOrders = memoryOrders.filter(o => o.status === 'Delivered');
 
   const carriers = ['Digylog', 'OzoneExpress', 'AMEEX'];
@@ -731,7 +642,7 @@ app.get('/api/reconciliation', (req, res) => {
   });
 });
 
-app.post('/api/reconciliation/batch-remit', (req, res) => {
+app.post('/api/reconciliation/batch-remit', requireAuth('reconciliation'), (req, res) => {
   const { orderIds, remittanceRef, carrier } = req.body || {};
   if (!orderIds || !Array.isArray(orderIds) || !orderIds.length) {
     return res.status(400).json({ error: 'Order IDs are required' });
@@ -750,11 +661,12 @@ app.post('/api/reconciliation/batch-remit', (req, res) => {
     }
   });
 
+  audit(req.user, 'remittance.reconciled', `${reconciledCount} order(s) · ${ref}`, req);
   res.json({ success: true, reconciledCount, remittanceRef: ref });
 });
 
 // File / Image Upload API (Supports Base64 Data URL or direct file upload)
-app.post('/api/upload', (req, res) => {
+app.post('/api/upload', requireAuth('products', 'cms', 'stores'), (req, res) => {
   const { data, filename } = req.body || {};
   if (!data) return res.status(400).json({ error: 'No image data provided' });
 
@@ -887,11 +799,12 @@ app.get('/api/cms/:id', (req, res) => {
   return res.json(def);
 });
 
-app.post('/api/cms/:id', (req, res) => {
+app.post('/api/cms/:id', requireAuth('cms'), (req, res) => {
   const p = memoryProducts.find(x => String(x.id) === String(req.params.id));
   if (!p) return res.status(404).json({ error: 'Product not found' });
   const updated = { ...(memoryCms.get(p.id) || getDefaultCms(p)), ...req.body, productId: p.id };
   memoryCms.set(p.id, updated);
+  audit(req.user, 'cms.saved', p.name, req);
   return res.json({ success: true, cms: updated });
 });
 
@@ -918,8 +831,13 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
 
-// Storefront static assets and root
-app.use(express.static(__dirname));
+// Storefront static assets and root. Only public files are served so server
+// source (server.js, auth.js, .env, schema) is never exposed.
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'demo.css', 'demo.js', 'product.html', 'track.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
+app.get('/:file', (req, res, next) => {
+  if (!PUBLIC_ROOT_FILES.has(req.params.file)) return next();
+  res.sendFile(path.join(__dirname, req.params.file));
+});
 
 // Fallback for root
 app.get('/', (req, res) => {
@@ -933,7 +851,6 @@ if (!process.env.VERCEL) {
     console.log(`Customer Tracking: http://${HOST}:${PORT}/track`);
     console.log(`Operations Demo: http://${HOST}:${PORT}/admin/`);
     console.log(`Supabase URL: ${SUPABASE_URL}`);
-    console.log(`Super Admin Credentials: superadmin@rosaino.com / RosainoSuperAdmin2026!`);
   });
 }
 

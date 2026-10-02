@@ -38,6 +38,7 @@ const I18N = {
     stores: 'Boutiques & Médias',
     integrations: 'Intégrations & Supabase',
     team: 'Équipe & Rôles',
+    security: 'Sécurité & audit',
     settings: 'Paramètres',
     back_to_store: 'Retour à la boutique ↗',
     sign_out: 'Déconnexion',
@@ -76,6 +77,7 @@ const I18N = {
     stores: 'Stores & Media',
     integrations: 'Integrations & Supabase',
     team: 'Team & RBAC',
+    security: 'Security & audit',
     settings: 'Settings',
     back_to_store: 'Back to storefront ↗',
     sign_out: 'Sign out',
@@ -114,6 +116,7 @@ const I18N = {
     stores: 'المتجر والوسائط',
     integrations: 'الربط وقاعدة البيانات',
     team: 'فريق العمل والصلاحيات',
+    security: 'الأمان وسجل التدقيق',
     settings: 'الإعدادات',
     back_to_store: 'العودة للمتجر ↗',
     sign_out: 'تسجيل الخروج',
@@ -400,8 +403,8 @@ const CMS_TEMPLATES = {
 const statuses = ['New', 'Callback', 'Confirmed', 'In transit', 'Delivered', 'Returned', 'Cancelled', 'Spam'];
 
 const DEFAULT_ROLES = {
-  'Super Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'rbac_manage', 'settings'],
-  'Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'settings'],
+  'Super Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'audit', 'rbac_manage', 'settings'],
+  'Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'audit', 'settings'],
   'Operations manager': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'reconciliation', 'stores'],
   'Confirmation agent': ['calls'],
   'Finance viewer': ['overview', 'finance', 'reconciliation', 'reports']
@@ -422,7 +425,8 @@ const ALL_PERMISSIONS = [
   { id: 'stores', name: 'Stores & Media', desc: 'Storefront channels, landing pages, brand assets' },
   { id: 'integrations', name: 'Integrations & Supabase', desc: 'Supabase cloud database and platform connectors' },
   { id: 'team', name: 'Team & RBAC', desc: 'View team members and operational availability' },
-  { id: 'rbac_manage', name: 'RBAC Control', desc: 'Super Admin only: modify role permissions and access' },
+  { id: 'audit', name: 'Security & Audit', desc: 'View sign-in history and the audit trail of admin changes' },
+  { id: 'rbac_manage', name: 'Users & RBAC Control', desc: 'Create/disable users, reset passwords, and edit role permissions' },
   { id: 'settings', name: 'Settings', desc: 'Workspace preferences and demo controls' }
 ];
 
@@ -632,6 +636,7 @@ function getNavIcon(id) {
     case 'reports': return `<svg ${s}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
     case 'stores': return `<svg ${s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
     case 'integrations': return `<svg ${s}><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`;
+    case 'security': return `<svg ${s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`;
     case 'team': return `<svg ${s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
     case 'settings': return `<svg ${s}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
     default: return `<svg ${s}><circle cx="12" cy="12" r="3"/></svg>`;
@@ -653,6 +658,7 @@ const pages = [
   ['stores', 'stores', 'Stores & media', 'stores'],
   ['integrations', 'integrations', 'Integrations & Supabase', 'integrations'],
   ['team', 'team', 'Team & RBAC', 'team'],
+  ['security', 'security', 'Security & audit', 'audit'],
   ['settings', 'settings', 'Settings', 'settings']
 ];
 
@@ -683,12 +689,19 @@ function badge(s) {
   return `<span class="badge ${esc(String(s).toLowerCase().replaceAll(' ', '-'))}">${esc(s)}</span>`;
 }
 
-// Simple Auth Check & Handlers
+// Simple Auth: signed server session + server-enforced permissions
+let previewRole = null; // Super Admin "view as role" preview (UI only; the server keeps enforcing real permissions)
+let serverUsers = null;
+let auditEntries = null;
+
 function getSession() {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const session = JSON.parse(raw);
+    if (!session?.token || !session.user) return null;
+    if (session.expiresAt && Date.parse(session.expiresAt) < Date.now()) return null;
+    return session;
   } catch {
     return null;
   }
@@ -706,16 +719,88 @@ function clearSession() {
   } catch {}
 }
 
+// Adopt the session payload returned by /api/auth/login, /me and change-password.
+function applySession(data, keepToken) {
+  const prev = getSession();
+  const session = {
+    token: data.token || keepToken || prev?.token,
+    expiresAt: data.expiresAt || prev?.expiresAt,
+    user: data.user,
+    permissions: data.permissions || []
+  };
+  setSession(session);
+  db.currentUser = session.user;
+  if (data.roles) db.roles = data.roles;
+  return session;
+}
+
+// Attach the session token to every same-origin API call and handle expiry.
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (input, init = {}) => {
+  const url = typeof input === 'string' ? input : input?.url || '';
+  const isApi = url.startsWith('/api/') || url.startsWith(location.origin + '/api/');
+  const session = isApi ? getSession() : null;
+  if (session) {
+    const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined));
+    if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${session.token}`);
+    init = { ...init, headers };
+  }
+  const res = await nativeFetch(input, init);
+  if (isApi && res.status === 401 && session && !url.includes('/api/auth/login')) {
+    handleSessionExpired();
+  }
+  return res;
+};
+
+// JSON helper for admin API calls that should surface server errors.
+async function api(url, method = 'GET', body) {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+function handleSessionExpired() {
+  if (!getSession() && $('#login-screen')?.style.display === 'flex') return;
+  clearSession();
+  previewRole = null;
+  try { $('#modal').open && $('#modal').close(); } catch {}
+  checkAuth();
+  const errorMsg = $('#login-error-msg');
+  if (errorMsg) {
+    errorMsg.textContent = 'Your session has ended. Please sign in again.';
+    errorMsg.style.display = 'block';
+  }
+}
+
+async function signOut(everywhere = false) {
+  try {
+    await api(everywhere ? '/api/auth/logout-all' : '/api/auth/logout', 'POST', {});
+  } catch {}
+  clearSession();
+  previewRole = null;
+  serverUsers = null;
+  auditEntries = null;
+  try { $('#modal').open && $('#modal').close(); } catch {}
+  checkAuth();
+  toast(everywhere ? 'Signed out on all devices.' : 'Signed out successfully.');
+}
+
 function checkAuth() {
   const session = getSession();
   const loginScreen = $('#login-screen');
   const sidebar = $('#sidebar');
   const main = $('main');
 
-  if (!session || !session.user) {
+  if (!session) {
     if (loginScreen) loginScreen.style.display = 'flex';
     if (sidebar) sidebar.style.display = 'none';
     if (main) main.style.display = 'none';
+    setTimeout(() => $('#login-email')?.focus(), 0);
     return false;
   }
 
@@ -729,24 +814,60 @@ function checkAuth() {
   const sideNameEl = $('#sidebar-user-name');
   if (sideNameEl) sideNameEl.textContent = db.currentUser.name;
   const sideRoleEl = $('#sidebar-user-role');
-  if (sideRoleEl) sideRoleEl.textContent = db.currentUser.role;
+  if (sideRoleEl) sideRoleEl.textContent = previewRole ? `Previewing: ${previewRole}` : db.currentUser.role;
   const avatarEl = $('#profile-avatar');
   if (avatarEl) avatarEl.textContent = db.currentUser.avatar || db.currentUser.name.slice(0, 2).toUpperCase();
 
   return true;
 }
 
+// Refresh the signed-in user, roles and team from the server.
+async function refreshSession() {
+  if (!getSession()) return false;
+  try {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) return false;
+    applySession(await res.json());
+    await loadUsers();
+    return true;
+  } catch {
+    return false; // offline: keep the cached session until the server says otherwise
+  }
+}
+
+// Sync the team roster from the server while keeping local call-center availability.
+async function loadUsers() {
+  try {
+    const res = await fetch('/api/users');
+    if (!res.ok) return;
+    serverUsers = await res.json();
+    db.agents = serverUsers.map(u => ({
+      ...u,
+      status: db.agents.find(a => a.id === u.id)?.status || 'Available'
+    }));
+    persist();
+  } catch {}
+}
+
+const effectiveRole = () => previewRole || db.currentUser?.role;
+
 // RBAC Permission Checking
 function hasPermission(perm) {
-  if (!db.currentUser) return true;
-  if (db.currentUser.role === 'Super Admin') return true;
-  const rolePerms = db.roles?.[db.currentUser.role] || [];
+  if (!db.currentUser) return false;
+  const role = effectiveRole();
+  if (role === 'Super Admin') return true;
+  const rolePerms = db.roles?.[role] || [];
   return rolePerms.includes(perm);
+}
+
+// True only for the real signed-in account (ignores role preview).
+function isRealSuperAdmin() {
+  return db.currentUser?.role === 'Super Admin' || (db.roles?.[db.currentUser?.role] || []).includes('rbac_manage');
 }
 
 function checkAction(perm, actionLabel) {
   if (!hasPermission(perm)) {
-    toast(`Access denied: "${actionLabel || perm}" requires "${perm}" permission for role ${db.currentUser.role}.`);
+    toast(`Access denied: "${actionLabel || perm}" requires "${perm}" permission for role ${effectiveRole()}.`);
     return false;
   }
   return true;
@@ -832,7 +953,7 @@ function title(name, desc, actions = '') {
   return `
     <div class="page-title">
       <div>
-        <div class="eyebrow">ROSAINO OPERATIONS · ${esc(db.currentUser.role).toUpperCase()}</div>
+        <div class="eyebrow">ROSAINO OPERATIONS · ${esc(effectiveRole()).toUpperCase()}</div>
         <h1>${name}</h1>
         <p>${desc}</p>
       </div>
@@ -905,17 +1026,27 @@ function bars(items, total) {
   `).join('');
 }
 
+function previewBanner() {
+  if (!previewRole) return '';
+  return `
+    <div class="panel" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff4dc;border-color:#f3d48e;padding:14px 18px;">
+      <span>Previewing the workspace as <b>${esc(previewRole)}</b>. Your account keeps its own permissions.</span>
+      <button data-action="exit-preview">Exit preview</button>
+    </div>
+  `;
+}
+
 function accessDeniedView(pageName, reqPerm) {
   return `
     <div class="panel empty" style="padding:48px 24px;text-align:center;">
       <div class="mini-icon" style="background:#fee2e2;color:#dc2626;margin:0 auto 16px;">🔒</div>
       <h2>Access Restricted</h2>
       <p class="info" style="max-width:480px;margin:0 auto 16px;">
-        Your active role <strong>${esc(db.currentUser.role)}</strong> does not possess the <code>${esc(reqPerm)}</code> permission required to view <strong>${esc(pageName)}</strong>.
+        Your role <strong>${esc(effectiveRole())}</strong> does not have the <code>${esc(reqPerm)}</code> permission required to view <strong>${esc(pageName)}</strong>. Ask a Super Admin to grant access.
       </p>
       <div style="display:flex;justify-content:center;gap:12px;margin-top:20px;">
-        <button class="primary" data-action="switch-user" data-id="usr_superadmin">Switch to Super Admin ↗</button>
-        <button data-action="switch-user-modal">Change Role ⇄</button>
+        ${previewRole ? '<button class="primary" data-action="exit-preview">Exit role preview</button>' : ''}
+        <button data-action="sign-out">Sign in as a different user</button>
       </div>
     </div>
   `;
@@ -2244,20 +2375,26 @@ function integrations() {
 
 // 12. Team & RBAC Management (Super Admin Control)
 function team() {
-  const isSuperAdmin = db.currentUser.role === 'Super Admin' || hasPermission('rbac_manage');
+  const canManage = isRealSuperAdmin() && !previewRole;
   const roleList = Object.keys(db.roles);
+  const members = db.agents;
+  if (!serverUsers) loadUsers().then(() => page === 'team' && render());
 
   let rbacMatrix = '';
-  if (isSuperAdmin) {
+  if (canManage) {
     rbacMatrix = `
       <div class="panel" style="border: 2px solid #147d86;background: #fcfefe;">
         <div class="panel-head">
           <div>
             <span class="badge active" style="margin-bottom:6px;">SUPER ADMIN ACCESS CONTROL</span>
-            <h2>Role-Based Access Control (RBAC) Permissions Matrix</h2>
-            <p>Super Admin can configure specific permissions and module access for every admin role. Changes apply immediately.</p>
+            <h2>Role permissions</h2>
+            <p>Enforced by the server on every request. Changes apply immediately to everyone with the role.</p>
           </div>
-          <button data-action="reset-rbac" style="font-size:12px;">Reset to Defaults ↺</button>
+          <div class="actions">
+            <button data-action="new-role" style="font-size:12px;">+ New role</button>
+            <button data-action="preview-role" style="font-size:12px;">Preview as role</button>
+            <button data-action="reset-rbac" style="font-size:12px;">Reset to defaults ↺</button>
+          </div>
         </div>
 
         <div class="table-wrap">
@@ -2265,31 +2402,36 @@ function team() {
             <thead>
               <tr>
                 <th style="min-width:180px;">Role</th>
+                <th style="text-align:center;font-size:10px;">Users</th>
                 ${ALL_PERMISSIONS.map(p => `<th style="text-align:center;font-size:10px;" title="${esc(p.desc)}">${esc(p.name)}</th>`).join('')}
+                <th></th>
               </tr>
             </thead>
             <tbody>
               ${roleList.map(r => {
                 const isSuper = r === 'Super Admin';
+                const count = members.filter(m => m.role === r).length;
                 return `
                   <tr>
                     <td>
                       <strong>${esc(r)}</strong>
-                      ${isSuper ? '<br><small style="color:#147d86;">★ Master Administrator</small>' : ''}
+                      ${isSuper ? '<br><small style="color:#147d86;">★ Always has every permission</small>' : ''}
                     </td>
+                    <td style="text-align:center;">${count}</td>
                     ${ALL_PERMISSIONS.map(p => {
                       const has = isSuper || (db.roles[r] && db.roles[r].includes(p.id));
                       return `
                         <td style="text-align:center;">
-                          <input type="checkbox" 
-                            data-rbac-role="${esc(r)}" 
-                            data-rbac-perm="${esc(p.id)}" 
-                            ${has ? 'checked' : ''} 
+                          <input type="checkbox"
+                            data-rbac-role="${esc(r)}"
+                            data-rbac-perm="${esc(p.id)}"
+                            ${has ? 'checked' : ''}
                             ${isSuper ? 'disabled title="Super Admin always has full permissions"' : ''}
                             aria-label="Toggle ${esc(p.name)} for ${esc(r)}">
                         </td>
                       `;
                     }).join('')}
+                    <td>${isSuper || DEFAULT_ROLES[r] ? '' : `<button class="danger" data-action="delete-role" data-id="${esc(r)}" ${count ? 'disabled title="Reassign its users first"' : ''}>Delete</button>`}</td>
                   </tr>
                 `;
               }).join('')}
@@ -2300,44 +2442,52 @@ function team() {
     `;
   }
 
+  const fmtDate = d => d ? new Date(d).toLocaleString() : '—';
+
   return title(
     'A team in sync.',
-    'Role-Based Access Control (RBAC), team roster and fraud blacklist.',
-    `<button class="primary" data-action="new-agent">+ Add team member</button><button data-action="manage-blacklist">Blacklist Management</button>`
+    'Team accounts, role-based access control and fraud blacklist.',
+    `${canManage ? '<button class="primary" data-action="new-agent">+ Add team member</button>' : ''}<button data-action="manage-blacklist">Blacklist Management</button>`
   ) + `
     ${rbacMatrix}
 
     <div class="panel">
       <div class="panel-head">
         <div>
-          <h2>Team roster</h2>
-          <p>Administrators and confirmation agents</p>
+          <h2>Team accounts</h2>
+          <p>${serverUsers ? `${members.length} account(s) · ${members.filter(m => m.active === false).length} disabled` : 'Loading accounts…'}</p>
         </div>
       </div>
       ${table(
-        ['Member', 'Email', 'Role', 'Status', 'Assigned orders', 'Actions'],
-        db.agents.map(a => {
+        ['Member', 'Email', 'Role', 'Account', 'Availability', 'Last sign-in', 'Assigned orders', 'Actions'],
+        members.map(a => {
+          const isMe = a.id === db.currentUser.id;
           return `
             <tr>
               <td>
                 <b>${esc(a.name)}</b>
-                ${a.id === db.currentUser.id ? '<span class="badge active" style="margin-left:6px;">Current User</span>' : ''}
+                ${isMe ? '<span class="badge active" style="margin-left:6px;">You</span>' : ''}
               </td>
-              <td>${esc(a.email || a.id + '@rosaino.com')}</td>
+              <td>${esc(a.email || '')}</td>
               <td>
-                ${isSuperAdmin ? `
-                  <select data-role="${a.id}" aria-label="Role for ${esc(a.name)}">
-                    ${roleList.map(r => `<option ${r === a.role ? 'selected' : ''}>${r}</option>`).join('')}
+                ${canManage && !isMe ? `
+                  <select data-role="${esc(a.id)}" aria-label="Role for ${esc(a.name)}">
+                    ${roleList.map(r => `<option ${r === a.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}
                   </select>
                 ` : `<b>${esc(a.role)}</b>`}
               </td>
-              <td>${badge(a.status)}</td>
+              <td>${a.active === false ? badge('Disabled') : badge('Active')}</td>
+              <td>${badge(a.status || 'Available')}</td>
+              <td><small>${fmtDate(a.lastLoginAt)}</small></td>
               <td>${db.orders.filter(o => o.agent === a.id).length}</td>
-              <td>
-                <button data-action="switch-user" data-id="${a.id}" ${a.id === db.currentUser.id ? 'disabled' : ''}>
-                  ${a.id === db.currentUser.id ? 'Active' : 'Switch role'}
-                </button>
-              </td>
+              <td><div style="display:flex;gap:6px;">
+                ${canManage ? `
+                  <button data-action="edit-user" data-id="${esc(a.id)}">Edit</button>
+                  <button data-action="reset-user-password" data-id="${esc(a.id)}">Reset password</button>
+                  ${isMe ? '' : `<button data-action="toggle-user" data-id="${esc(a.id)}">${a.active === false ? 'Enable' : 'Disable'}</button>
+                  <button class="danger" data-action="delete-user" data-id="${esc(a.id)}">Delete</button>`}
+                ` : (isMe ? '<button data-action="my-account">My account</button>' : '')}
+              </div></td>
             </tr>
           `;
         })
@@ -2346,32 +2496,81 @@ function team() {
   `;
 }
 
-// 13. Settings
-function settings() {
-  return title('System & workspace settings.', 'Workspace preferences, Supabase database connection and access management.') + `
+// 13. Security & audit trail
+function security() {
+  if (!auditEntries) {
+    fetch('/api/audit').then(r => r.ok ? r.json() : []).then(list => {
+      auditEntries = list;
+      if (page === 'security') render();
+    }).catch(() => {});
+  }
+  const list = auditEntries || [];
+  const failed = list.filter(e => e.action === 'login.failed');
+  const logins = list.filter(e => e.action === 'login');
+  const label = a => ({
+    'login': 'Signed in', 'login.failed': 'Failed sign-in', 'logout': 'Signed out', 'logout.all': 'Signed out everywhere',
+    'password.changed': 'Password changed', 'user.created': 'User created', 'user.updated': 'User updated', 'user.deleted': 'User deleted',
+    'roles.updated': 'Permissions changed', 'roles.reset': 'Permissions reset', 'order.status': 'Order status',
+    'blacklist.added': 'Blacklisted phone', 'blacklist.removed': 'Unblacklisted phone', 'remittance.reconciled': 'Remittance reconciled',
+    'purchase_order.received': 'PO received', 'product.saved': 'Product saved', 'cms.saved': 'Landing page saved'
+  }[a] || a);
+  return title('Security & audit.', 'Who signed in, and who changed what. Recorded on the server.', '<button data-action="refresh-audit">Refresh</button>') + `
+    <div class="metrics">
+      ${metric('Events recorded', list.length, 'Most recent 200')}
+      ${metric('Successful sign-ins', logins.length, logins[0] ? `Last: ${esc(logins[0].actor)}` : '—')}
+      ${metric('Failed sign-ins', failed.length, failed.length ? 'Accounts lock for 15 min after 5 failures' : 'No failed attempts')}
+      ${metric('Team accounts', db.agents.length, `${db.agents.filter(a => a.active === false).length} disabled`)}
+    </div>
     <div class="panel">
-      <h2>Administrator Accounts</h2>
-      <div style="background:#f0f8f7;padding:16px;border-radius:8px;font-size:13px;line-height:1.7;margin-bottom:18px;">
-        <strong>Super Admin:</strong> <code>superadmin@rosaino.com</code><br>
-        <strong>Standard Admin:</strong> <code>admin@rosaino.com</code><br>
-        <strong>Operations Manager:</strong> <code>operations@rosaino.com</code><br>
-        <strong>Confirmation Agent:</strong> <code>agent@rosaino.com</code>
-      </div>
-
-      <form id="settings-form">
-        <div class="form-grid">
-          <label>Workspace name<input name="company" value="${esc(db.settings.company)}" required maxlength="80"></label>
-          <label>Operating region<input name="region" value="${esc(db.settings.region)}" required maxlength="80"></label>
-          <label>Supabase URL<input value="https://kwqbghlwarkibhlgbgft.supabase.co" disabled></label>
-          <label>Active User<input value="${esc(db.currentUser.name)} (${esc(db.currentUser.role)})" disabled></label>
-        </div>
-        <p><button class="primary">Save preferences</button></p>
-      </form>
+      <div class="panel-head"><div><h2>Audit trail</h2><p>${auditEntries ? 'Newest first' : 'Loading…'}</p></div></div>
+      ${list.length ? table(
+        ['When', 'Who', 'Event', 'Details', 'IP'],
+        list.map(e => `
+          <tr>
+            <td><small>${esc(new Date(e.at).toLocaleString())}</small></td>
+            <td>${esc(e.actor)}</td>
+            <td>${e.action === 'login.failed' ? `<span class="badge cancelled">${esc(label(e.action))}</span>` : esc(label(e.action))}</td>
+            <td style="white-space:normal;max-width:420px;">${esc(e.detail || '')}</td>
+            <td><small>${esc(e.ip || '')}</small></td>
+          </tr>
+        `)
+      ) : '<div class="empty">No events yet.</div>'}
     </div>
   `;
 }
 
-const views = { overview, orders, calls, routing, shipping, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, settings };
+// 14. Settings
+function settings() {
+  const me = db.currentUser;
+  return title('System & workspace settings.', 'Your account, workspace preferences and database connection.') + `
+    <div class="grid">
+      <div class="panel">
+        <h2>Workspace preferences</h2>
+        <form id="settings-form">
+          <div class="form-grid">
+            <label>Workspace name<input name="company" value="${esc(db.settings.company)}" required maxlength="80"></label>
+            <label>Operating region<input name="region" value="${esc(db.settings.region)}" required maxlength="80"></label>
+            <label class="full">Supabase URL<input value="https://kwqbghlwarkibhlgbgft.supabase.co" disabled></label>
+          </div>
+          <p><button class="primary">Save preferences</button></p>
+        </form>
+      </div>
+      <div class="panel">
+        <h2>My account</h2>
+        <div class="stat-line"><span>Name</span><b>${esc(me.name)}</b></div>
+        <div class="stat-line"><span>Email</span><b>${esc(me.email)}</b></div>
+        <div class="stat-line"><span>Role</span><b>${esc(me.role)}</b></div>
+        <div class="stat-line"><span>Session expires</span><b>${esc(getSession()?.expiresAt ? new Date(getSession().expiresAt).toLocaleString() : '—')}</b></div>
+        <div class="actions" style="margin-top:18px;">
+          <button class="primary" data-action="change-password">Change password</button>
+          <button data-action="sign-out-all">Sign out everywhere</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+const views = { overview, orders, calls, routing, shipping, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
 
 function updateLivePreview() {
   const pId = activeCmsProductId;
@@ -3071,11 +3270,7 @@ function render() {
   // Header and user profile updates
   $('#breadcrumb').textContent = t(page) || (pageDef ? pageDef[2] : 'Overview');
   const roleNameEl = $('#header-role-name');
-  if (roleNameEl) roleNameEl.textContent = db.currentUser.role;
-  const sideNameEl = $('#sidebar-user-name');
-  if (sideNameEl) sideNameEl.textContent = db.currentUser.name;
-  const sideRoleEl = $('#sidebar-user-role');
-  if (sideRoleEl) sideRoleEl.textContent = db.currentUser.role;
+  if (roleNameEl) roleNameEl.textContent = previewRole ? `${effectiveRole()} (preview)` : db.currentUser.role;
 
   // Render navigation with permission locks and translated labels
   $('#nav').innerHTML = pages.map(([id, icon, name, perm], i) => {
@@ -3095,12 +3290,12 @@ function render() {
 
   // Check RBAC permission for this view
   if (!hasPermission(reqPerm)) {
-    $('#content').innerHTML = accessDeniedView(pageDef ? pageDef[2] : page, reqPerm);
+    $('#content').innerHTML = previewBanner() + accessDeniedView(pageDef ? pageDef[2] : page, reqPerm);
     return;
   }
 
   // Render authorized view
-  $('#content').innerHTML = views[page]();
+  $('#content').innerHTML = previewBanner() + views[page]();
 
   // Attach view-specific listeners
   if (page === 'orders') {
@@ -3221,7 +3416,7 @@ function modal(name, body, submit, callback) {
       </div>
     </form>
   `;
-  $('#modal').showModal();
+  if (!$('#modal').open) $('#modal').showModal();
   $('#dialog-form').onsubmit = e => {
     e.preventDefault();
     try {
@@ -3863,39 +4058,6 @@ function runRouting() {
   toast(`${leads.length} leads assigned`);
 }
 
-// User Switcher Modal for RBAC testing
-function openUserSwitcherModal() {
-  const options = db.agents.map(a => [a.id, `${a.name} — [${a.role}]`]);
-  modal(
-    'Switch Active Admin Persona (RBAC)',
-    `
-      <p class="info">Select an administrator or role to test permissions and view the operations workspace under different access tiers.</p>
-      <div class="form-grid">
-        ${select('userId', 'Select Administrator Persona', options, db.currentUser.id)}
-      </div>
-      <div style="background:#f0f8f7;padding:14px;border-radius:8px;margin-top:14px;font-size:12px;">
-        <strong>Role Capabilities:</strong><br>
-        • <strong>Super Admin:</strong> Full access to all modules + RBAC permissions matrix.<br>
-        • <strong>Admin:</strong> Operations and team management.<br>
-        • <strong>Operations manager:</strong> Orders, calls, routing, shipping, stock.<br>
-        • <strong>Confirmation agent:</strong> Dedicated Call Center queue only.<br>
-        • <strong>Finance viewer:</strong> Executive overview, ledger, and reports.
-      </div>
-    `,
-    'Switch Persona',
-    f => {
-      const u = db.agents.find(a => a.id === f.get('userId'));
-      if (u) {
-        db.currentUser = { id: u.id, name: u.name, email: u.email, role: u.role };
-        setSession({ user: db.currentUser, token: 'demo_' + u.id });
-        persist();
-        toast(`Active persona switched to ${u.name} (${u.role})`);
-        render();
-      }
-    }
-  );
-}
-
 // View Supabase SQL Schema Modal
 async function viewSupabaseSchema() {
   try {
@@ -3940,6 +4102,94 @@ async function testSupabaseSync() {
   } catch (e) {
     toast('Failed to test Supabase connection: ' + e.message);
   }
+}
+
+function generatePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+
+async function updateUser(id, body, message) {
+  try {
+    await api(`/api/users/${encodeURIComponent(id)}`, 'PATCH', body);
+    await loadUsers();
+    render();
+    toast(message);
+    return true;
+  } catch (err) {
+    toast(err.message);
+    await loadUsers();
+    render();
+    return false;
+  }
+}
+
+async function saveRoles(roles, message) {
+  try {
+    const data = await api('/api/roles', 'PUT', { roles });
+    db.roles = data.roles;
+    persist();
+    render();
+    toast(message);
+    return true;
+  } catch (err) {
+    toast(err.message);
+    render();
+    return false;
+  }
+}
+
+function openMyAccount() {
+  const me = db.currentUser;
+  modal(
+    'My account',
+    `
+      <div class="stat-line"><span>Name</span><b>${esc(me.name)}</b></div>
+      <div class="stat-line"><span>Email</span><b>${esc(me.email)}</b></div>
+      <div class="stat-line"><span>Role</span><b>${esc(me.role)}</b></div>
+      ${previewRole ? `<div class="stat-line"><span>Previewing as</span><b>${esc(previewRole)}</b></div>` : ''}
+      <div class="actions" style="margin-top:18px;">
+        <button type="button" data-action="change-password">Change password</button>
+        ${previewRole ? '<button type="button" data-action="exit-preview">Exit role preview</button>' : ''}
+        <button type="button" data-action="sign-out-all">Sign out everywhere</button>
+        <button type="button" class="danger" data-action="sign-out">Sign out</button>
+      </div>
+    `,
+    '',
+    () => {}
+  );
+}
+
+function openChangePassword() {
+  modal(
+    'Change password',
+    `
+      <p class="info">Changing your password signs you out on other devices.</p>
+      <div class="form-grid">
+        <label class="full">Current password<input name="current" type="password" required autocomplete="current-password"></label>
+        <label>New password<input name="next" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label>Confirm new password<input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label>
+      </div>
+      <div id="password-error" role="alert" style="color:#ac3838;margin-top:8px;"></div>
+    `,
+    'Update password',
+    f => {
+      const err = $('#password-error');
+      if (f.get('next') !== f.get('confirm')) {
+        err.textContent = 'The new passwords do not match.';
+        return false;
+      }
+      api('/api/auth/change-password', 'POST', { currentPassword: f.get('current'), newPassword: f.get('next') })
+        .then(data => {
+          applySession(data);
+          $('#modal').close();
+          toast('Password updated.');
+        })
+        .catch(e => { err.textContent = e.message; });
+      return false;
+    }
+  );
 }
 
 const actions = {
@@ -4302,32 +4552,32 @@ const actions = {
   'view-schema': viewSupabaseSchema,
   'test-supabase': testSupabaseSync,
   'new-agent': () => {
-    if (!checkAction('team', 'Add team member')) return;
-    const roleList = Object.keys(db.roles);
+    if (!checkAction('rbac_manage', 'Add team member')) return;
     modal(
       'Add team member',
       `
+        <p class="info">The member signs in with this email and temporary password, and can change it from Settings.</p>
         <div class="form-grid">
-          ${input('name', 'Full name')}
+          ${input('name', 'Full name', '', 'text', 'maxlength="80"')}
           ${input('email', 'Email address', '', 'email')}
-          ${select('role', 'Role', roleList)}
+          ${select('role', 'Role', Object.keys(db.roles), 'Confirmation agent')}
+          ${input('password', 'Temporary password', generatePassword(), 'text', 'minlength="8" autocomplete="off"')}
         </div>
       `,
-      'Add member',
+      'Create account',
       f => {
-        const newA = {
-          id: 'a' + uid(),
-          name: f.get('name').trim(),
-          email: f.get('email').trim(),
-          role: f.get('role'),
-          status: 'Available'
-        };
-        db.agents.push(newA);
-        log(`Team member ${newA.name} (${newA.role}) added`);
-        toast(`Added ${newA.name}`);
+        const body = { name: f.get('name').trim(), email: f.get('email').trim(), role: f.get('role'), password: f.get('password') };
+        api('/api/users', 'POST', body).then(async ({ user }) => {
+          $('#modal').close();
+          await loadUsers();
+          render();
+          toast(`Account created for ${user.name}. Share the temporary password securely.`);
+        }).catch(err => toast(err.message));
+        return false;
       }
     );
   },
+
   'toggle-blacklist': phone => {
     const cPhone = cleanPhone(phone);
     if (!cPhone) return;
@@ -4365,23 +4615,132 @@ const actions = {
     $('#order-results').innerHTML = orderTable(dups);
     toast(`Showing ${dups.length} duplicate leads.`);
   },
-  'switch-user-modal': openUserSwitcherModal,
-  'switch-user': id => {
-    const u = db.agents.find(a => a.id === id);
-    if (u) {
-      db.currentUser = { id: u.id, name: u.name, email: u.email, role: u.role };
-      setSession({ user: db.currentUser, token: 'demo_' + u.id });
-      persist();
-      toast(`Switched active user to ${u.name} (${u.role})`);
-      render();
-    }
-  },
   'reset-rbac': () => {
-    db.roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
-    persist();
-    toast('RBAC permissions reset to security presets.');
+    if (!checkAction('rbac_manage', 'Reset permissions')) return;
+    if (!confirm('Reset every role to its default permissions? Custom roles will be removed.')) return;
+    api('/api/roles', 'PUT', { reset: true }).then(({ roles }) => {
+      db.roles = roles;
+      persist();
+      render();
+      toast('Role permissions reset to defaults.');
+    }).catch(err => toast(err.message));
+  },
+  'new-role': () => {
+    if (!checkAction('rbac_manage', 'Create role')) return;
+    modal(
+      'Create role',
+      `
+        <div class="form-grid">
+          ${input('name', 'Role name', '', 'text', 'maxlength="40"')}
+          ${select('copy', 'Start with permissions from', [['', 'No permissions'], ...Object.keys(db.roles).map(r => [r, r])], '')}
+        </div>
+      `,
+      'Create role',
+      f => {
+        const name = f.get('name').trim();
+        if (db.roles[name]) throw Error('A role with this name already exists.');
+        const perms = f.get('copy') ? [...(db.roles[f.get('copy')] || [])].filter(p => p !== 'rbac_manage') : [];
+        saveRoles({ ...db.roles, [name]: perms }, `Role "${name}" created`).then(ok => ok && $('#modal').close());
+        return false;
+      }
+    );
+  },
+  'delete-role': role => {
+    if (!checkAction('rbac_manage', 'Delete role')) return;
+    if (!confirm(`Delete the role "${role}"?`)) return;
+    const next = { ...db.roles };
+    delete next[role];
+    saveRoles(next, `Role "${role}" deleted`);
+  },
+  'preview-role': () => {
+    modal(
+      'Preview workspace as a role',
+      `
+        <p class="info">See exactly which modules a role can open. This only changes your view; your account keeps its own permissions.</p>
+        <div class="form-grid">${select('role', 'Role', Object.keys(db.roles).filter(r => r !== 'Super Admin'), 'Confirmation agent')}</div>
+      `,
+      'Start preview',
+      f => {
+        previewRole = f.get('role');
+        checkAuth();
+        location.hash = (pages.find(p => hasPermission(p[3])) || pages[0])[0];
+        toast(`Previewing as ${previewRole}`);
+      }
+    );
+  },
+  'exit-preview': () => {
+    previewRole = null;
+    checkAuth();
+    location.hash = 'team';
+    render();
+    toast('Role preview ended');
+  },
+  'edit-user': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Edit user')) return;
+    const isMe = u.id === db.currentUser.id;
+    modal(
+      `Edit ${esc(u.name)}`,
+      `
+        <div class="form-grid">
+          ${input('name', 'Full name', u.name, 'text', 'maxlength="80"')}
+          ${input('email', 'Email address', u.email, 'email')}
+          ${isMe ? `<label>Role<input value="${esc(u.role)}" disabled></label>` : select('role', 'Role', Object.keys(db.roles), u.role)}
+        </div>
+      `,
+      'Save changes',
+      f => {
+        const body = { name: f.get('name').trim(), email: f.get('email').trim() };
+        if (!isMe) body.role = f.get('role');
+        updateUser(u.id, body, `${body.name} updated`).then(ok => ok && $('#modal').close());
+        return false;
+      }
+    );
+  },
+  'reset-user-password': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Reset password')) return;
+    modal(
+      `Reset password for ${esc(u.name)}`,
+      `
+        <p class="info">Signs ${esc(u.name)} out of every device. Share the new password with them securely.</p>
+        <div class="form-grid">${input('password', 'New password', generatePassword(), 'text', 'minlength="8" autocomplete="off"')}</div>
+      `,
+      'Reset password',
+      f => {
+        updateUser(u.id, { password: f.get('password') }, `Password reset for ${u.name}`).then(ok => ok && $('#modal').close());
+        return false;
+      }
+    );
+  },
+  'toggle-user': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Enable/disable user')) return;
+    const enable = u.active === false;
+    if (!enable && !confirm(`Disable ${u.name}? They will be signed out immediately.`)) return;
+    updateUser(u.id, { active: enable }, `${u.name} ${enable ? 'enabled' : 'disabled'}`);
+  },
+  'delete-user': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Delete user')) return;
+    if (!confirm(`Permanently delete the account for ${u.name}? Consider disabling it instead.`)) return;
+    api(`/api/users/${encodeURIComponent(u.id)}`, 'DELETE').then(async () => {
+      await loadUsers();
+      render();
+      toast(`${u.name} deleted`);
+    }).catch(err => toast(err.message));
+  },
+  'my-account': openMyAccount,
+  'change-password': openChangePassword,
+  'sign-out': () => signOut(false),
+  'sign-out-all': () => {
+    if (confirm('Sign out of every device, including this one?')) signOut(true);
+  },
+  'refresh-audit': () => {
+    auditEntries = null;
     render();
   },
+
   'remittance-filter': val => {
     remittanceFilter = val || 'all';
     render();
@@ -4596,29 +4955,14 @@ document.addEventListener('click', e => {
     return;
   }
 
-  // Profile click opens role switcher
+  // Profile click opens the account menu
   if (e.target.closest('#user-profile-badge') && !e.target.closest('#sidebar-logout-btn')) {
-    openUserSwitcherModal();
+    openMyAccount();
   }
 
   // Logout triggers
   if (e.target.closest('#sidebar-logout-btn') || e.target.closest('#header-logout-btn')) {
-    clearSession();
-    toast('Signed out successfully.');
-    checkAuth();
-  }
-
-  // Autofill Super Admin credentials on login screen
-  if (e.target.closest('#btn-autofill-superadmin')) {
-    const em = $('#login-email');
-    const pw = $('#login-password');
-    if (em) em.value = 'superadmin@rosaino.com';
-    if (pw) pw.value = 'RosainoSuperAdmin2026!';
-    toast('Filled Super Admin credentials');
-  }
-
-  if (e.target.closest('#switch-role-btn')) {
-    openUserSwitcherModal();
+    signOut(false);
   }
 });
 
@@ -4641,38 +4985,22 @@ document.addEventListener('change', e => {
     }
   }
 
-  // Team member role change
+  // Team member role change (server-side)
   if (target.dataset.role) {
     const a = agent(target.dataset.role);
-    if (a) {
-      a.role = target.value;
-      if (a.id === db.currentUser.id) {
-        db.currentUser.role = a.role;
-      }
-      persist();
-      toast(`Role for ${a.name} updated to ${a.role}`);
-      render();
+    if (a && a.role !== target.value) {
+      updateUser(a.id, { role: target.value }, `Role for ${a.name} updated to ${target.value}`);
     }
   }
 
-  // RBAC permissions matrix checkbox toggle
+  // RBAC permissions matrix checkbox toggle (server-side)
   if (target.dataset.rbacRole && target.dataset.rbacPerm) {
     const role = target.dataset.rbacRole;
     const perm = target.dataset.rbacPerm;
     if (role === 'Super Admin') return;
-
-    if (!db.roles[role]) db.roles[role] = [];
-
-    if (target.checked) {
-      if (!db.roles[role].includes(perm)) db.roles[role].push(perm);
-      toast(`Granted "${perm}" to ${role}`);
-    } else {
-      db.roles[role] = db.roles[role].filter(p => p !== perm);
-      toast(`Revoked "${perm}" from ${role}`);
-    }
-
-    persist();
-    render();
+    const current = db.roles[role] || [];
+    const nextPerms = target.checked ? [...new Set([...current, perm])] : current.filter(p => p !== perm);
+    saveRoles({ ...db.roles, [role]: nextPerms }, `${target.checked ? 'Granted' : 'Revoked'} "${perm}" ${target.checked ? 'to' : 'from'} ${role}`);
   }
 });
 
@@ -4697,19 +5025,24 @@ if (loginForm) {
   loginForm.onsubmit = async e => {
     e.preventDefault();
     const errorMsg = $('#login-error-msg');
+    const submitBtn = loginForm.querySelector('button[type="submit"]');
     if (errorMsg) errorMsg.style.display = 'none';
 
     const formData = new FormData(loginForm);
     const email = formData.get('email')?.toString().trim();
-    const password = formData.get('password')?.toString().trim();
+    const password = formData.get('password')?.toString();
 
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in…';
+    }
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.success) {
         if (errorMsg) {
@@ -4719,15 +5052,26 @@ if (loginForm) {
         return;
       }
 
-      setSession(data);
-      db.currentUser = data.user;
+      applySession(data);
+      previewRole = null;
+      loginForm.reset();
       toast(`Welcome, ${data.user.name} (${data.user.role})!`);
       checkAuth();
+      // Land on the first module this role can open
+      const target = location.hash.slice(1);
+      const def = pages.find(p => p[0] === target);
+      if (!def || !hasPermission(def[3])) location.hash = (pages.find(p => hasPermission(p[3])) || pages[0])[0];
       render();
+      bootSync();
     } catch (err) {
       if (errorMsg) {
-        errorMsg.textContent = 'Server authentication error. Please try again.';
+        errorMsg.textContent = 'Could not reach the server. Please try again.';
         errorMsg.style.display = 'block';
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
       }
     }
   };
@@ -4735,12 +5079,20 @@ if (loginForm) {
 
 window.addEventListener('hashchange', () => {
   document.body.classList.remove('nav-open');
+  if (location.hash === '#security') auditEntries = null; // always show the latest audit trail
+  if (location.hash === '#team') serverUsers = null; // and the latest team accounts
   render();
   window.scrollTo(0, 0);
 });
 
 // Cross-tab synchronization
 window.addEventListener('storage', e => {
+  if (e.key === SESSION_KEY) {
+    // Signed in or out in another tab
+    if (!getSession()) handleSessionExpired();
+    else { checkAuth(); render(); }
+    return;
+  }
   if (!e.key || e.key === KEY) {
     try {
       const raw = localStorage.getItem(KEY);
@@ -4766,6 +5118,10 @@ window.addEventListener('message', event => {
 
 // Initial boot check: check server for latest products & orders
 async function bootSync() {
+  if (!getSession()) return;
+  if (!(await refreshSession()) && !getSession()) return;
+  checkAuth();
+  render();
   try {
     const [pRes, oRes, poRes] = await Promise.all([
       fetch('/api/products').catch(() => null),

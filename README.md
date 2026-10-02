@@ -4,13 +4,12 @@ The existing Rosaino landing page and original bundled assets are preserved. Its
 
 ## Run locally
 
-No dependency install or build step is required:
-
 ```sh
-python3 -m http.server 8000 --directory dist
+npm install
+npm start
 ```
 
-Open http://localhost:8000 and use the footer, or visit http://localhost:8000/admin/.
+Open http://localhost:3000 and use the footer, or visit http://localhost:3000/admin/ and sign in (see **Admin sign-in**).
 
 ## GitHub and Vercel
 
@@ -33,13 +32,42 @@ This export comes from the existing Rosaino Sites source. It preserves that sour
 - Integrations: clearly simulated setup cards for Google Sheets, WooCommerce, Meta Ads, Digylog, OzoneExpress, AMEEX and Supabase.
 - Team: sample members and editable role labels. Settings: company/region preferences, demo reset.
 
+## Admin sign-in
+
+The operations portal at `/admin/` requires an account. Sign-in is checked by the server (`auth.js`):
+
+- Passwords are hashed with scrypt; sessions are HMAC-signed tokens that expire after 12 hours and work on Vercel without a session store.
+- Every admin API route checks the caller's role permissions on the server. The storefront, product landing page and tracking page stay public; anonymous storefront orders are always created as `New`.
+- Five failed sign-ins for the same email and IP lock that pair out for 15 minutes.
+
+Default accounts (change these before going live):
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Super Admin | superadmin@rosaino.com | RosainoSuperAdmin2026! |
+| Admin | admin@rosaino.com | RosainoAdmin2026! |
+| Operations manager | operations@rosaino.com | OpsManager2026! |
+| Confirmation agent | agent@rosaino.com | Agent2026! |
+| Finance viewer | finance@rosaino.com | Finance2026! |
+
+Production environment variables (see `.env.example`):
+
+- `AUTH_SECRET`: long random string that signs sessions. Required in production.
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD`: replace the default Super Admin login.
+- `DISABLE_DEMO_USERS=true`: remove the four sample accounts.
+- `SUPABASE_SERVICE_ROLE_KEY`: optional. Persists users, role permissions and the audit trail in the `admin_users`, `roles` and `admin_audit` tables from `supabase-schema.sql`. Without it, users and roles you create live in server memory and reset when the server restarts or a new serverless instance starts.
+
+### Admin features
+
+- **Team & RBAC** (Super Admin, or any role given `Users & RBAC Control`): create accounts with a temporary password, edit name/email/role, reset passwords, disable/enable or delete accounts, edit the role permission matrix, create and delete custom roles, and preview the workspace as any role. You can't disable or demote yourself, and the last active Super Admin can't be removed.
+- **Security & audit**: sign-ins, failed sign-ins, sign-outs, password changes, user and permission changes, order status changes, blacklist edits, remittances, PO receipts and product/CMS saves.
+- **My account** (click your profile, or Settings): change password, sign out, sign out on every device.
+
 ## Data and security
 
-All customer names and records are fictional. Changes are saved in this browser under `rosaino-operations-demo-v1`. Reset restores sample data and does not affect the storefront bag.
+All customer names and records are fictional. Operations data is still cached in this browser under `rosaino_operations_workspace_v1` and synced to the server API where available.
 
-**There is no admin authentication or authorization in this demo.** The footer link is navigable by anyone who can visit the site. Do not enter real customer records or secrets. Role selection is illustrative and grants no protection.
-
-Before production, implement Supabase Auth, an administrator membership table, row-level security for every table, server-side integration secrets, validated webhooks and backend order/stock transactions. Create a data repository layer to replace the demo's local storage functions. Add server-side import validation and audit logging, carrier reconciliation and real payment flows. API keys must never be stored in this frontend.
+Still needed for production: tighten the open Supabase RLS policies on `products`, `orders`, `activity` and `suppliers`, which the server writes with the public key; validate webhooks; run order and stock changes as backend transactions; reconcile with carriers; and add real payment flows. API keys must never be stored in this frontend.
 
 ## Source
 
