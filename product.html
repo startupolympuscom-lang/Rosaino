@@ -9,18 +9,25 @@
   <link rel="stylesheet" href="/style.css">
   <style>
     :root {
-      --primary: #147d86;
-      --primary-dark: #0e5b62;
-      --coral: #ff6554;
-      --gold: #f59e0b;
+      /* Rosaino visual identity (matches style.css) */
       --ink: #173540;
-      --cloud: #f8fafb;
-      --line: #e2e8ea;
+      --coral: #ff6554;
+      --gold: #f8b440;
+      --teal: #2d9f9a;
+      --cloud: #f7f6f2;
+      --line: #e3e8e6;
+      --sand: #f5f1e9;
+      --muted: #526b72;
+      /* Deeper brand teal for text and links (AA contrast on white) */
+      --primary: #1f7a75;
+      --primary-dark: #17605c;
     }
     body {
-      background: #fdfefe;
+      background: #fff;
       color: var(--ink);
+      overflow-x: hidden;
     }
+    .landing-container, .landing-header, .site-footer { max-width: 100%; }
     .landing-announcement {
       background: var(--ink);
       color: #fff;
@@ -38,14 +45,14 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 0 3px rgba(16,185,129,0.3);
+      background: var(--teal);
+      box-shadow: 0 0 0 3px rgba(45,159,154,0.3);
       animation: pulse 1.8s infinite;
     }
     @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
-      70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
-      100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+      0% { box-shadow: 0 0 0 0 rgba(45,159,154,0.5); }
+      70% { box-shadow: 0 0 0 6px rgba(45,159,154,0); }
+      100% { box-shadow: 0 0 0 0 rgba(45,159,154,0); }
     }
     .landing-header {
       padding: 16px 5%;
@@ -71,13 +78,15 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      background: #e6f4ea;
-      color: #137333;
-      padding: 4px 10px;
+      background: #e8f4f2;
+      color: var(--primary);
+      padding: 5px 12px;
       border-radius: 20px;
+      letter-spacing: .02em;
       font-size: 11px;
       font-weight: 700;
     }
+    .site-footer { border-top: 1px solid var(--line); background: #fff; }
     .landing-container {
       max-width: 1120px;
       margin: 32px auto 80px;
@@ -93,17 +102,16 @@
     .media-card {
       background: #fff;
       border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 18px;
-      box-shadow: 0 8px 30px rgba(23,53,64,0.04);
+      border-radius: 8px;
+      padding: 16px;
       position: sticky;
       top: 90px;
     }
     .main-image-wrap {
       width: 100%;
       aspect-ratio: 1;
-      border-radius: 12px;
-      background: #f7f9f9;
+      border-radius: 7px;
+      background: var(--sand);
       overflow: hidden;
       display: grid;
       place-items: center;
@@ -123,14 +131,14 @@
       top: 14px;
       left: 14px;
       background: var(--coral);
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 6px;
+      color: var(--ink);
+      padding: 7px 12px;
+      border-radius: 4px;
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.5px;
+      letter-spacing: .12em;
       text-transform: uppercase;
-      box-shadow: 0 4px 12px rgba(255,101,84,0.3);
+      z-index: 2;
     }
     .thumbnails-row {
       display: flex;
@@ -146,7 +154,7 @@
       border: 2px solid transparent;
       overflow: hidden;
       cursor: pointer;
-      background: #f5f7f8;
+      background: var(--sand);
       flex-shrink: 0;
     }
     .thumb-item.active {
@@ -169,32 +177,33 @@
       align-items: center;
       gap: 8px;
       font-size: 13px;
-      color: #4b6369;
+      color: var(--muted);
+      flex-wrap: wrap;
     }
     .stars {
       color: var(--gold);
       font-size: 15px;
     }
     .product-hook-title {
-      font-size: clamp(28px, 3.2vw, 38px);
-      line-height: 1.15;
-      font-weight: 700;
+      font-size: clamp(32px, 3.6vw, 46px);
+      line-height: 1.08;
+      font-weight: 650;
       margin: 0;
-      letter-spacing: -0.5px;
+      letter-spacing: -.035em;
       color: var(--ink);
     }
     .product-subtitle {
       font-size: 15px;
-      line-height: 1.6;
-      color: #556c73;
+      line-height: 1.7;
+      color: var(--muted);
       margin: 0;
     }
 
     /* Pricing Display */
     .price-banner {
-      background: #f0f8f7;
-      border: 1px solid #cce5e2;
-      border-radius: 12px;
+      background: var(--cloud);
+      border: 1px solid var(--line);
+      border-radius: 8px;
       padding: 16px 20px;
       display: flex;
       justify-content: space-between;
@@ -203,21 +212,22 @@
       gap: 12px;
     }
     .price-main {
-      font-size: 34px;
-      font-weight: 800;
-      color: var(--primary);
-      letter-spacing: -0.5px;
+      font-family: Outfit, 'Arial Rounded MT Bold', Arial, sans-serif;
+      font-size: 36px;
+      font-weight: 650;
+      color: var(--ink);
+      letter-spacing: -.03em;
     }
     .price-original {
       font-size: 18px;
       text-decoration: line-through;
-      color: #8c9fa3;
+      color: #7d8f93;
       margin-left: 8px;
     }
     .price-savings {
-      background: #fee2e2;
-      color: #b91c1c;
-      padding: 4px 10px;
+      background: #ffe9e6;
+      color: #b8392b;
+      padding: 5px 12px;
       border-radius: 20px;
       font-size: 12px;
       font-weight: 700;
@@ -228,32 +238,33 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 10px;
+      background: #fef6e4;
+      border: 1px solid #f6d996;
+      border-radius: 8px;
       padding: 12px 16px;
       font-size: 13px;
-      color: #92400e;
+      color: #6f4d0e;
       flex-wrap: wrap;
       gap: 8px;
     }
     .timer-digits {
-      font-family: monospace;
-      font-weight: 700;
+      font-family: Outfit, Arial, sans-serif;
+      font-variant-numeric: tabular-nums;
+      font-weight: 650;
       font-size: 15px;
-      background: #fef3c7;
-      padding: 4px 8px;
-      border-radius: 6px;
-      border: 1px solid #fcd34d;
+      background: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #f6d996;
+      color: var(--ink);
     }
 
     /* Quantity Pricing Table / Bundles */
     .bundle-section {
       background: #fff;
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 8px;
       padding: 22px;
-      box-shadow: 0 4px 20px rgba(23,53,64,0.03);
     }
     .bundle-heading {
       display: flex;
@@ -262,10 +273,12 @@
       margin-bottom: 14px;
     }
     .bundle-heading h3 {
-      font-size: 16px;
+      font-family: 'DM Sans', Arial, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
       margin: 0;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: .15em;
       color: var(--ink);
     }
     .bundle-list {
@@ -274,8 +287,8 @@
       gap: 10px;
     }
     .bundle-card {
-      border: 2px solid #e3e8e6;
-      border-radius: 10px;
+      border: 1.5px solid var(--line);
+      border-radius: 7px;
       padding: 14px 18px;
       display: flex;
       align-items: center;
@@ -286,25 +299,25 @@
       position: relative;
     }
     .bundle-card:hover {
-      border-color: #a4cbcf;
+      border-color: #9fcfcb;
     }
     .bundle-card.selected {
-      border-color: var(--primary);
-      background: #f2faf9;
-      box-shadow: 0 0 0 1px var(--primary);
+      border-color: var(--teal);
+      background: #f1f8f7;
+      box-shadow: 0 0 0 1px var(--teal);
     }
     .bundle-badge {
       position: absolute;
       top: -10px;
       right: 14px;
       background: var(--coral);
-      color: #fff;
+      color: var(--ink);
       font-size: 10px;
-      font-weight: 800;
-      padding: 2px 8px;
-      border-radius: 12px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 4px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: .1em;
     }
     .bundle-left {
       display: flex;
@@ -312,9 +325,10 @@
       gap: 12px;
     }
     .bundle-radio {
+      flex-shrink: 0;
       width: 18px;
       height: 18px;
-      accent-color: var(--primary);
+      accent-color: var(--teal);
       cursor: pointer;
     }
     .bundle-title {
@@ -324,7 +338,7 @@
     }
     .bundle-savings {
       font-size: 12px;
-      color: #16a34a;
+      color: var(--primary);
       font-weight: 600;
       margin-top: 2px;
     }
@@ -332,23 +346,24 @@
       text-align: right;
     }
     .bundle-price-val {
-      font-size: 18px;
-      font-weight: 800;
-      color: var(--primary);
+      font-family: Outfit, Arial, sans-serif;
+      font-size: 19px;
+      font-weight: 650;
+      color: var(--ink);
     }
     .bundle-price-orig {
       font-size: 12px;
       text-decoration: line-through;
-      color: #8c9fa3;
+      color: #7d8f93;
     }
 
     /* Fast COD Form */
     .fast-cod-box {
-      background: #fff;
-      border: 2px solid var(--primary);
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 40px rgba(20,125,134,0.08);
+      background: var(--cloud);
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--teal);
+      border-radius: 8px;
+      padding: 26px;
     }
     .fast-cod-header {
       text-align: center;
@@ -357,36 +372,36 @@
       margin-bottom: 18px;
     }
     .fast-cod-header h3 {
-      font-size: 20px;
-      margin: 0 0 4px;
+      font-size: 24px;
+      letter-spacing: -.02em;
+      margin: 0 0 6px;
       color: var(--ink);
     }
     .fast-cod-header p {
       font-size: 13px;
-      color: #5d7278;
+      color: var(--muted);
       margin: 0;
     }
     .btn-submit-cod {
       background: var(--coral);
-      color: #fff;
+      color: var(--ink);
       border: none;
       width: 100%;
-      padding: 16px;
-      border-radius: 8px;
-      font-size: 17px;
-      font-weight: 800;
-      letter-spacing: 0.3px;
+      padding: 17px 24px;
+      border-radius: 5px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .02em;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
       transition: background 0.2s, transform 0.1s;
-      box-shadow: 0 6px 20px rgba(255,101,84,0.3);
       margin-top: 10px;
     }
     .btn-submit-cod:hover {
-      background: #f75340;
+      background: #ff7a6b;
       transform: translateY(-2px);
     }
     .cod-trust-line {
@@ -396,16 +411,30 @@
       gap: 16px;
       margin-top: 14px;
       font-size: 12px;
-      color: #556c73;
+      color: var(--muted);
       flex-wrap: wrap;
     }
+    .cod-trust-line span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .cod-trust-line span::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--teal);
+    }
+    .cod-trust-line span:nth-child(2)::before { background: var(--coral); }
+    .cod-trust-line span:nth-child(3)::before { background: var(--gold); }
 
     /* Features Grid */
     .features-card {
       background: #fff;
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 24px;
+      border-radius: 8px;
+      padding: 30px;
       margin-top: 40px;
     }
     .features-grid {
@@ -422,12 +451,11 @@
     .feature-icon {
       width: 40px;
       height: 40px;
-      border-radius: 10px;
-      background: #e6f4f2;
+      border-radius: 50%;
+      background: var(--cloud);
       color: var(--primary);
       display: grid;
       place-items: center;
-      font-size: 18px;
       flex-shrink: 0;
     }
     .feature-item h4 {
@@ -435,10 +463,13 @@
       font-size: 14px;
       font-weight: 700;
     }
+    .feature-icon svg { width: 20px; height: 20px; }
+    .feature-item:nth-child(4n+2) .feature-icon { color: #c74134; }
+    .feature-item:nth-child(4n+3) .feature-icon { color: #9a6a0c; }
     .feature-item p {
       margin: 0;
-      font-size: 12px;
-      color: #5d7278;
+      font-size: 13px;
+      color: var(--muted);
       line-height: 1.5;
     }
 
@@ -446,8 +477,8 @@
     .reviews-card {
       background: #fff;
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 24px;
+      border-radius: 8px;
+      padding: 30px;
       margin-top: 30px;
     }
     .reviews-list {
@@ -457,10 +488,10 @@
       margin-top: 16px;
     }
     .review-bubble {
-      background: #f8fafb;
-      border: 1px solid #e7ecee;
-      border-radius: 10px;
-      padding: 16px;
+      background: var(--cloud);
+      border: 0;
+      border-radius: 7px;
+      padding: 20px;
     }
     .review-user {
       display: flex;
@@ -469,9 +500,9 @@
       font-size: 13px;
     }
     .review-bubble p {
-      font-size: 13px;
-      line-height: 1.6;
-      color: #4b6369;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--muted);
       margin: 0;
     }
 
@@ -479,8 +510,8 @@
     .faq-card {
       background: #fff;
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 24px;
+      border-radius: 8px;
+      padding: 30px;
       margin-top: 30px;
     }
     .faq-item {
@@ -498,9 +529,9 @@
       cursor: pointer;
     }
     .faq-answer {
-      font-size: 13px;
-      color: #556c73;
-      line-height: 1.6;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.7;
       margin-top: 8px;
     }
 
@@ -520,17 +551,18 @@
       justify-content: space-between;
     }
     .sticky-price {
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--primary);
+      font-family: Outfit, Arial, sans-serif;
+      font-size: 21px;
+      font-weight: 650;
+      color: var(--ink);
     }
     .sticky-btn {
       background: var(--coral);
-      color: #fff;
+      color: var(--ink);
       border: none;
-      padding: 12px 24px;
-      border-radius: 6px;
-      font-weight: 800;
+      padding: 13px 22px;
+      border-radius: 5px;
+      font-weight: 700;
       font-size: 14px;
       cursor: pointer;
     }
@@ -554,7 +586,7 @@
       transition: all 0.2s ease;
     }
     .lang-dropdown-btn:hover {
-      background: #f8fafb;
+      background: var(--cloud);
       border-color: var(--primary);
     }
     .lang-dropdown-menu {
@@ -593,7 +625,7 @@
       transition: background 0.15s;
     }
     .lang-option:hover {
-      background: #f0f7f7;
+      background: var(--cloud);
       color: var(--primary);
     }
     .lang-option .tag {
@@ -642,7 +674,52 @@
       margin-top: 30px;
     }
 
+    /* Product photo cropped from the collection sprite, exactly like the storefront cards */
+    .main-image-wrap.is-sprite { aspect-ratio: 1.12; }
+    .sprite-photo {
+      width: 100%;
+      height: 100%;
+      background-image: url('/assets/collection.png');
+      background-repeat: no-repeat;
+      background-size: 965% auto;
+      transition: transform .4s ease;
+    }
+    .main-image-wrap:hover .sprite-photo { transform: scale(1.03); }
+    .thumb-item { width: 83px; }
+    .landing-eyebrow { color: var(--primary); }
+    #reviews-stars-header { color: var(--muted); font-weight: 600; font-size: 13px; }
+    .section-eyebrow { display: block; font-size: 11px; letter-spacing: .15em; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+    .lower-title { font-size: 28px !important; letter-spacing: -.03em; margin: 0 0 18px !important; }
+    #landing-cod-form input, #landing-cod-form select, #landing-cod-form textarea {
+      background: #fff;
+      border: 1px solid #dfe3e2;
+      border-radius: 6px;
+    }
+    #landing-cod-form input:focus, #landing-cod-form select:focus, #landing-cod-form textarea:focus {
+      outline: 2px solid var(--teal);
+      outline-offset: 1px;
+    }
+    .cod-summary {
+      background: #fff;
+      border: 1px dashed #cfd8d6;
+      border-radius: 7px;
+      padding: 14px;
+      margin: 8px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .cod-summary strong:last-child { font-family: Outfit, Arial, sans-serif; font-size: 22px; font-weight: 650; color: var(--ink); }
+    .success-check { background: #e8f4f2 !important; color: var(--primary) !important; }
+    .landing-header .header-links a { color: var(--primary); }
+    .btn-wa { border: 1px solid var(--line); border-radius: 50px; font-weight: 600; color: var(--ink); }
+    .btn-wa:hover { border-color: var(--teal); }
+
     @media (max-width: 860px) {
+      .landing-header { flex-wrap: wrap; gap: 10px; padding: 12px 4%; }
+      .header-links { flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+      .badge-guarantee, #header-back-link, .header-admin-link { display: none !important; }
       .product-hero-grid {
         grid-template-columns: 1fr;
         gap: 30px;
@@ -657,7 +734,10 @@
         display: flex;
       }
       .landing-container {
-        margin-bottom: 120px;
+        margin-bottom: 40px;
+      }
+      .site-footer {
+        padding-bottom: 110px;
       }
     }
 
@@ -749,7 +829,7 @@
 
   <!-- Top In-Preview Visual Edit Mode Notification Banner -->
   <div class="visual-edit-banner-top" id="visual-edit-banner-top">
-    ✏️ <strong>Mode Édition Directe Actif :</strong> Cliquez ou tapez sur n'importe quel texte ou élément ci-dessous pour modifier la page en direct !
+    <strong>Mode Édition Directe Actif :</strong> Cliquez ou tapez sur n'importe quel texte ou élément ci-dessous pour modifier la page en direct !
   </div>
 
   <!-- Announcement Bar Section -->
@@ -777,7 +857,7 @@
     <div class="header-links">
       <span class="badge-guarantee" id="header-guarantee-badge">Cash on Delivery Guaranteed</span>
       <a href="/track" id="header-track-link" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;">Track Order</a>
-      <a href="/admin/" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;" title="Open Rosaino Operations Workspace">Admin Portal</a>
+      <a href="/admin/" class="header-admin-link" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;" title="Open Rosaino Operations Workspace">Admin Portal</a>
       
       <!-- Language Switcher in Header -->
       <div class="lang-selector-wrap" id="lang-selector-wrap">
@@ -810,8 +890,8 @@
 
   <div class="landing-container">
     <!-- Breadcrumb navigation -->
-    <div id="cms-breadcrumb" style="display:flex;align-items:center;gap:8px;font-size:13px;color:#6b8288;margin-bottom:20px;">
-      <a href="/" style="color:var(--primary);text-decoration:none;font-weight:600;">Storefront</a>
+    <div id="cms-breadcrumb" style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:20px;flex-wrap:wrap;">
+      <a href="/" style="color:var(--primary);text-decoration:none;font-weight:600;">Rosaino</a>
       <span>›</span>
       <span id="breadcrumb-category">Catalog</span>
       <span>›</span>
@@ -829,7 +909,8 @@
         </div>
         <div class="main-image-wrap">
           <span class="media-badge" id="cms-badge" data-cms-editable="true" data-cms-field="badgeText">LIMITED OFFER</span>
-          <img id="main-product-img" src="/assets/collection.png" alt="Product display">
+          <div class="sprite-photo" id="main-product-sprite" role="img" aria-label="Product photo" hidden></div>
+          <img id="main-product-img" alt="" hidden>
         </div>
         <div class="thumbnails-row" id="thumbnails-container">
           <div class="thumb-item active" data-src="/assets/collection.png">
@@ -843,8 +924,8 @@
           </div>
         </div>
 
-        <div id="parcel-contents-box" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:#556c73;line-height:1.6;">
-          <strong>📦 Inclus dans le colis :</strong> 1x Produit officiel Rosaino avec scellés de sécurité, certificat d'authenticité et garantie 14 jours.
+        <div id="parcel-contents-box" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.6;">
+          <strong>Inclus dans le colis :</strong> 1x Produit officiel Rosaino avec scellés de sécurité, certificat d'authenticité et garantie 14 jours.
         </div>
       </div>
 
@@ -862,7 +943,7 @@
           <div class="rating-row">
             <span class="stars">★★★★★</span>
             <span id="rating-text"><strong>4.9 / 5</strong> (184 avis vérifiés)</span>
-            <span id="stock-status-pill" style="color:#16a34a;font-weight:700;">● En Stock</span>
+            <span id="stock-status-pill" style="color:var(--primary);font-weight:700;">● En Stock</span>
           </div>
 
           <h1 class="product-hook-title" id="cms-headline" data-cms-editable="true" data-cms-field="headline">Loading product...</h1>
@@ -886,7 +967,7 @@
             <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
             <button type="button" data-cms-jump="urgency_bar" title="Configurer">⚙️</button>
           </div>
-          <div>🔥 <strong id="stock-text">Plus que 7 unités en stock</strong> à Casablanca</div>
+          <div><strong id="stock-text">Plus que 7 unités en stock</strong> à Casablanca</div>
           <div><span id="urgency-label-text">Offre expire dans :</span> <span class="timer-digits" id="timer-digits">04:22:15</span></div>
         </div>
 
@@ -900,7 +981,7 @@
           </div>
           <div class="bundle-heading">
             <h3 id="bundle-heading-title">Choisissez votre offre (Prix spécial)</h3>
-            <span id="bundle-shipping-badge" style="font-size:12px;color:#16a34a;font-weight:700;">Livraison gratuite</span>
+            <span id="bundle-shipping-badge" style="font-size:12px;color:var(--primary);font-weight:700;">Livraison gratuite</span>
           </div>
           <div class="bundle-list" id="bundle-list">
             <!-- Rendered by JS -->
@@ -924,25 +1005,25 @@
             <!-- Dynamic COD Form Fields Container -->
             <div id="landing-cod-dynamic-fields" class="form-fields-container"></div>
 
-            <div style="background:#f8fafb;border:1px dashed #c0cecb;border-radius:8px;padding:12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center;">
+            <div class="cod-summary">
               <div>
                 <strong id="summary-pack-title">Sélectionné : 1 Pièce</strong><br>
-                <small id="summary-shipping-info" style="color:#556c73;">Livraison Express Gratuite partout au Maroc</small>
+                <small id="summary-shipping-info" style="color:var(--muted);">Livraison Express Gratuite partout au Maroc</small>
               </div>
               <div style="text-align:right;">
-                <span id="summary-cod-label" style="font-size:12px;color:#8c9fa3;">Total à payer (COD) :</span><br>
-                <strong style="font-size:20px;color:var(--primary);" id="summary-total-price">490 MAD</strong>
+                <span id="summary-cod-label" style="font-size:12px;color:var(--muted);">Total à payer (COD) :</span><br>
+                <strong id="summary-total-price">490 MAD</strong>
               </div>
             </div>
 
             <button type="submit" class="btn-submit-cod" id="btn-submit-landing" data-cms-editable="true" data-cms-field="submitButtonText">
-              CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ➔
+              CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ↗
             </button>
 
             <div class="cod-trust-line" id="cod-trust-badges">
-              <span id="trust-badge-1">🛡️ 100% Sans Risque</span>
-              <span id="trust-badge-2">🚚 Livraison Gratuite</span>
-              <span id="trust-badge-3">🔍 Ouvrez et vérifiez avant de payer</span>
+              <span id="trust-badge-1">100% Sans Risque</span>
+              <span id="trust-badge-2">Livraison Gratuite</span>
+              <span id="trust-badge-3">Ouvrez et vérifiez avant de payer</span>
             </div>
           </form>
         </div>
@@ -960,7 +1041,8 @@
           <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
           <button type="button" data-cms-jump="features" title="Configurer">⚙️</button>
         </div>
-        <h3 id="features-title" style="margin:0 0 16px;font-size:18px;">Pourquoi choisir Rosaino</h3>
+        <span class="section-eyebrow">ROSAINO</span>
+        <h3 id="features-title" class="lower-title">Pourquoi choisir Rosaino</h3>
         <div class="features-grid" id="features-container">
           <!-- Rendered by JS -->
         </div>
@@ -975,7 +1057,7 @@
           <button type="button" data-cms-jump="reviews" title="Configurer">⚙️</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 id="reviews-title" style="margin:0;font-size:18px;">Avis clients vérifiés au Maroc</h3>
+          <h3 id="reviews-title" class="lower-title" style="margin:0 !important;">Avis clients vérifiés au Maroc</h3>
           <span class="stars" id="reviews-stars-header">★★★★★ 4.9/5 Rating</span>
         </div>
         <div class="reviews-list" id="reviews-container">
@@ -991,7 +1073,7 @@
           <button type="button" data-cms-reorder="down" title="Descendre">▼</button>
           <button type="button" data-cms-jump="faqs" title="Configurer">⚙️</button>
         </div>
-        <h3 id="faqs-title" style="margin:0 0 16px;font-size:18px;">Foire aux questions (Paiement à la livraison)</h3>
+        <h3 id="faqs-title" class="lower-title">Foire aux questions (Paiement à la livraison)</h3>
         <div id="faqs-container">
           <!-- Rendered by JS -->
         </div>
@@ -999,14 +1081,30 @@
     </div>
   </div>
 
+  <footer class="site-footer">
+    <div class="footer-top">
+      <a class="brand" href="/" aria-label="Rosaino home"><img src="/assets/logo.png" alt="Rosaino"></a>
+      <p>Everyday objects designed for mindful living. Modern silhouettes, honest materials, and quiet craft.</p>
+      <a href="/#shop">Shop</a>
+      <a href="/track">Track Order</a>
+      <a href="/#contact">Contact</a>
+      <a href="/policy">Policies</a>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="footer-year"></span> Rosaino. All rights reserved.</span>
+      <span>Curated Everyday Essentials</span>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
   <!-- Mobile Sticky Bottom Bar -->
   <div class="mobile-sticky-bar">
     <div>
-      <span id="mobile-sticky-label" style="font-size:11px;color:#556c73;display:block;">Total COD :</span>
+      <span id="mobile-sticky-label" style="font-size:11px;color:var(--muted);display:block;">Total COD :</span>
       <span class="sticky-price" id="mobile-sticky-price">490 MAD</span>
     </div>
     <button class="sticky-btn" id="mobile-sticky-btn" onclick="document.getElementById('sec-cod_checkout').scrollIntoView({behavior:'smooth'})">
-      Commander (COD) ➔
+      Commander (COD) ↗
     </button>
   </div>
 
@@ -1016,24 +1114,24 @@
     <div style="text-align:center;padding:20px 10px;">
       <div class="success-check">✓</div>
       <h2 style="margin:0 0 8px;font-size:26px;" id="success-modal-title">Commande Confirmée !</h2>
-      <p style="color:#556c73;margin:0 0 16px;" id="success-modal-msg">Merci, <strong id="success-cust-name">Client</strong>. Votre commande avec paiement à la livraison a été enregistrée avec succès.</p>
+      <p style="color:var(--muted);margin:0 0 16px;" id="success-modal-msg">Merci, <strong id="success-cust-name">Client</strong>. Votre commande avec paiement à la livraison a été enregistrée avec succès.</p>
       
       <div class="order-ref" id="success-order-id">RS-1024</div>
 
-      <div style="background:#f8fafb;border:1px solid #e1e7e5;border-radius:8px;padding:16px;margin:16px auto;text-align:left;font-size:13px;line-height:1.7;">
+      <div style="background:var(--cloud);border:0;border-radius:7px;padding:16px;margin:16px auto;text-align:left;font-size:13px;line-height:1.7;">
         <div><strong id="success-lbl-prod">Produit :</strong> <span id="success-prod-name">Produit</span> (<span id="success-qty">1 unité</span>)</div>
-        <div><strong id="success-lbl-total">Total à payer à la livraison :</strong> <strong style="color:var(--primary);" id="success-amount">490 MAD</strong></div>
+        <div><strong id="success-lbl-total">Total à payer à la livraison :</strong> <strong style="color:var(--ink);" id="success-amount">490 MAD</strong></div>
         <div><strong id="success-lbl-dest">Destination :</strong> <span id="success-dest">Casablanca</span></div>
-        <div id="success-call-notice" style="margin-top:10px;padding-top:10px;border-top:1px dashed #ccd6d4;color:#147d86;">
-          📞 <strong>À quoi s'attendre :</strong> Notre agent de confirmation vous appellera sous 24h pour valider votre commande avant expédition.
+        <div id="success-call-notice" style="margin-top:10px;padding-top:10px;border-top:1px dashed #cfd8d6;color:var(--primary);">
+          <strong>À quoi s'attendre :</strong> Notre agent de confirmation vous appellera sous 24h pour valider votre commande avant expédition.
         </div>
       </div>
 
       <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
         <a id="success-track-btn" href="/track" class="primary" style="display:inline-flex;align-items:center;gap:6px;">
-          🚚 Suivre le colis en direct ↗
+          Suivre le colis en direct ↗
         </a>
-        <a id="success-explore-btn" href="/" style="padding:12px 18px;border:1px solid #d3dbd9;border-radius:5px;background:#fff;font-weight:600;">
+        <a id="success-explore-btn" href="/" style="padding:15px 20px;border:1px solid var(--ink);border-radius:5px;background:#fff;font-weight:600;">
           Découvrir d'autres produits
         </a>
       </div>
@@ -1062,19 +1160,19 @@
         flag: '🇫🇷',
         dir: 'ltr',
         backToStore: '← Retour à la boutique',
-        codGuaranteed: '🛡️ Paiement à la livraison garanti',
-        trackOrder: 'Suivre ma commande 🚚',
+        codGuaranteed: 'Paiement à la livraison garanti',
+        trackOrder: 'Suivre ma commande',
         inStock: '● En stock',
         verifiedBuyers: 'avis vérifiés au Maroc',
         stockLeftText: n => `Plus que ${n} unités en stock`,
         saleEndsIn: 'Offre expire dans :',
-        includedInParcel: '📦 Inclus dans le colis : 1x Produit officiel Rosaino avec scellés de sécurité, certificat d’authenticité et garantie 14 jours.',
+        includedInParcel: 'Inclus dans le colis : 1x Produit officiel Rosaino avec scellés de sécurité, certificat d’authenticité et garantie 14 jours.',
         choosePackage: 'Choisissez votre offre (Prix spécial)',
         freeShippingPacks: 'Livraison gratuite sur tous les packs',
         selectedPrefix: 'Sélectionné :',
         freeExpressDelivery: 'Livraison Express Gratuite partout au Maroc',
         totalCod: 'Total à payer (COD) :',
-        orderNowMobile: 'Commander (COD) ➔',
+        orderNowMobile: 'Commander (COD) ↗',
         fullNameLabel: 'Nom complet *',
         fullNamePlaceholder: 'ex. Fatima Zahra Bennani',
         phoneLabel: 'Numéro de téléphone marocain *',
@@ -1084,10 +1182,10 @@
         addressPlaceholder: 'Rue, numéro de porte, quartier ou repère à proximité',
         notesLabel: 'Instructions de livraison (Optionnel)',
         notesPlaceholder: 'ex. Appeler avant d’arriver, laisser au concierge si absent',
-        submitOrder: 'CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ➔',
-        trustRiskFree: '🛡️ 100% Sans Risque',
-        trustFreeShipping: '🚚 Livraison Gratuite',
-        trustInspect: '🔍 Ouvrez et vérifiez avant de payer',
+        submitOrder: 'CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ↗',
+        trustRiskFree: '100% Sans Risque',
+        trustFreeShipping: 'Livraison Gratuite',
+        trustInspect: 'Ouvrez et vérifiez avant de payer',
         whyChooseTitle: 'Pourquoi choisir Rosaino',
         reviewsTitle: 'Avis clients vérifiés au Maroc',
         faqsTitle: 'Foire aux questions (Paiement à la livraison)',
@@ -1095,8 +1193,8 @@
         thankYou: name => `Merci ${name}. Votre commande avec paiement à la livraison a été enregistrée avec succès.`,
         totalToPay: 'Total à payer à la livraison :',
         destination: 'Destination :',
-        whatToExpect: '📞 À quoi s’attendre : Notre agent de confirmation vous appellera sous 24h pour valider votre commande avant expédition.',
-        trackStatusBtn: '🚚 Suivre le colis en direct ↗',
+        whatToExpect: 'À quoi s’attendre : Notre agent de confirmation vous appellera sous 24h pour valider votre commande avant expédition.',
+        trackStatusBtn: 'Suivre le colis en direct ↗',
         exploreMore: 'Découvrir d’autres produits'
       },
       en: {
@@ -1104,19 +1202,19 @@
         flag: '🇬🇧',
         dir: 'ltr',
         backToStore: '← Back to Storefront',
-        codGuaranteed: '🛡️ Cash on Delivery Guaranteed',
-        trackOrder: 'Track Order 🚚',
+        codGuaranteed: 'Cash on Delivery Guaranteed',
+        trackOrder: 'Track Order',
         inStock: '● In Stock',
         verifiedBuyers: 'verified Moroccan buyers',
         stockLeftText: n => `Only ${n} units left in stock`,
         saleEndsIn: 'Sale ends in:',
-        includedInParcel: '📦 Included in parcel: 1x Official Rosaino product with security seals, certificate of authenticity, and 14-day warranty card.',
+        includedInParcel: 'Included in parcel: 1x Official Rosaino product with security seals, certificate of authenticity, and 14-day warranty card.',
         choosePackage: 'Choose Your Package (Special Pricing)',
         freeShippingPacks: 'Free Shipping on all packs',
         selectedPrefix: 'Selected:',
         freeExpressDelivery: 'Free Express Delivery Across Morocco',
         totalCod: 'Total to pay (COD):',
-        orderNowMobile: 'Order Now (COD) ➔',
+        orderNowMobile: 'Order Now (COD) ↗',
         fullNameLabel: 'Full Name *',
         fullNamePlaceholder: 'e.g. Fatima Zahra Bennani',
         phoneLabel: 'Moroccan Phone Number *',
@@ -1126,10 +1224,10 @@
         addressPlaceholder: 'Street, building number, apartment, nearby landmark',
         notesLabel: 'Delivery Instructions (Optional)',
         notesPlaceholder: 'e.g. Call before arrival, leave with concierge if unavailable',
-        submitOrder: 'CONFIRM CASH ON DELIVERY ORDER ➔',
-        trustRiskFree: '🛡️ 100% Risk Free',
-        trustFreeShipping: '🚚 Free Shipping',
-        trustInspect: '🔍 Open & Inspect Before Paying',
+        submitOrder: 'CONFIRM CASH ON DELIVERY ORDER ↗',
+        trustRiskFree: '100% Risk Free',
+        trustFreeShipping: 'Free Shipping',
+        trustInspect: 'Open & Inspect Before Paying',
         whyChooseTitle: 'Why Choose Rosaino',
         reviewsTitle: 'Verified Customer Reviews',
         faqsTitle: 'Frequently Asked Questions (Cash on Delivery)',
@@ -1137,8 +1235,8 @@
         thankYou: name => `Thank you, ${name}. Your Cash on Delivery order has been successfully scheduled.`,
         totalToPay: 'Total to pay upon delivery:',
         destination: 'Destination:',
-        whatToExpect: '📞 What to expect: Our agent will call you within 24 hours to verify delivery time before dispatch.',
-        trackStatusBtn: '🚚 Track Order Status Live ↗',
+        whatToExpect: 'What to expect: Our agent will call you within 24 hours to verify delivery time before dispatch.',
+        trackStatusBtn: 'Track Order Status Live ↗',
         exploreMore: 'Explore More Products'
       },
       ar: {
@@ -1146,19 +1244,19 @@
         flag: '🇲🇦',
         dir: 'rtl',
         backToStore: '← العودة إلى المتجر',
-        codGuaranteed: '🛡️ الدفع عند الاستلام مضمون 100%',
-        trackOrder: 'تتبع طلبيتك 🚚',
+        codGuaranteed: 'الدفع عند الاستلام مضمون 100%',
+        trackOrder: 'تتبع طلبيتك',
         inStock: '● متوفر في المخزون',
         verifiedBuyers: 'مشترين موثقين في المغرب',
         stockLeftText: n => `بقي فقط ${n} قطع في المخزون`,
         saleEndsIn: 'ينتهي العرض الخاص خلال :',
-        includedInParcel: '📦 محتويات الطرد : منتج أصلي من روزاينو مع لواصق الضمان وشارة الجودة وضمان استبدال لمدة 14 يوماً.',
+        includedInParcel: 'محتويات الطرد : منتج أصلي من روزاينو مع لواصق الضمان وشارة الجودة وضمان استبدال لمدة 14 يوماً.',
         choosePackage: 'اختر باقتك المفضلة (تخفيضات خاصة)',
         freeShippingPacks: 'شحن مجاني وسريع على جميع الباقات',
         selectedPrefix: 'العرض المختار :',
         freeExpressDelivery: 'توصيل مجاني وسريع إلى باب منزلك في جميع مدن المغرب',
         totalCod: 'المجموع الإجمالي (الدفع عند الاستلام) :',
-        orderNowMobile: 'اطلب الآن والدفع عند الاستلام ➔',
+        orderNowMobile: 'اطلب الآن والدفع عند الاستلام ↗',
         fullNameLabel: 'الاسم الكامل *',
         fullNamePlaceholder: 'مثال: فاطمة الزهراء بناني',
         phoneLabel: 'رقم الهاتف المغربي *',
@@ -1168,10 +1266,10 @@
         addressPlaceholder: 'اسم الشارع، رقم العمارة أو المنزل، الطابق، ورقم الشقة أو أقرب نقطة معروفة',
         notesLabel: 'ملاحظات إضافية للتوصيل (اختياري)',
         notesPlaceholder: 'مثال: يرجى الاتصال بي قبل الوصول بنصف ساعة',
-        submitOrder: 'تأكيد الطلب والدفع عند الاستلام ➔',
-        trustRiskFree: '🛡️ 100% بدون أي مخاطرة',
-        trustFreeShipping: '🚚 توصيل مجاني وسريع',
-        trustInspect: '🔍 افتح الطرد وعاينه قبل الدفع',
+        submitOrder: 'تأكيد الطلب والدفع عند الاستلام ↗',
+        trustRiskFree: '100% بدون أي مخاطرة',
+        trustFreeShipping: 'توصيل مجاني وسريع',
+        trustInspect: 'افتح الطرد وعاينه قبل الدفع',
         whyChooseTitle: 'لماذا يفضل زبناؤنا التسوق من روزاينو',
         reviewsTitle: 'آراء وتقييمات زبنائنا الموثقين في المغرب',
         faqsTitle: 'الأسئلة الشائعة حول الدفع عند الاستلام والتوصيل',
@@ -1179,8 +1277,8 @@
         thankYou: name => `شكراً لك ${name}. تم تسجيل طلبك بنجاح وسيتكفل فريقنا بتجهيز شحنتك فوراً.`,
         totalToPay: 'المبلغ المستحق عند الاستلام :',
         destination: 'وجهة التوصيل :',
-        whatToExpect: '📞 الخطوة القادمة : سيتصل بك فريق التأكيد خلال ساعات للتحقق من العنوان وتحديد موعد التسليم المناسب لك.',
-        trackStatusBtn: '🚚 تتبع مسار الشحنة مباشرة ↗',
+        whatToExpect: 'الخطوة القادمة : سيتصل بك فريق التأكيد خلال ساعات للتحقق من العنوان وتحديد موعد التسليم المناسب لك.',
+        trackStatusBtn: 'تتبع مسار الشحنة مباشرة ↗',
         exploreMore: 'تصفح باقي المنتجات'
       }
     };
@@ -1238,9 +1336,9 @@
         pageTitle: `${p.name} — Rosaino Official Store`,
         headline: `Découvrez l'élégance quotidienne de ${p.name}`,
         subtitle: p.desc || 'Des silhouettes soignées et des matériaux nobles livrés directement chez vous au Maroc.',
-        announcement: '⚡ Offre Spéciale · Livraison Express Gratuite Partout au Maroc · 100% Paiement à la Livraison',
+        announcement: 'Offre Spéciale · Livraison Express Gratuite Partout au Maroc · 100% Paiement à la Livraison',
         announcementEnabled: true,
-        badgeText: `🔥 OFFRE SPÉCIALE - ÉCONOMISEZ ${regularPrice - price} MAD`,
+        badgeText: `OFFRE SPÉCIALE - ÉCONOMISEZ ${regularPrice - price} MAD`,
         heroImage: p.image || '/assets/collection.png',
         secondaryImage: '/assets/pattern.png',
         galleryImage3: '/assets/ribbon.png',
@@ -1260,7 +1358,7 @@
         urgencyEnabled: true,
         checkoutHeadline: 'Finalisez votre commande ci-dessous',
         checkoutSubtitle: 'Payez en espèces au livreur à votre porte dès réception.',
-        submitButtonText: 'CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ➔',
+        submitButtonText: 'CONFIRMER MA COMMANDE (PAIEMENT À LA LIVRAISON) ↗',
         supportPhone: '212600000000',
         tiers: [
           {
@@ -1276,7 +1374,7 @@
             title: '2 Pièces (Pack Duo)',
             price: Math.round(price * 1.75 / 10) * 10,
             originalPrice: regularPrice * 2,
-            badge: 'LE PLUS POPULAIRE 🔥',
+            badge: 'LE PLUS POPULAIRE',
             savings: `Économisez ${regularPrice * 2 - Math.round(price * 1.75 / 10) * 10} MAD`
           },
           {
@@ -1284,7 +1382,7 @@
             title: '3 Pièces (Pack Famille + Cadeau)',
             price: Math.round(price * 2.35 / 10) * 10,
             originalPrice: regularPrice * 3,
-            badge: 'MEILLEURE VALEUR 🏆 + Cadeau',
+            badge: 'MEILLEURE VALEUR + Cadeau',
             savings: `Économisez ${regularPrice * 3 - Math.round(price * 2.35 / 10) * 10} MAD`
           }
         ],
@@ -1521,6 +1619,9 @@
         el.style.display = isVisible ? '' : 'none';
         el.style.order = String(idx);
       });
+      // The info column sits right after the photo unless the CMS moves the photo later
+      const mediaIdx = order.indexOf('hero_media');
+      if ($('#product-info-panel')) $('#product-info-panel').style.order = String(mediaIdx >= 0 ? mediaIdx + 1 : 0);
 
       // Announcement Bar text
       if ($('#announcement-text')) $('#announcement-text').textContent = cms.announcement || '';
@@ -1540,16 +1641,43 @@
       if ($('#urgency-label-text')) $('#urgency-label-text').textContent = t.saleEndsIn;
       if ($('#parcel-contents-box')) $('#parcel-contents-box').innerHTML = t.includedInParcel;
 
-      // Images & Thumbnails
-      const heroImg = cms.heroImage || p.image || '/assets/collection.png';
-      $('#main-product-img').src = heroImg;
+      // Images & Thumbnails. The default product photo is a crop of the
+      // collection sprite, positioned exactly like the storefront cards.
+      const SPRITE = '/assets/collection.png';
+      const isSprite = src => /\/assets\/collection\.png$/.test(src || '');
+      const spriteStyle = () => {
+        if (p.x !== undefined && p.y !== undefined) {
+          return `background-position:${p.x}% ${p.y}%;${p.type === 'category' ? 'background-size:714.42% auto;' : ''}`;
+        }
+        return 'background-position:50% 65.3%;background-size:714.42% auto;';
+      };
+      const showMedia = src => {
+        const wrap = $('.main-image-wrap');
+        const sprite = $('#main-product-sprite');
+        const img = $('#main-product-img');
+        const useSprite = isSprite(src);
+        wrap.classList.toggle('is-sprite', useSprite);
+        sprite.hidden = !useSprite;
+        img.hidden = useSprite;
+        if (useSprite) {
+          sprite.setAttribute('style', spriteStyle());
+          sprite.setAttribute('aria-label', p.name);
+        } else {
+          img.src = src;
+          img.alt = p.name;
+        }
+      };
+      const heroImg = cms.heroImage || p.image || SPRITE;
+      showMedia(heroImg);
 
       const thumbsContainer = $('#thumbnails-container');
       if (thumbsContainer) {
         const thumbs = [heroImg, cms.secondaryImage || '/assets/pattern.png', cms.galleryImage3 || '/assets/ribbon.png'].filter(Boolean);
         thumbsContainer.innerHTML = thumbs.map((src, i) => `
           <div class="thumb-item ${i === 0 ? 'active' : ''}" data-src="${esc(src)}">
-            <img src="${esc(src)}" alt="Thumbnail ${i + 1}">
+            ${isSprite(src)
+              ? `<div class="sprite-photo" style="${spriteStyle()}" role="img" aria-label="${esc(p.name)}"></div>`
+              : `<img src="${esc(src)}" alt="Thumbnail ${i + 1}">`}
           </div>
         `).join('');
 
@@ -1557,7 +1685,7 @@
           el.onclick = () => {
             thumbsContainer.querySelectorAll('.thumb-item').forEach(x => x.classList.remove('active'));
             el.classList.add('active');
-            $('#main-product-img').src = el.dataset.src;
+            showMedia(el.dataset.src);
           };
         });
       }
@@ -1609,7 +1737,13 @@
       // Features list
       const featContainer = $('#features-container');
       if (featContainer && cms.features) {
-        const icons = ['✨', '🚚', '🛡️', '🔄'];
+        const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+        const icons = [
+          svg('<path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/>'),
+          svg('<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>'),
+          svg('<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>'),
+          svg('<path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/>')
+        ];
         featContainer.innerHTML = cms.features.map((f, i) => `
           <div class="feature-item" data-cms-editable="true" data-cms-field="features" data-item-index="${i}">
             <div class="feature-icon">${icons[i % icons.length]}</div>

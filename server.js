@@ -741,8 +741,8 @@ function getDefaultCms(p) {
     pageTitle: `${p.name} — Boutique Officielle Rosaino`,
     headline: `Découvrez l'élégance et la qualité de ${p.name}`,
     subtitle: p.desc || 'Matériaux nobles, finitions artisanales et confort tactile livrés directement à votre porte partout au Maroc.',
-    announcement: '⚡ Offre Spéciale Ramadan & Aïd · Livraison Express Gratuite Partout au Maroc · Paiement 100% à la Livraison (COD)',
-    badgeText: `🔥 OFFRE LIMITÉE - ÉCONOMISEZ ${regularPrice - price} MAD`,
+    announcement: 'Offre Spéciale Ramadan & Aïd · Livraison Express Gratuite Partout au Maroc · Paiement 100% à la Livraison (COD)',
+    badgeText: `OFFRE LIMITÉE - ÉCONOMISEZ ${regularPrice - price} MAD`,
     heroImage: p.image || '/assets/collection.png',
     secondaryImage: '/assets/pattern.png',
     galleryImage3: '/assets/ribbon.png',
@@ -763,7 +763,7 @@ function getDefaultCms(p) {
     pricingTableEnabled: true,
     checkoutHeadline: 'Finalisez Votre Commande ci-dessous',
     checkoutSubtitle: 'Payez en espèces au livreur à votre porte dès réception.',
-    submitButtonText: 'CONFIRMER LA COMMANDE (PAIEMENT À LA LIVRAISON) ➔',
+    submitButtonText: 'CONFIRMER LA COMMANDE (PAIEMENT À LA LIVRAISON) ↗',
     supportPhone: '212600000000',
     tiers: [
       {
@@ -779,7 +779,7 @@ function getDefaultCms(p) {
         title: '2 Pièces (Pack Duo)',
         price: Math.round(price * 1.75 / 10) * 10,
         originalPrice: regularPrice * 2,
-        badge: 'LE PLUS POPULAIRE 🔥',
+        badge: 'LE PLUS POPULAIRE',
         savings: `Économisez ${regularPrice * 2 - Math.round(price * 1.75 / 10) * 10} MAD`
       },
       {
@@ -787,7 +787,7 @@ function getDefaultCms(p) {
         title: '3 Pièces (Pack Famille + Cadeau)',
         price: Math.round(price * 2.35 / 10) * 10,
         originalPrice: regularPrice * 3,
-        badge: 'MEILLEURE VALEUR 🏆 + Cadeau Offert',
+        badge: 'MEILLEURE VALEUR + Cadeau Offert',
         savings: `Économisez ${regularPrice * 3 - Math.round(price * 2.35 / 10) * 10} MAD`
       }
     ],

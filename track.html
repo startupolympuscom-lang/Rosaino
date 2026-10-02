@@ -315,6 +315,22 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <footer>
+    <div class="footer-top">
+      <a class="brand" href="/" aria-label="Rosaino home"><img src="/assets/logo.png" alt="Rosaino"></a>
+      <p>Everyday objects designed for mindful living. Modern silhouettes, honest materials, and quiet craft.</p>
+      <a href="/#shop">Shop</a>
+      <a href="/track">Track Order</a>
+      <a href="/#contact">Contact</a>
+      <a href="/policy">Policies</a>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="footer-year"></span> Rosaino. All rights reserved.</span>
+      <span>Curated Everyday Essentials</span>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+
   <script>
     const $ = s => document.querySelector(s);
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
