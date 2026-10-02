@@ -9,6 +9,7 @@
     { "source": "/product/(.*)", "destination": "/product.html" },
     { "source": "/p/(.*)", "destination": "/product.html" },
     { "source": "/track", "destination": "/track.html" },
+    { "source": "/policy", "destination": "/policy.html" },
     { "source": "/track/(.*)", "destination": "/track.html" },
     { "source": "/admin", "destination": "/admin/index.html" },
     { "source": "/admin/", "destination": "/admin/index.html" }

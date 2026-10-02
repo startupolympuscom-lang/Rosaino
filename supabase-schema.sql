@@ -66,30 +66,6 @@ CREATE TABLE IF NOT EXISTS public.roles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Admin users (password hashes — server access only via service role key)
-CREATE TABLE IF NOT EXISTS public.admin_users (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  role TEXT NOT NULL,
-  avatar TEXT,
-  active BOOLEAN NOT NULL DEFAULT TRUE,
-  password_hash TEXT NOT NULL,
-  token_version INTEGER NOT NULL DEFAULT 1,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  last_login_at TIMESTAMPTZ
-);
-
--- 7. Admin audit trail (server access only)
-CREATE TABLE IF NOT EXISTS public.admin_audit (
-  id TEXT PRIMARY KEY,
-  at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  actor TEXT NOT NULL,
-  action TEXT NOT NULL,
-  detail TEXT,
-  ip TEXT
-);
-
 -- Seed initial products if table is empty
 INSERT INTO public.products (id, name, sku, category, price, cost, stock, supplier, "desc", x, y, type)
 VALUES 
@@ -125,9 +101,6 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
--- Admin tables: RLS on with NO policies, so the public (anon) key can never read or write them.
-ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.admin_audit ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public read products" ON public.products FOR SELECT USING (true);
 CREATE POLICY "Allow public insert products" ON public.products FOR INSERT WITH CHECK (true);
@@ -144,5 +117,5 @@ CREATE POLICY "Allow public read suppliers" ON public.suppliers FOR SELECT USING
 CREATE POLICY "Allow public insert suppliers" ON public.suppliers FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Allow public read roles" ON public.roles FOR SELECT USING (true);
--- Roles are only changed by the server (service role key) after a permission check.
+-- Admin sign-in and roles are handled by the app server (auth.js), not Supabase.
 DROP POLICY IF EXISTS "Allow public update roles" ON public.roles;

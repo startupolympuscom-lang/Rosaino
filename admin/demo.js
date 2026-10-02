@@ -2304,6 +2304,47 @@ function reports() {
 }
 
 // 10. Stores
+let contactInbox = null;
+
+function contactInboxPanel() {
+  if (!contactInbox) {
+    fetch('/api/contact').then(r => r.ok ? r.json() : []).then(list => {
+      contactInbox = list;
+      if (page === 'stores') render();
+    }).catch(() => {});
+  }
+  const list = contactInbox || [];
+  const open = list.filter(m => m.status === 'New').length;
+  return `
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Contact inbox</h2>
+          <p>${contactInbox ? `${list.length} message(s) from the storefront contact form · ${open} new` : 'Loading messages…'}</p>
+        </div>
+        <button data-action="refresh-inbox">Refresh</button>
+      </div>
+      ${list.length ? table(
+        ['Received', 'From', 'Topic', 'Order', 'Message', 'Status', 'Actions'],
+        list.map(m => `
+          <tr>
+            <td><small>${esc(new Date(m.date).toLocaleString())}</small></td>
+            <td><b>${esc(m.name)}</b><small>${esc(m.email)}${m.phone ? ' · ' + esc(m.phone) : ''}</small></td>
+            <td>${esc(m.topic)}</td>
+            <td>${esc(m.orderId || '—')}</td>
+            <td style="white-space:pre-wrap;min-width:260px;max-width:420px;">${esc(m.message)}</td>
+            <td>${badge(m.status)}</td>
+            <td><div style="display:flex;gap:6px;">
+              <a href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Re: ' + m.topic + (m.orderId ? ' (' + m.orderId + ')' : ''))}"><button type="button" data-action="contact-status" data-id="${esc(m.id)}:Replied">Reply</button></a>
+              ${m.status !== 'Closed' ? `<button data-action="contact-status" data-id="${esc(m.id)}:Closed">Close</button>` : ''}
+            </div></td>
+          </tr>
+        `)
+      ) : `<div class="empty">${contactInbox ? 'No messages yet.' : ''}</div>`}
+    </div>
+  `;
+}
+
 function stores() {
   return title(
     'Your storefront ecosystem.',
@@ -2314,9 +2355,11 @@ function stores() {
       ${table(['Page / Route', 'Channel', 'Status', 'Attributed orders'], [
         { name: 'Storefront Home (/)', channel: 'Direct / Storefront', status: 'Active', count: db.orders.filter(o => o.source === 'Storefront').length },
         { name: 'Customer Tracking Portal (/track)', channel: 'Self-Service Tracking', status: 'Active', count: db.orders.length },
+        { name: 'Policies (/policy)', channel: 'Shipping, returns, privacy & terms', status: 'Active', count: 0 },
         ...db.pages.map(p => ({ name: p.name, channel: p.channel, status: p.status, count: db.orders.filter(o => o.source === p.channel).length }))
       ].map(p => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.channel)}</td><td>${badge(p.status)}</td><td>${p.count} <small>Orders</small></td></tr>`))}
     </div>
+    ${contactInboxPanel()}
     <div class="cards">
       ${[['logo.png', 'Brand wordmark'], ['ribbon.png', 'Flowing ribbon'], ['pattern.png', 'Modular pattern']].map(([file, label]) => `
         <div class="panel">
@@ -4736,6 +4779,18 @@ const actions = {
   'sign-out-all': () => {
     if (confirm('Sign out of every device, including this one?')) signOut(true);
   },
+  'refresh-inbox': () => {
+    contactInbox = null;
+    render();
+  },
+  'contact-status': value => {
+    const [id, status] = value.split(':');
+    api(`/api/contact/${encodeURIComponent(id)}`, 'PATCH', { status }).then(({ message }) => {
+      const m = contactInbox?.find(x => x.id === id);
+      if (m) Object.assign(m, message);
+      render();
+    }).catch(err => toast(err.message));
+  },
   'refresh-audit': () => {
     auditEntries = null;
     render();
@@ -5081,6 +5136,7 @@ window.addEventListener('hashchange', () => {
   document.body.classList.remove('nav-open');
   if (location.hash === '#security') auditEntries = null; // always show the latest audit trail
   if (location.hash === '#team') serverUsers = null; // and the latest team accounts
+  if (location.hash === '#stores') contactInbox = null; // and new contact messages
   render();
   window.scrollTo(0, 0);
 });

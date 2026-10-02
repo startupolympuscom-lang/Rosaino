@@ -4,8 +4,9 @@
 // - Sessions are HMAC-signed tokens, so they keep working across serverless
 //   instances (Vercel) without a shared session store.
 // - Role permissions are enforced on the server for every admin API route.
-// - Users, roles and the audit trail live in memory and are mirrored to
-//   Supabase when SUPABASE_SERVICE_ROLE_KEY is configured.
+// - No external auth provider (no Supabase Auth): accounts are defined here
+//   and in environment variables; users, roles and the audit trail live in
+//   server memory.
 import crypto from 'crypto';
 
 export const PERMISSIONS = [
@@ -119,68 +120,6 @@ export function can(user, perm) {
 const findByEmail = email => [...users.values()].find(u => u.email.toLowerCase() === String(email || '').trim().toLowerCase());
 const activeSuperAdmins = () => [...users.values()].filter(u => u.active !== false && u.role === SUPER_ADMIN);
 
-// ---------------------------------------------------------------------------
-// Optional Supabase persistence (service role key only — admin tables have no public policies)
-// ---------------------------------------------------------------------------
-let store = null;
-let loaded = null;
-
-export function configurePersistence(client) {
-  store = client;
-}
-
-function ensureLoaded() {
-  if (!store) return Promise.resolve();
-  if (!loaded) {
-    loaded = (async () => {
-      try {
-        const { data: userRows, error: userErr } = await store.from('admin_users').select('*');
-        if (!userErr && Array.isArray(userRows)) {
-          for (const r of userRows) {
-            // Environment-provided Super Admin credentials always win over stored ones.
-            if (r.id === 'usr_superadmin' && process.env.ADMIN_PASSWORD) continue;
-            users.set(r.id, {
-              id: r.id, name: r.name, email: r.email, role: r.role, avatar: r.avatar || initials(r.name),
-              active: r.active !== false, passwordHash: r.password_hash, tokenVersion: r.token_version || 1,
-              createdAt: r.created_at, lastLoginAt: r.last_login_at
-            });
-          }
-        }
-        const { data: roleRows, error: roleErr } = await store.from('roles').select('*');
-        if (!roleErr && Array.isArray(roleRows) && roleRows.length) {
-          for (const r of roleRows) {
-            if (Array.isArray(r.permissions)) roles[r.role] = r.permissions.filter(p => PERMISSIONS.includes(p));
-          }
-          roles[SUPER_ADMIN] = [...PERMISSIONS];
-        }
-      } catch (e) {
-        console.warn('[auth] Could not load admin data from Supabase:', e.message);
-      }
-    })();
-  }
-  return loaded;
-}
-
-function persistUser(u) {
-  if (!store) return;
-  store.from('admin_users').upsert({
-    id: u.id, name: u.name, email: u.email, role: u.role, avatar: u.avatar, active: u.active !== false,
-    password_hash: u.passwordHash, token_version: u.tokenVersion, created_at: u.createdAt, last_login_at: u.lastLoginAt
-  }).then(({ error }) => error && console.warn('[auth] persist user:', error.message), () => {});
-}
-
-function deletePersistedUser(id) {
-  if (!store) return;
-  store.from('admin_users').delete().eq('id', id).then(() => {}, () => {});
-}
-
-function persistRoles(removed = []) {
-  if (!store) return;
-  const rows = Object.entries(roles).map(([role, permissions]) => ({ role, permissions, updated_at: new Date().toISOString() }));
-  store.from('roles').upsert(rows).then(({ error }) => error && console.warn('[auth] persist roles:', error.message), () => {});
-  if (removed.length) store.from('roles').delete().in('role', removed).then(() => {}, () => {});
-}
-
 export function audit(actor, action, detail = '', req = null) {
   const entry = {
     id: crypto.randomUUID(),
@@ -192,7 +131,6 @@ export function audit(actor, action, detail = '', req = null) {
   };
   auditLog.unshift(entry);
   auditLog.length = Math.min(auditLog.length, 500);
-  if (store) store.from('admin_audit').insert(entry).then(() => {}, () => {});
   return entry;
 }
 
@@ -239,17 +177,15 @@ function bearer(req) {
 // ---------------------------------------------------------------------------
 
 /** Attach req.user when a valid token is present; never rejects. */
-export async function optionalAuth(req, res, next) {
-  await ensureLoaded();
+export function optionalAuth(req, res, next) {
   req.user = verifyToken(bearer(req));
   next();
 }
 
 /** Require a signed-in user holding at least one of the given permissions. */
 export function requireAuth(...perms) {
-  return async (req, res, next) => {
-    await ensureLoaded();
-    const u = verifyToken(bearer(req));
+  return (req, res, next) => {
+      const u = verifyToken(bearer(req));
     if (!u) return res.status(401).json({ error: 'Authentication required' });
     if (perms.length && !perms.some(p => can(u, p))) {
       return res.status(403).json({ error: `Your role (${u.role}) is not allowed to perform this action` });
@@ -279,9 +215,8 @@ function sessionPayload(u) {
 
 export function registerAuthRoutes(app) {
   // --- Session ---------------------------------------------------------------
-  app.post('/api/auth/login', async (req, res) => {
-    await ensureLoaded();
-    const email = String(req.body?.email || '').trim().toLowerCase();
+  app.post('/api/auth/login', (req, res) => {
+      const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
@@ -302,7 +237,6 @@ export function registerAuthRoutes(app) {
 
     failedLogins.delete(key);
     u.lastLoginAt = new Date().toISOString();
-    persistUser(u);
     audit(u, 'login', '', req);
     return res.json({ success: true, ...issueToken(u), ...sessionPayload(u) });
   });
@@ -319,7 +253,6 @@ export function registerAuthRoutes(app) {
   // Invalidate every token for the current user (all devices).
   app.post('/api/auth/logout-all', requireAuth(), (req, res) => {
     req.user.tokenVersion += 1;
-    persistUser(req.user);
     audit(req.user, 'logout.all', 'All sessions revoked', req);
     res.json({ success: true });
   });
@@ -333,7 +266,6 @@ export function registerAuthRoutes(app) {
     if (err) return res.status(400).json({ error: err });
     req.user.passwordHash = hashPassword(newPassword);
     req.user.tokenVersion += 1; // sign out other devices
-    persistUser(req.user);
     audit(req.user, 'password.changed', '', req);
     res.json({ success: true, ...issueToken(req.user), ...sessionPayload(req.user) });
   });
@@ -349,7 +281,6 @@ export function registerAuthRoutes(app) {
       const inUse = removed.filter(r => [...users.values()].some(u => u.role === r));
       if (inUse.length) return res.status(400).json({ error: `Reassign users before resetting; custom role(s) in use: ${inUse.join(', ')}` });
       roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
-      persistRoles(removed);
       audit(req.user, 'roles.reset', 'Permissions reset to defaults', req);
       return res.json({ success: true, roles });
     }
@@ -372,7 +303,6 @@ export function registerAuthRoutes(app) {
 
     const changes = Object.keys(next).filter(r => JSON.stringify(next[r]) !== JSON.stringify(roles[r]));
     roles = next;
-    persistRoles(removed);
     audit(req.user, 'roles.updated', [changes.length ? `Changed: ${changes.join(', ')}` : '', removed.length ? `Removed: ${removed.join(', ')}` : ''].filter(Boolean).join(' · '), req);
     res.json({ success: true, roles });
   });
@@ -405,7 +335,6 @@ export function registerAuthRoutes(app) {
       lastLoginAt: null
     };
     users.set(u.id, u);
-    persistUser(u);
     audit(req.user, 'user.created', `${email} (${role})`, req);
     res.status(201).json({ success: true, user: publicUser(u) });
   });
@@ -451,7 +380,6 @@ export function registerAuthRoutes(app) {
       u.tokenVersion += 1;
       changes.push('password reset');
     }
-    persistUser(u);
     if (changes.length) audit(req.user, 'user.updated', `${u.email}: ${changes.join(', ')}`, req);
     res.json({ success: true, user: publicUser(u) });
   });
@@ -464,7 +392,6 @@ export function registerAuthRoutes(app) {
       return res.status(400).json({ error: 'At least one active Super Admin is required' });
     }
     users.delete(u.id);
-    deletePersistedUser(u.id);
     audit(req.user, 'user.deleted', u.email, req);
     res.json({ success: true });
   });

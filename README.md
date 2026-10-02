@@ -32,9 +32,15 @@ This export comes from the existing Rosaino Sites source. It preserves that sour
 - Integrations: clearly simulated setup cards for Google Sheets, WooCommerce, Meta Ads, Digylog, OzoneExpress, AMEEX and Supabase.
 - Team: sample members and editable role labels. Settings: company/region preferences, demo reset.
 
+## Storefront pages
+
+- `/`: storefront, with a **Contact us** section (`#contact`). Messages appear in the portal under **Stores & media → Contact inbox**.
+- `/policy`: shipping, cash on delivery, returns, privacy and terms. Linked from the footer.
+- `/product`, `/track`: product landing page and order tracking.
+
 ## Admin sign-in
 
-The operations portal at `/admin/` requires an account. Sign-in is checked by the server (`auth.js`):
+The operations portal at `/admin/` requires an account. Sign-in is simple email + password auth handled entirely by this app's server (`auth.js`). It does not use Supabase Auth or any external provider.
 
 - Passwords are hashed with scrypt; sessions are HMAC-signed tokens that expire after 12 hours and work on Vercel without a session store.
 - Every admin API route checks the caller's role permissions on the server. The storefront, product landing page and tracking page stay public; anonymous storefront orders are always created as `New`.
@@ -55,7 +61,8 @@ Production environment variables (see `.env.example`):
 - `AUTH_SECRET`: long random string that signs sessions. Required in production.
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD`: replace the default Super Admin login.
 - `DISABLE_DEMO_USERS=true`: remove the four sample accounts.
-- `SUPABASE_SERVICE_ROLE_KEY`: optional. Persists users, role permissions and the audit trail in the `admin_users`, `roles` and `admin_audit` tables from `supabase-schema.sql`. Without it, users and roles you create live in server memory and reset when the server restarts or a new serverless instance starts.
+
+The Super Admin and sample accounts always come from `auth.js` and these variables, so they work on every restart. Accounts, role changes and audit entries you add in the portal are kept in server memory, so they reset when the server restarts or Vercel starts a new instance. Put permanent accounts in `auth.js` or the environment variables.
 
 ### Admin features
 

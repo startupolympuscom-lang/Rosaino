@@ -672,6 +672,39 @@ document.addEventListener('click', e => {
 });
 
 // Setup handlers once DOM is loaded
+// Contact form: sends the message to the operations team inbox
+async function submitContact(e) {
+  e.preventDefault();
+  const form = e.target;
+  const status = $('#contact-status');
+  const button = form.querySelector('button[type="submit"]');
+  const data = Object.fromEntries(new FormData(form));
+  const setStatus = (text, ok) => {
+    status.textContent = text;
+    status.className = 'contact-status ' + (ok ? 'ok' : 'err');
+  };
+
+  if (!data.name.trim() || !data.message.trim()) return setStatus('Please add your name and a message.', false);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) return setStatus('Please enter a valid email address.', false);
+
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Your message could not be sent.');
+    form.reset();
+    setStatus('Thank you! Your message has been sent. We will reply by email within one business day.', true);
+  } catch (err) {
+    setStatus(err.message + ' You can also email hello@rosaino.com.', false);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   loadDb();
   loadCart();
@@ -687,6 +720,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const footerBag = $('#footer-bag');
   if (footerBag) footerBag.onclick = openBag;
+
+  const contactForm = $('#contact-form');
+  if (contactForm) contactForm.onsubmit = submitContact;
 
   const resetBtn = $('#reset');
   if (resetBtn) {

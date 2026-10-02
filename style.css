@@ -49,3 +49,24 @@
 .btn-product-landing .landing-arrow{font-size:13px;transition:transform .2s}
 .btn-product-landing:hover .landing-arrow{transform:translateX(3px)}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+.contact{display:grid;grid-template-columns:1fr 1.2fr;gap:56px;padding-bottom:70px;align-items:start}
+.contact h2{font-size:48px;margin:14px 0}
+.contact-info p{line-height:1.7;font-size:15px;color:#526b72;max-width:440px}
+.contact-list{list-style:none;padding:0;margin:26px 0 0;border-top:1px solid var(--line)}
+.contact-list li{display:flex;gap:18px;padding:15px 0;border-bottom:1px solid var(--line);font-size:14px}
+.contact-list li span{width:76px;flex-shrink:0;color:#6c7a7d;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding-top:2px}
+.contact-list a{color:var(--teal);font-weight:600}
+.contact-form{background:var(--cloud);border-radius:12px;padding:30px;display:flex;flex-direction:column;gap:16px}
+.contact-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.contact-form label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:600}
+.contact-form input,.contact-form select,.contact-form textarea{background:#fff;border:1px solid #dfe3e2;border-radius:6px;padding:12px 14px;font:inherit;font-size:14px;font-weight:400;color:var(--ink);width:100%}
+.contact-form textarea{resize:vertical;min-height:120px}
+.contact-form input:focus,.contact-form select:focus,.contact-form textarea:focus{outline:2px solid var(--teal);outline-offset:1px}
+.contact-form .primary{align-self:flex-start;width:auto}
+.contact-form .primary:disabled{opacity:.6;cursor:wait;transform:none}
+.contact-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.contact-status{margin:0;font-size:14px;min-height:0}
+.contact-status.ok{color:#1f7a5a}
+.contact-status.err{color:#b23b2e}
+@media(max-width:850px){.contact{grid-template-columns:1fr;gap:30px}.contact h2{font-size:36px}.contact-row{grid-template-columns:1fr}.contact-form{padding:22px}.contact-form .primary{width:100%}}

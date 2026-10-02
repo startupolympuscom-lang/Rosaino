@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, configurePersistence } from './auth.js';
+import { registerAuthRoutes, requireAuth, optionalAuth, can, audit } from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,13 +26,6 @@ app.use('/assets/uploads', express.static(uploadsDir));
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kwqbghlwarkibhlgbgft.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_-Uik0W47t9fLoE8_JETPZg_U0xY-je7';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// Admin data (users, roles, audit) is only persisted with a service role key,
-// because those tables intentionally have no public RLS policies.
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (SUPABASE_SERVICE_ROLE_KEY) {
-  configurePersistence(createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } }));
-}
 
 // In-Memory Fallback State (synchronizes with Supabase when tables are created)
 let memoryProducts = [
@@ -693,6 +686,49 @@ app.post('/api/upload', requireAuth('products', 'cms', 'stores'), (req, res) => 
   }
 });
 
+// Contact form messages (public submit, staff inbox)
+const contactMessages = [];
+const contactRate = new Map();
+
+app.post('/api/contact', (req, res) => {
+  const b = req.body || {};
+  if (b.website) return res.json({ success: true }); // honeypot: silently drop bots
+  const clip = (v, n) => String(v || '').trim().slice(0, n);
+  const msg = {
+    id: 'MSG-' + Date.now().toString(36).toUpperCase(),
+    name: clip(b.name, 80),
+    email: clip(b.email, 120).toLowerCase(),
+    phone: clip(b.phone, 30),
+    orderId: clip(b.orderId, 30).toUpperCase(),
+    topic: clip(b.topic, 40) || 'Other',
+    message: clip(b.message, 2000),
+    status: 'New',
+    date: new Date().toISOString()
+  };
+  if (!msg.name || !msg.message) return res.status(400).json({ error: 'Name and message are required.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(msg.email)) return res.status(400).json({ error: 'A valid email is required.' });
+
+  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+  const recent = (contactRate.get(ip) || []).filter(t => Date.now() - t < 60 * 60 * 1000);
+  if (recent.length >= 5) return res.status(429).json({ error: 'Too many messages. Please try again later.' });
+  contactRate.set(ip, [...recent, Date.now()]);
+
+  contactMessages.unshift(msg);
+  contactMessages.length = Math.min(contactMessages.length, 500);
+  res.json({ success: true, id: msg.id });
+});
+
+app.get('/api/contact', requireAuth('orders', 'stores'), (req, res) => {
+  res.json(contactMessages);
+});
+
+app.patch('/api/contact/:id', requireAuth('orders', 'stores'), (req, res) => {
+  const msg = contactMessages.find(m => m.id === req.params.id);
+  if (!msg) return res.status(404).json({ error: 'Message not found' });
+  if (['New', 'Replied', 'Closed'].includes(req.body?.status)) msg.status = req.body.status;
+  res.json({ success: true, message: msg });
+});
+
 // Product Landing Page CMS Data Engine
 const memoryCms = new Map();
 
@@ -817,6 +853,11 @@ app.get('/p/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'product.html'));
 });
 
+// Policies page
+app.get('/policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'policy.html'));
+});
+
 // Serve Public Tracking Portal
 app.get('/track', (req, res) => {
   res.sendFile(path.join(__dirname, 'track.html'));
@@ -833,7 +874,7 @@ app.get('/admin', (req, res) => {
 
 // Storefront static assets and root. Only public files are served so server
 // source (server.js, auth.js, .env, schema) is never exposed.
-const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'demo.css', 'demo.js', 'product.html', 'track.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'demo.css', 'demo.js', 'product.html', 'track.html', 'policy.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
 app.get('/:file', (req, res, next) => {
   if (!PUBLIC_ROOT_FILES.has(req.params.file)) return next();
   res.sendFile(path.join(__dirname, req.params.file));
@@ -849,6 +890,7 @@ if (!process.env.VERCEL) {
     console.log(`Rosaino server running at http://${HOST}:${PORT}`);
     console.log(`Storefront: http://${HOST}:${PORT}/`);
     console.log(`Customer Tracking: http://${HOST}:${PORT}/track`);
+    console.log(`Policies: http://${HOST}:${PORT}/policy`);
     console.log(`Operations Demo: http://${HOST}:${PORT}/admin/`);
     console.log(`Supabase URL: ${SUPABASE_URL}`);
   });
