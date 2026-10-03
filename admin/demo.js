@@ -29,6 +29,7 @@ const I18N = {
     calls: 'Centre d\'appels',
     routing: 'Routage des prospects',
     shipping: 'Expédition & Colis',
+    carriers: 'Transporteurs',
     products: 'Produits & Stock',
     cms: 'CMS Page Produit',
     suppliers: 'Fournisseurs & Bons',
@@ -68,6 +69,7 @@ const I18N = {
     calls: 'Call Center',
     routing: 'Lead Routing',
     shipping: 'Shipping & Labels',
+    carriers: 'Carriers',
     products: 'Products & Stock',
     cms: 'Landing Page CMS',
     suppliers: 'Suppliers & POs',
@@ -107,6 +109,7 @@ const I18N = {
     calls: 'مركز الاتصال والتأكيد',
     routing: 'توزيع الطلبيات',
     shipping: 'الشحن والتوصيل',
+    carriers: 'شركات التوصيل',
     products: 'المنتجات والمخزون',
     cms: 'نظام صفحات الهبوط (CMS)',
     suppliers: 'الموردون وفواتير الشراء',
@@ -627,6 +630,7 @@ function getNavIcon(id) {
     case 'orders': return `<svg ${s}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
     case 'calls': return `<svg ${s}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
     case 'routing': return `<svg ${s}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+    case 'carriers': return `<svg ${s}><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>`;
     case 'shipping': return `<svg ${s}><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`;
     case 'products': return `<svg ${s}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`;
     case 'cms': return `<svg ${s}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`;
@@ -649,6 +653,7 @@ const pages = [
   ['calls', 'calls', 'Call center', 'calls'],
   ['routing', 'routing', 'Lead routing', 'routing'],
   ['shipping', 'shipping', 'Shipping & Labels', 'shipping'],
+  ['carriers', 'carriers', 'Carriers', 'shipping'],
   ['products', 'products', 'Products & stock', 'products'],
   ['cms', 'cms', 'Landing Page CMS', 'cms'],
   ['suppliers', 'suppliers', 'Suppliers & POs', 'suppliers'],
@@ -1053,6 +1058,38 @@ function accessDeniedView(pageName, reqPerm) {
 }
 
 // 1. Overview
+// Setup checklist for administrators: what is connected and what is left.
+let setupStatus = null;
+
+function setupChecklist() {
+  if (!hasPermission('integrations') && !isRealSuperAdmin()) return '';
+  if (!setupStatus) {
+    api('/api/setup-status').then(st => { setupStatus = st; if (page === 'overview') render(); }).catch(() => {});
+    return '';
+  }
+  const items = [
+    [setupStatus.carriers > 0, 'Connect a carrier', 'Orders are sent to them when you dispatch, and deliveries update by themselves.', '#carriers', 'Add carrier'],
+    [setupStatus.email, 'Contact form emails', 'Customer messages are emailed to you through Resend (RESEND_API_KEY in Vercel).', '', ''],
+    [setupStatus.database, 'Database connected', 'Accounts, carriers and tracking are saved in Supabase (DATABASE_URL in Vercel).', '', ''],
+    [setupStatus.team > 1, 'Invite your team', 'Give agents and managers their own login with only the pages they need.', '#team', 'Add member']
+  ];
+  const left = items.filter(i => !i[0]).length;
+  if (!left) return '';
+  return `
+    <div class="panel">
+      <div class="panel-head"><div><h2>Finish setting up</h2><p>${items.length - left} of ${items.length} done</p></div></div>
+      <ul class="checklist">
+        ${items.map(([done, name, desc, href, cta]) => `
+          <li class="${done ? 'done' : ''}">
+            <span class="tick" aria-hidden="true">${done ? '✓' : ''}</span>
+            <div><b>${name}</b><br><small>${desc}</small></div>
+            ${!done && href ? `<a href="${href}">${cta} →</a>` : ''}
+          </li>`).join('')}
+      </ul>
+    </div>
+  `;
+}
+
 function overview() {
   const delivered = db.orders.filter(o => o.status === 'Delivered');
   const pending = db.orders.filter(o => ['New', 'Callback'].includes(o.status));
@@ -1063,6 +1100,7 @@ function overview() {
     'From first lead to doorstep. Connected to Supabase Cloud Database & Public Customer Tracking.',
     `<span class="pill">${db.orders.length} total orders · MAD</span><button class="primary" data-action="new-order">＋ New order</button>`
   ) + `
+    ${setupChecklist()}
     <div class="metrics">
       ${metric('Collected revenue', money(sum(delivered, 'amount')), 'Delivered orders · cash on delivery')}
       ${metric('Total orders', db.orders.length, 'Across all acquisition channels')}
@@ -1223,46 +1261,323 @@ function routing() {
 }
 
 // 5. Shipping & Airway Bills (AWB)
+// Carrier & shipment data from the server (API keys never reach the browser)
+let carrierList = null;
+let shipmentList = null;
+let lastShipmentSync = null;
+
+const canManageCarriers = () => hasPermission('integrations');
+const activeCarriers = () => (carrierList || []).filter(c => c.active);
+
+async function loadCarriers() {
+  try {
+    carrierList = await api('/api/carriers');
+  } catch {
+    carrierList = carrierList || [];
+  }
+  return carrierList;
+}
+
+// Pull shipments from the server and apply carrier updates to local orders.
+async function loadShipments() {
+  try {
+    shipmentList = await api('/api/shipments');
+  } catch {
+    shipmentList = shipmentList || [];
+    return 0;
+  }
+  let changed = 0;
+  for (const s of shipmentList) {
+    const o = db.orders.find(x => String(x.id) === String(s.orderId));
+    if (!o) continue;
+    o.carrier = s.carrierName;
+    o.trackingNumber = s.trackingNumber;
+    try {
+      if (o.status === 'Confirmed' && s.status !== 'Confirmed') { changeStatus(o, 'In transit'); changed++; }
+      if (o.status === 'In transit' && (s.status === 'Delivered' || s.status === 'Returned')) { changeStatus(o, s.status); changed++; }
+    } catch {}
+  }
+  persist();
+  return changed;
+}
+
+const shipmentFor = id => (shipmentList || []).find(s => String(s.orderId) === String(id));
+
+// 5. Shipping
 function shipping() {
+  if (!carrierList) loadCarriers().then(() => page === 'shipping' && render());
+  if (!shipmentList) loadShipments().then(n => { lastShipmentSync = new Date(); if (page === 'shipping') render(); if (n) toast(`${n} order(s) updated by carriers`); });
+
   const list = db.orders.filter(o => ['Confirmed', 'In transit', 'Delivered', 'Returned'].includes(o.status));
+  const ready = list.filter(o => o.status === 'Confirmed');
+  const noCarriers = carrierList && !activeCarriers().length;
+
+  const actionsFor = o => {
+    const s = shipmentFor(o.id);
+    const label = `<button data-action="awb" data-id="${esc(o.id)}">Label</button>`;
+    if (o.status === 'Confirmed') return `<button class="primary" data-action="dispatch" data-id="${esc(o.id)}">Dispatch</button> ${label}`;
+    if (o.status === 'In transit') {
+      return `${label} <button data-action="deliver" data-id="${esc(o.id)}" title="${s ? 'Record it yourself if the carrier has not updated it yet' : ''}">Mark delivered</button> <button data-action="return" data-id="${esc(o.id)}">Mark returned</button>`;
+    }
+    return `${label} <a class="btn-link" href="/track?id=${encodeURIComponent(o.id)}" target="_blank">Tracking page ↗</a>`;
+  };
+
   return title(
     'Every doorstep, accounted for.',
-    'Thermal 4x6 shipping labels, carrier handover manifests, and live customer parcel tracking.',
-    `<button data-action="batch-labels">Print Batch 4x6 Labels 🏷️</button>`
+    'Send confirmed orders to your carriers, print labels, and follow each parcel until it is delivered.',
+    `<button data-action="sync-shipments">Check carrier updates ↻</button><button data-action="batch-labels">Print all labels</button>`
   ) + `
+    ${noCarriers ? `
+      <div class="panel notice">
+        <div><b>Connect a carrier to dispatch automatically.</b> Add the delivery companies you work with and their API key; dispatched orders are then sent to them and their status updates appear here.</div>
+        <a href="#carriers" class="primary btn-link-primary">Add a carrier</a>
+      </div>` : ''}
     <div class="metrics">
-      ${metric('Ready to dispatch', list.filter(o => o.status === 'Confirmed').length, 'Confirmed orders with label ready')}
-      ${metric('In transit', list.filter(o => o.status === 'In transit').length, 'With courier out for delivery')}
-      ${metric('Delivered', list.filter(o => o.status === 'Delivered').length, 'COD collected at doorstep')}
-      ${metric('Returned', list.filter(o => o.status === 'Returned').length, 'Stock restored on return')}
+      ${metric('Ready to dispatch', ready.length, 'Confirmed orders waiting for a carrier')}
+      ${metric('In transit', list.filter(o => o.status === 'In transit').length, 'With the carrier')}
+      ${metric('Delivered', list.filter(o => o.status === 'Delivered').length, 'Cash collected at the door')}
+      ${metric('Returned', list.filter(o => o.status === 'Returned').length, 'Stock put back on return')}
     </div>
     <div class="panel">
-      ${table(
-        ['Order / Destination', 'Carrier', 'Status', 'COD Amount', 'Airway Bill (AWB)'],
-        list.map(o => `
+      <div class="panel-head">
+        <div>
+          <h2>Parcels</h2>
+          <p>${lastShipmentSync ? `Carrier updates checked at ${lastShipmentSync.toLocaleTimeString()}` : 'Checking carrier updates…'}</p>
+        </div>
+      </div>
+      ${list.length ? table(
+        ['Order', 'Carrier & tracking', 'Status', 'Cash on delivery', ''],
+        list.map(o => {
+          const s = shipmentFor(o.id);
+          return `
           <tr>
-            <td>
-              <b>${o.id}</b>
-              <small>${esc(o.customer)} · ${esc(o.city)}</small>
-            </td>
-            <td>
-              <select data-carrier="${o.id}" aria-label="Carrier for ${o.id}">
-                ${['Digylog', 'OzoneExpress', 'AMEEX'].map(c => `<option ${o.carrier === c ? 'selected' : ''}>${c}</option>`).join('')}
-              </select>
-            </td>
+            <td><b>${esc(o.id)}</b><small>${esc(o.customer)} · ${esc(o.city)}</small></td>
+            <td>${s
+              ? `<b>${esc(s.carrierName)}</b><small>${esc(s.trackingNumber || '')}${s.carrierStatus ? ' · ' + esc(s.carrierStatus) : ''}</small>`
+              : o.status === 'Confirmed' ? '<small>Not dispatched yet</small>' : `<b>${esc(o.carrier || '—')}</b>${o.trackingNumber ? `<small>${esc(o.trackingNumber)}</small>` : ''}`}</td>
             <td>${badge(o.status)}</td>
             <td><b>${money(o.amount)}</b></td>
-            <td>
-              <button data-action="awb" data-id="${o.id}" class="primary" style="font-size:11px;padding:6px 10px;">
-                Print 4x6 Label 🏷️
-              </button>
-              ${o.status === 'Confirmed' ? `<button data-action="dispatch" data-id="${o.id}">Dispatch ↗</button>` : o.status === 'In transit' ? `<button data-action="deliver" data-id="${o.id}">Delivered</button> <button data-action="return" data-id="${o.id}">Returned</button>` : `<a href="/track?id=${encodeURIComponent(o.id)}" target="_blank" style="font-size:11px;padding:6px 8px;border:1px solid #dce4e6;border-radius:6px;display:inline-block;">Track ↗</a>`}
-            </td>
-          </tr>
-        `)
-      )}
+            <td style="white-space:nowrap;">${actionsFor(o)}</td>
+          </tr>`;
+        })
+      ) : '<div class="empty">No confirmed orders yet. Confirm orders in the call center or in Leads &amp; orders, then dispatch them here.</div>'}
     </div>
   `;
+}
+
+// 5b. Carriers (transporteurs)
+const CARRIER_PRESETS = ['Digylog', 'OzoneExpress', 'AMEEX', 'Sendit', 'Cathedis', 'Amana', 'Other'];
+
+function carriers() {
+  if (!carrierList) loadCarriers().then(() => page === 'carriers' && render());
+  if (!shipmentList) loadShipments().then(() => page === 'carriers' && render());
+  const manage = canManageCarriers();
+  const list = carrierList || [];
+  const count = (c, st) => (shipmentList || []).filter(s => s.carrierId === c.id && s.status === st).length;
+
+  return title(
+    'Your delivery partners.',
+    'Add each carrier you work with. Dispatched orders are sent to them, and their delivery updates come back into Rosaino and the customer tracking page.',
+    manage ? '<button class="primary" data-action="new-carrier">+ Add carrier</button>' : ''
+  ) + `
+    ${!carrierList ? '<div class="panel empty">Loading carriers…</div>' : !list.length ? `
+      <div class="panel">
+        <h2>Get started in three steps</h2>
+        <ol class="steps">
+          <li><b>Add a carrier</b> and paste the API key from your carrier account (Settings or Developers section of their dashboard).</li>
+          <li><b>Copy the update link</b> Rosaino gives you into the carrier's webhook / notification settings, so they can tell us when a parcel is picked up, delivered or returned.</li>
+          <li><b>Dispatch</b> confirmed orders from the Shipping page. Tracking numbers and statuses then update by themselves.</li>
+        </ol>
+        ${manage ? '<p><button class="primary" data-action="new-carrier">+ Add your first carrier</button></p>' : '<p class="info">Ask an administrator with the Integrations permission to add carriers.</p>'}
+      </div>` : `
+      <div class="cards">
+        ${list.map(c => `
+          <div class="panel carrier-card">
+            <div class="panel-head">
+              <div>
+                <h2>${esc(c.name)}</h2>
+                <p>${c.kind === 'api' ? 'Connected by API' : 'Manual (no API)'} · ${c.active ? badge('Active') : badge('Paused')}</p>
+              </div>
+            </div>
+            <div class="stat-line"><span>In transit</span><b>${count(c, 'In transit')}</b></div>
+            <div class="stat-line"><span>Delivered</span><b>${count(c, 'Delivered')}</b></div>
+            <div class="stat-line"><span>Returned</span><b>${count(c, 'Returned')}</b></div>
+            ${c.kind === 'api' ? `<div class="stat-line"><span>API key</span><b>${esc(c.keyHint || 'not set')}</b></div>` : ''}
+            <label class="copy-field">Status update link (give this to ${esc(c.name)})
+              <span><input readonly value="${esc(c.webhookUrl)}" aria-label="Webhook link for ${esc(c.name)}"><button type="button" data-action="copy-webhook" data-id="${esc(c.id)}">Copy</button></span>
+            </label>
+            ${manage ? `
+              <div class="actions" style="margin-top:14px;">
+                ${c.kind === 'api' ? `<button data-action="test-carrier" data-id="${esc(c.id)}">Test connection</button>` : ''}
+                <button data-action="edit-carrier" data-id="${esc(c.id)}">Edit</button>
+                <button data-action="toggle-carrier" data-id="${esc(c.id)}">${c.active ? 'Pause' : 'Activate'}</button>
+                <button class="danger" data-action="delete-carrier" data-id="${esc(c.id)}">Remove</button>
+              </div>` : ''}
+          </div>
+        `).join('')}
+      </div>`}
+    <div class="panel">
+      <h2>How status updates work</h2>
+      <p class="info">Rosaino understands the usual carrier wording in French, English and Arabic transliteration, for example <i>Ramassé</i> or <i>En cours</i> (in transit), <i>Livré</i> (delivered), and <i>Retourné</i>, <i>Refusé</i> or <i>Annulé</i> (returned). A failed attempt such as <i>Non livré</i> keeps the parcel in transit. Updates arrive instantly through the update link, and "Check carrier updates" on the Shipping page asks carriers that offer a status API.</p>
+    </div>
+  `;
+}
+
+function carrierForm(c) {
+  const cfg = c?.config || {};
+  const json = v => (v && Object.keys(v).length ? esc(JSON.stringify(v)) : '');
+  return `
+    <div class="form-grid">
+      ${c ? '' : `<label>Carrier
+        <select name="preset" data-preset-select>${CARRIER_PRESETS.map(p => `<option>${p}</option>`).join('')}</select>
+      </label>`}
+      <label>Name shown in Rosaino<input name="name" required maxlength="60" value="${esc(c?.name || '')}" placeholder="e.g. OzoneExpress"></label>
+      <label class="full">How do you work with this carrier?
+        <select name="kind">
+          <option value="api" ${c?.kind !== 'manual' ? 'selected' : ''}>They have an API: send orders automatically</option>
+          <option value="manual" ${c?.kind === 'manual' ? 'selected' : ''}>No API: I'll type tracking numbers myself</option>
+        </select>
+      </label>
+      <label class="full api-only">API URL (from the carrier's developer documentation)<input name="baseUrl" value="${esc(cfg.baseUrl || '')}" placeholder="https://api.carrier.ma/v1"></label>
+      <label class="full api-only">API key<input name="apiKey" type="password" autocomplete="off" placeholder="${c?.hasKey ? `Leave empty to keep the saved key (${esc(c.keyHint)})` : 'Paste the key from your carrier account'}"></label>
+    </div>
+    <details class="api-only advanced">
+      <summary>Connection details (only if your carrier's documentation differs)</summary>
+      <div class="form-grid">
+        <label>Create parcel path<input name="createPath" value="${esc(cfg.createPath ?? '/shipments')}" placeholder="/shipments"></label>
+        <label>Parcel status path<input name="statusPath" value="${esc(cfg.statusPath || '')}" placeholder="/shipments/{tracking}"></label>
+        <label>How the key is sent
+          <select name="keyPlacement">
+            <option value="bearer" ${!cfg.keyPlacement || cfg.keyPlacement === 'bearer' ? 'selected' : ''}>Authorization: Bearer KEY</option>
+            <option value="header" ${cfg.keyPlacement === 'header' ? 'selected' : ''}>Custom header</option>
+            <option value="query" ${cfg.keyPlacement === 'query' ? 'selected' : ''}>In the URL (?key=…)</option>
+          </select>
+        </label>
+        <label>Header / parameter name<input name="keyName" value="${esc(cfg.keyName || '')}" placeholder="X-API-Key or api_key"></label>
+        <label>Request format
+          <select name="bodyFormat">
+            <option value="json" ${cfg.bodyFormat !== 'form' ? 'selected' : ''}>JSON</option>
+            <option value="form" ${cfg.bodyFormat === 'form' ? 'selected' : ''}>Form fields</option>
+          </select>
+        </label>
+        <label>Tracking number field in replies<input name="trackingField" value="${esc(cfg.trackingField || '')}" placeholder="auto-detect (e.g. data.tracking_number)"></label>
+        <label>Status field in replies<input name="statusField" value="${esc(cfg.statusField || '')}" placeholder="auto-detect (e.g. data.status)"></label>
+        <label>Carrier's public tracking page<input name="trackingUrl" value="${esc(cfg.trackingUrl || '')}" placeholder="https://carrier.ma/track/{tracking}"></label>
+        <label class="full">Field names the carrier expects (JSON)<textarea name="fieldMap" rows="2" placeholder='{"recipient_name": "nom", "recipient_phone": "telephone", "cod_amount": "prix"}'>${json(cfg.fieldMap)}</textarea></label>
+        <label class="full">Extra status wording (JSON)<textarea name="statusMap" rows="2" placeholder='{"Remis au client": "Delivered", "Retour expéditeur": "Returned"}'>${json(cfg.statusMap)}</textarea></label>
+      </div>
+      <p class="info">Rosaino sends: reference, recipient_name, recipient_phone, city, address, cod_amount, product, quantity, note. Rename them above if your carrier uses other names.</p>
+    </details>
+    <div id="carrier-error" role="alert" class="form-error"></div>
+  `;
+}
+
+function wireCarrierForm() {
+  const form = $('#dialog-form');
+  const sync = () => form.querySelectorAll('.api-only').forEach(el => { el.style.display = form.kind.value === 'api' ? '' : 'none'; });
+  form.kind.onchange = sync;
+  const preset = form.querySelector('[data-preset-select]');
+  const nameInput = form.elements.namedItem('name'); // form.name is the form's own attribute
+  if (preset) preset.onchange = () => { nameInput.value = preset.value === 'Other' ? '' : preset.value; nameInput.focus(); };
+  if (preset && !nameInput.value) nameInput.value = preset.value;
+  sync();
+}
+
+function carrierPayload(f) {
+  return {
+    name: f.get('name').trim(),
+    kind: f.get('kind'),
+    apiKey: (f.get('apiKey') || '').trim(),
+    config: {
+      baseUrl: (f.get('baseUrl') || '').trim(),
+      createPath: f.get('createPath') ?? '/shipments',
+      statusPath: f.get('statusPath') || '',
+      keyPlacement: f.get('keyPlacement') || 'bearer',
+      keyName: f.get('keyName') || '',
+      bodyFormat: f.get('bodyFormat') || 'json',
+      trackingField: f.get('trackingField') || '',
+      statusField: f.get('statusField') || '',
+      trackingUrl: f.get('trackingUrl') || '',
+      fieldMap: f.get('fieldMap') || '',
+      statusMap: f.get('statusMap') || ''
+    }
+  };
+}
+
+function openCarrierDialog(c) {
+  modal(c ? `Edit ${esc(c.name)}` : 'Add a carrier', carrierForm(c), c ? 'Save changes' : 'Add carrier', f => {
+    const body = carrierPayload(f);
+    if (c && !body.apiKey) delete body.apiKey;
+    api(c ? `/api/carriers/${encodeURIComponent(c.id)}` : '/api/carriers', c ? 'PATCH' : 'POST', body)
+      .then(async ({ carrier }) => {
+        $('#modal').close();
+        await loadCarriers();
+        render();
+        toast(c ? `${carrier.name} saved` : `${carrier.name} added. Copy its update link into the carrier's dashboard.`);
+      })
+      .catch(err => { $('#carrier-error').textContent = err.message; });
+    return false;
+  });
+  wireCarrierForm();
+}
+
+function openDispatchDialog(id) {
+  const o = db.orders.find(x => x.id === id);
+  if (!o || !checkAction('shipping', 'Dispatch order')) return;
+  const options = activeCarriers();
+  if (!options.length) {
+    modal('Dispatch ' + esc(o.id), `
+      <p>No carrier is connected yet. Connect one to send this order automatically and get a tracking number.</p>
+      <p class="info">You can also mark it as dispatched without a carrier; you'll then update its status yourself.</p>
+    `, 'Mark as dispatched', () => { shipment(o.id, 'In transit'); });
+    $('#modal-content .modal-actions').insertAdjacentHTML('afterbegin', '<a href="#carriers" class="btn-link" onclick="document.getElementById(\'modal\').close()">Add a carrier</a>');
+    return;
+  }
+  const p = product(o.product);
+  modal('Dispatch ' + esc(o.id), `
+    <div class="stat-line"><span>Customer</span><b>${esc(o.customer)} · ${esc(o.phone)}</b></div>
+    <div class="stat-line"><span>Address</span><b>${esc(o.city)} · ${esc(o.address || '')}</b></div>
+    <div class="stat-line"><span>Parcel</span><b>${o.quantity} × ${esc(p?.name || o.product)} · ${money(o.amount)} cash on delivery</b></div>
+    <div class="form-grid" style="margin-top:16px;">
+      <label class="full">Carrier
+        <select name="carrierId">${options.map(c => `<option value="${esc(c.id)}" data-kind="${c.kind}" ${c.name === o.carrier ? 'selected' : ''}>${esc(c.name)}${c.kind === 'manual' ? ' (manual)' : ''}</option>`).join('')}</select>
+      </label>
+      <label class="full manual-only">Tracking number from the carrier<input name="trackingNumber" maxlength="80" placeholder="e.g. AMX-2026-00123"></label>
+    </div>
+    <div id="dispatch-error" role="alert" class="form-error"></div>
+  `, 'Send to carrier', f => {
+    const btn = $('#dialog-form button.primary');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    api('/api/shipments', 'POST', {
+      orderId: o.id,
+      carrierId: f.get('carrierId'),
+      trackingNumber: f.get('trackingNumber') || '',
+      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, quantity: o.quantity, productName: p?.name || '', date: o.date, note: (o.notes || []).slice(-1)[0]?.text || '' }
+    }).then(({ shipment: s }) => {
+      $('#modal').close();
+      o.carrier = s.carrierName;
+      o.trackingNumber = s.trackingNumber;
+      shipmentList = [s, ...(shipmentList || []).filter(x => x.orderId !== s.orderId)];
+      try { changeStatus(o, 'In transit'); } catch (err) { toast(err.message); }
+      persist();
+      render();
+      toast(`${o.id} sent to ${s.carrierName} · tracking ${s.trackingNumber}`);
+    }).catch(err => {
+      $('#dispatch-error').textContent = err.message;
+      btn.disabled = false;
+      btn.textContent = 'Send to carrier';
+    });
+    return false;
+  });
+  const form = $('#dialog-form');
+  const syncKind = () => {
+    const kind = form.carrierId.selectedOptions[0]?.dataset.kind;
+    form.querySelector('.manual-only').style.display = kind === 'manual' ? '' : 'none';
+    $('#dialog-form button.primary').textContent = kind === 'manual' ? 'Record dispatch' : 'Send to carrier';
+  };
+  form.carrierId.onchange = syncKind;
+  syncKind();
 }
 
 // 6. Products & Stock
@@ -2395,12 +2710,13 @@ function integrations() {
       </p>
     </div>
 
+    <div class="panel notice">
+      <div><b>Delivery carriers</b> (Digylog, OzoneExpress, AMEEX, Sendit…) are connected on their own page, with their API key and update link.</div>
+      <a href="#carriers" class="btn-link-primary">Open Carriers</a>
+    </div>
     <div class="cards">
       ${[
         ['Supabase', 'Cloud PostgreSQL database with live products and orders sync.'],
-        ['Digylog Express', 'Dispatch parcels and receive tracking updates'],
-        ['OzoneExpress', 'Manage deliveries and COD status'],
-        ['AMEEX', 'Create shipments and monitor returns'],
         ['Meta Ads', 'Track acquisition, creative assets, and campaign spend'],
         ['Google Sheets', 'Import and synchronize lead rows']
       ].map(([name, desc]) => `
@@ -2613,7 +2929,7 @@ function settings() {
   `;
 }
 
-const views = { overview, orders, calls, routing, shipping, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
+const views = { overview, orders, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
 
 function updateLivePreview() {
   const pId = activeCmsProductId;
@@ -3316,17 +3632,25 @@ function render() {
   if (roleNameEl) roleNameEl.textContent = previewRole ? `${effectiveRole()} (preview)` : db.currentUser.role;
 
   // Render navigation with permission locks and translated labels
-  $('#nav').innerHTML = pages.map(([id, icon, name, perm], i) => {
-    const allowed = hasPermission(perm);
+  // Only list the pages this role can open, so the menu stays short and clear.
+  const groupStarts = {
+    orders: { fr: 'VENTES', en: 'SALES', ar: 'المبيعات' },
+    shipping: { fr: 'LIVRAISON', en: 'DELIVERY', ar: 'التوصيل' },
+    products: { fr: 'CATALOGUE', en: 'CATALOGUE', ar: 'المنتجات' },
+    finance: { fr: 'FINANCE', en: 'FINANCE', ar: 'المالية' },
+    stores: { fr: 'ESPACE', en: 'WORKSPACE', ar: 'المساحة' }
+  };
+  let pendingGroup = '';
+  $('#nav').innerHTML = pages.map(([id, icon, name, perm]) => {
+    if (groupStarts[id]) pendingGroup = groupStarts[id][currentLang] || groupStarts[id].en;
+    if (!hasPermission(perm)) return '';
     const isAct = page === id;
-    const groupLabel = (i === 5 ? (currentLang === 'ar' ? 'العمليات' : currentLang === 'en' ? 'OPERATIONS' : 'OPÉRATIONS') : i === 11 ? (currentLang === 'ar' ? 'المساحة' : currentLang === 'en' ? 'WORKSPACE' : 'ESPACE') : '');
-    const group = groupLabel ? `<div class="nav-group">${groupLabel}</div>` : '';
-    const localizedName = t(id) || name;
+    const group = pendingGroup ? `<div class="nav-group">${pendingGroup}</div>` : '';
+    pendingGroup = '';
     return group + `
-      <a href="#${id}" class="${isAct ? 'active' : ''} ${!allowed ? 'muted' : ''}" ${isAct ? 'aria-current="page"' : ''} style="${!allowed ? 'opacity:0.55;' : ''}">
+      <a href="#${id}" class="${isAct ? 'active' : ''}" ${isAct ? 'aria-current="page"' : ''}>
         <span class="nav-icon" aria-hidden="true">${getNavIcon(id)}</span>
-        ${localizedName}
-        ${!allowed ? '<span style="margin-left:auto;font-size:10px;opacity:0.6;font-weight:600;" title="Permission restricted">LOCKED</span>' : ''}
+        ${t(id) || name}
       </a>
     `;
   }).join('');
@@ -4935,9 +5259,41 @@ const actions = {
       null
     );
   },
-  dispatch: id => shipment(id, 'In transit'),
-  deliver: id => shipment(id, 'Delivered'),
-  return: id => shipment(id, 'Returned'),
+  dispatch: id => openDispatchDialog(id),
+  deliver: id => recordOutcome(id, 'Delivered'),
+  return: id => recordOutcome(id, 'Returned'),
+  'sync-shipments': async () => {
+    toast('Checking carriers for updates…');
+    let polled = null;
+    try { polled = await api('/api/shipments/sync', 'POST', {}); } catch (err) { toast(err.message); }
+    const n = await loadShipments();
+    lastShipmentSync = new Date();
+    render();
+    toast(n ? `${n} order(s) updated by carriers` : polled?.errors?.length ? `No changes · ${polled.errors.length} carrier error(s): ${polled.errors[0]}` : 'Everything is up to date');
+  },
+  'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
+  'edit-carrier': id => { const c = (carrierList || []).find(x => x.id === id); if (c && checkAction('integrations', 'Edit carrier')) openCarrierDialog(c); },
+  'toggle-carrier': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    if (!c || !checkAction('integrations', 'Pause carrier')) return;
+    api(`/api/carriers/${encodeURIComponent(id)}`, 'PATCH', { active: !c.active }).then(async () => { await loadCarriers(); render(); toast(`${c.name} ${c.active ? 'paused' : 'activated'}`); }).catch(err => toast(err.message));
+  },
+  'delete-carrier': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    if (!c || !checkAction('integrations', 'Remove carrier')) return;
+    if (!confirm(`Remove ${c.name}? Parcels already dispatched keep their tracking, but ${c.name} will no longer be able to send updates.`)) return;
+    api(`/api/carriers/${encodeURIComponent(id)}`, 'DELETE').then(async () => { await loadCarriers(); render(); toast(`${c.name} removed`); }).catch(err => toast(err.message));
+  },
+  'test-carrier': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    toast(`Testing ${c?.name || 'carrier'}…`);
+    api(`/api/carriers/${encodeURIComponent(id)}/test`, 'POST', {}).then(r => toast(r.message)).catch(err => toast(err.message));
+  },
+  'copy-webhook': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    if (!c) return;
+    (navigator.clipboard?.writeText(c.webhookUrl) || Promise.reject()).then(() => toast('Update link copied')).catch(() => toast('Select the link and copy it'));
+  },
   label: showThermalLabel
 };
 
@@ -4947,7 +5303,23 @@ function shipment(id, status) {
   changeStatus(o, status);
   persist();
   render();
-  toast('Demo shipment updated');
+  toast(`${o.id} marked ${status.toLowerCase()}`);
+}
+
+// Record a delivery outcome yourself (also saved on the carrier shipment, so tracking matches).
+async function recordOutcome(id, status) {
+  if (!checkAction('shipping', 'Update shipment')) return;
+  if (shipmentFor(id)) {
+    try {
+      await api(`/api/shipments/${encodeURIComponent(id)}/status`, 'POST', { status });
+      await loadShipments();
+    } catch (err) {
+      return toast(err.message);
+    }
+  }
+  const o = db.orders.find(o => o.id === id);
+  if (o && o.status === 'In transit') shipment(id, status);
+  else render();
 }
 
 // Global click delegation
@@ -5139,8 +5511,10 @@ if (loginForm) {
 window.addEventListener('hashchange', () => {
   document.body.classList.remove('nav-open');
   if (location.hash === '#security') auditEntries = null; // always show the latest audit trail
+  if (location.hash === '#overview' || location.hash === '') setupStatus = null;
   if (location.hash === '#team') serverUsers = null; // and the latest team accounts
   if (location.hash === '#stores') contactInbox = null; // and new contact messages
+  if (location.hash === '#shipping' || location.hash === '#carriers') { shipmentList = null; carrierList = null; } // and fresh carrier updates
   render();
   window.scrollTo(0, 0);
 });

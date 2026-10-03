@@ -38,6 +38,17 @@ This export comes from the existing Rosaino Sites source. It preserves that sour
 - `/shop`: every category with all of its products. The category menu, the home page's collections link and every footer's **Shop** link open it.
 - `/policy`: shipping, cash on delivery, returns, privacy and terms. Linked from the footer.
 
+### Carriers (transporteurs)
+
+In the portal, **Carriers** lets an admin add each delivery company: choose it from the list (Digylog, OzoneExpress, AMEEX, Sendit, Cathedis, Amana or Other), paste the **API URL** and **API key** from the carrier's developer documentation, and click **Test connection**. Carriers without an API can be added as *manual*: you type the tracking number when dispatching.
+
+- **Dispatch:** on **Shipping**, *Dispatch* sends the order (reference, recipient name and phone, city, address, cash-on-delivery amount, product, quantity) to the chosen carrier and stores the tracking number it returns.
+- **Status updates:** each carrier gets its own **update link** (webhook). Paste it into the carrier's dashboard and their *picked up / delivered / returned* notifications update the order automatically. *Check carrier updates* also asks carriers that offer a status API.
+- Carrier wording is understood in French and English (e.g. *Ramassé*, *En cours*, *Livré*, *Retourné*, *Refusé*, *Non livré*); extra wording can be mapped per carrier.
+- **Tracking:** customers can search the tracking page by order number, carrier tracking number or phone, and see the carrier's updates.
+- API keys are encrypted with `AUTH_SECRET` and never sent to browsers. Carriers and shipments are stored in Supabase Postgres (`carriers`, `shipments` tables, created automatically) when `DATABASE_URL` is set. Changing `AUTH_SECRET` later means re-entering carrier keys.
+- Every carrier's API is different, so connection details (paths, how the key is sent, JSON or form body, field names, where the tracking number and status are in replies) are adjustable under *Connection details*.
+
 ### Contact form emails (Resend)
 
 Every message sent from the **Contact us** section is emailed through [Resend](https://resend.com) and also listed in the portal's Contact inbox. Replying to the email answers the customer directly. Set these in Vercel (Project → Settings → Environment Variables), never in code:

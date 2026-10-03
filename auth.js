@@ -152,6 +152,12 @@ async function bootstrap() {
 }
 
 let ready = null;
+/** The active storage (Postgres or memory), ready to use. Shared with carriers.js. */
+export async function getStore() {
+  await ensureReady();
+  return store;
+}
+
 function ensureReady() {
   if (!ready) {
     ready = bootstrap().catch(err => {

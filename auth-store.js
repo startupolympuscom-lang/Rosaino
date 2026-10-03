@@ -98,6 +98,8 @@ function postgresStore(rawConnectionString) {
 
   return {
     kind: 'postgres',
+    // Shared connection for other server modules (carriers & shipments).
+    query: q,
     async init() {
       await q(SCHEMA_SQL);
     },

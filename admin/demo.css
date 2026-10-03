@@ -179,3 +179,25 @@
 
 
 
+
+/* Carriers & shipping */
+.notice{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#fff8e8;border-color:#f3d48e;flex-wrap:wrap}
+.btn-link{display:inline-block;font-size:11px;font-weight:600;padding:7px 10px;border:1px solid #dce4e6;border-radius:8px;color:#183243;background:#fff}
+.btn-link:hover{background:#edf4f3}
+.btn-link-primary{display:inline-flex;padding:10px 14px;border-radius:8px;background:#147d86;color:#fff;font-weight:600}
+.steps{line-height:1.8;padding-left:20px;margin:6px 0 18px;color:#3c565e}
+.steps li{margin-bottom:6px}
+.copy-field{margin-top:12px}
+.copy-field span{display:flex;gap:6px}
+.copy-field input{flex:1;font-size:11px;color:#3c565e;background:#f8fafb}
+.carrier-card h2{margin-bottom:2px}
+.form-error{color:#ac3838;margin-top:10px;font-size:13px;min-height:1px}
+details.advanced{margin-top:16px;border:1px solid #e2e9eb;border-radius:8px;padding:12px 14px}
+details.advanced summary{cursor:pointer;font-weight:600;font-size:13px}
+details.advanced .form-grid{margin-top:14px}
+.checklist{list-style:none;padding:0;margin:0}
+.checklist li{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #edf1f2;font-size:13px}
+.checklist li:last-child{border-bottom:0}
+.checklist .tick{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;flex-shrink:0;background:#edf2f4;color:#829299}
+.checklist li.done .tick{background:#e7f5ef;color:#29836c}
+.checklist li a{margin-left:auto;font-weight:600;color:#147d86;white-space:nowrap}

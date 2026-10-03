@@ -4,8 +4,9 @@ import fs from 'fs';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
-import { registerAuthRoutes, requireAuth, optionalAuth, can, audit } from './auth.js';
+import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, getStore } from './auth.js';
 import { emailConfigured, sendContactNotification } from './mailer.js';
+import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers } from './carriers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -364,6 +365,33 @@ app.patch('/api/orders/:id', requireAuth('orders', 'calls', 'shipping'), async (
   return res.json({ success: true, order });
 });
 
+// What is connected, for the portal's setup checklist (no secrets returned).
+app.get('/api/setup-status', requireAuth(), async (req, res) => {
+  const status = { database: false, email: emailConfigured(), carriers: 0, team: 1, authSecret: !!process.env.AUTH_SECRET };
+  try {
+    const store = await getStore();
+    status.database = store.kind === 'postgres';
+    status.team = (await store.listUsers()).filter(u => u.active !== false).length;
+    status.carriers = await countActiveCarriers();
+  } catch {}
+  res.json(status);
+});
+
+// Carriers (transporteurs): dispatch orders to carrier APIs and receive status updates.
+registerCarrierRoutes(app, {
+  async onStatus(shipment) {
+    const order = memoryOrders.find(o => String(o.id) === String(shipment.orderId));
+    if (order) {
+      order.status = shipment.status;
+      order.carrier = shipment.carrierName;
+      order.trackingNumber = shipment.trackingNumber;
+    }
+    try {
+      await supabase.from('orders').update({ status: shipment.status, carrier: shipment.carrierName }).eq('id', shipment.orderId);
+    } catch {}
+  }
+});
+
 // Customer Risk & Trust Intelligence Function
 function evaluateTrustScore(phone) {
   const cPhone = cleanPhone(phone);
@@ -447,33 +475,62 @@ app.post('/api/blacklist', requireAuth('orders', 'calls', 'team'), async (req, r
 });
 
 // Public Customer Order Tracking API
-app.get('/api/track/:query', (req, res) => {
+app.get('/api/track/:query', async (req, res) => {
   const query = req.params.query.trim().toUpperCase();
   const cPhone = cleanPhone(query);
 
   const order = memoryOrders.find(o =>
     o.id.toUpperCase() === query ||
+    String(o.trackingNumber || '').toUpperCase() === query ||
     (cPhone.length >= 8 && cleanPhone(o.phone) === cPhone)
   );
+  // Carrier shipments are stored in the database, so they can be found by
+  // order number or tracking number even when the order isn't in memory.
+  const shipment = await findShipmentForTracking(order ? order.id : query);
 
-  if (!order) {
+  if (!order && !shipment) {
     return res.status(404).json({ error: 'Order not found' });
   }
 
-  const p = memoryProducts.find(x => String(x.id) === String(order.product));
+  const p = order && memoryProducts.find(x => String(x.id) === String(order.product));
+  const snap = shipment?.snapshot || {};
+  const tracking = shipment ? {
+    trackingNumber: shipment.trackingNumber,
+    carrierStatus: shipment.carrierStatus,
+    trackingUrl: snap.trackingUrl || '',
+    events: (shipment.events || []).map(e => ({ at: e.at, text: e.raw, status: e.status }))
+  } : {};
+
+  if (!order) {
+    return res.json({
+      id: shipment.orderId,
+      customer: snap.customer || '',
+      city: snap.city || '',
+      address: '',
+      status: shipment.status,
+      amount: snap.amount || 0,
+      quantity: snap.quantity || 1,
+      date: snap.date || '',
+      carrier: shipment.carrierName,
+      productName: snap.productName || 'Rosaino Discovery',
+      phone: '',
+      ...tracking
+    });
+  }
 
   return res.json({
     id: order.id,
     customer: order.customer.split(' ')[0] + ' ' + (order.customer.split(' ')[1] ? order.customer.split(' ')[1][0] + '***' : ''),
     city: order.city,
     address: order.address,
-    status: order.status,
+    status: shipment && (shipment.status === 'Delivered' || shipment.status === 'Returned') ? shipment.status : order.status,
     amount: order.amount,
     quantity: order.quantity,
     date: order.date,
-    carrier: order.carrier,
+    carrier: shipment?.carrierName || order.carrier,
     productName: p?.name || 'Rosaino Discovery',
-    phone: order.phone ? order.phone.slice(0, 4) + '***' + order.phone.slice(-2) : ''
+    phone: order.phone ? order.phone.slice(0, 4) + '***' + order.phone.slice(-2) : '',
+    ...tracking
   });
 });
 
