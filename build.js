@@ -37,6 +37,13 @@ if (fs.existsSync(path.join(__dirname, 'track.html'))) {
   fs.copyFileSync(path.join(__dirname, 'track.html'), path.join(distTrackDir, 'index.html'));
 }
 
+// Copy shop page (all categories and products)
+if (fs.existsSync(path.join(__dirname, 'shop.html'))) {
+  fs.mkdirSync(path.join(distDir, 'shop'), { recursive: true });
+  fs.copyFileSync(path.join(__dirname, 'shop.html'), path.join(distDir, 'shop.html'));
+  fs.copyFileSync(path.join(__dirname, 'shop.html'), path.join(distDir, 'shop', 'index.html'));
+}
+
 // Copy policies page
 if (fs.existsSync(path.join(__dirname, 'policy.html'))) {
   fs.mkdirSync(path.join(distDir, 'policy'), { recursive: true });

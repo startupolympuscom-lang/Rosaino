@@ -34,19 +34,31 @@ This export comes from the existing Rosaino Sites source. It preserves that sour
 
 ## Storefront pages
 
-- `/`: storefront, with a **Contact us** section (`#contact`). Messages appear in the portal under **Stores & media → Contact inbox**.
+- `/`: storefront home, with featured products and a **Contact us** section (`#contact`). Messages appear in the portal under **Stores & media → Contact inbox**.
+- `/shop`: every category with all of its products. The category menu, the home page's collections link and every footer's **Shop** link open it.
 - `/policy`: shipping, cash on delivery, returns, privacy and terms. Linked from the footer.
 - `/product`, `/track`: product landing page and order tracking.
 
 ## Admin sign-in
 
-The operations portal at `/admin/` requires an account. Sign-in is simple email + password auth handled entirely by this app's server (`auth.js`). It does not use Supabase Auth or any external provider.
+The operations portal at `/admin/` requires an account. Sign-in is the app's own email + password authentication (`auth.js`). **Supabase Auth is not used.** Supabase is used only as the PostgreSQL database.
 
-- Passwords are hashed with scrypt; sessions are HMAC-signed tokens that expire after 12 hours and work on Vercel without a session store.
-- Every admin API route checks the caller's role permissions on the server. The storefront, product landing page and tracking page stay public; anonymous storefront orders are always created as `New`.
+- **Storage:** with `DATABASE_URL` set to your Supabase Postgres connection string, accounts, role permissions, login lockouts and the audit trail are stored in Supabase Postgres (`auth-store.js`). The server connects to Postgres directly; the tables `admin_users`, `admin_roles`, `admin_audit` and `admin_login_attempts` are created automatically on first start, with row-level security enabled and no policies, so the public (anon) API key can never read them. Without `DATABASE_URL` (local development) the same data is kept in memory.
+- **Passwords** are hashed with scrypt. **Sessions** are signed tokens that expire after 12 hours; every request re-checks the account in the database, so disabling a user or changing a password takes effect immediately on every server instance.
+- Every admin API route checks the caller's role permissions on the server. The storefront, shop, product landing page and tracking page stay public; anonymous storefront orders are always created as `New`.
 - Five failed sign-ins for the same email and IP lock that pair out for 15 minutes.
+- If the database can't be reached, sign-in returns "temporarily unavailable" instead of falling back to default passwords.
 
-Default accounts (change these before going live):
+### Connecting Supabase Postgres
+
+1. In the Supabase dashboard, open **Connect** and copy the **Transaction pooler** connection string (port 6543), with your database password filled in.
+2. In Vercel (Project → Settings → Environment Variables), add `DATABASE_URL` with that value, plus `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`).
+3. Optionally add `ADMIN_EMAIL` and `ADMIN_PASSWORD` **before the first deploy** to choose the Super Admin login, and `DISABLE_DEMO_USERS=true` to skip the sample accounts.
+4. Redeploy. The first request creates the tables and the accounts.
+
+Accounts are only seeded when `admin_users` is empty. Later, setting `ADMIN_EMAIL`/`ADMIN_PASSWORD` to an email that doesn't exist yet adds it as a new Super Admin (useful for recovering access).
+
+Default accounts (created on first start unless you set the variables above; change them before going live):
 
 | Role | Email | Password |
 | --- | --- | --- |
@@ -55,14 +67,6 @@ Default accounts (change these before going live):
 | Operations manager | operations@rosaino.com | OpsManager2026! |
 | Confirmation agent | agent@rosaino.com | Agent2026! |
 | Finance viewer | finance@rosaino.com | Finance2026! |
-
-Production environment variables (see `.env.example`):
-
-- `AUTH_SECRET`: long random string that signs sessions. Required in production.
-- `ADMIN_EMAIL` / `ADMIN_PASSWORD`: replace the default Super Admin login.
-- `DISABLE_DEMO_USERS=true`: remove the four sample accounts.
-
-The Super Admin and sample accounts always come from `auth.js` and these variables, so they work on every restart. Accounts, role changes and audit entries you add in the portal are kept in server memory, so they reset when the server restarts or Vercel starts a new instance. Put permanent accounts in `auth.js` or the environment variables.
 
 ### Admin features
 

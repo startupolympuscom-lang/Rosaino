@@ -253,7 +253,7 @@ app.post('/api/products', requireAuth('products', 'cms'), async (req, res) => {
     console.warn('Supabase upsert product notice:', e.message);
   }
 
-  audit(req.user, 'product.saved', `${productData.id || ''} ${productData.name}`.trim(), req);
+  await audit(req.user, 'product.saved', `${productData.id || ''} ${productData.name}`.trim(), req);
   return res.json({ success: true, product: productData });
 });
 
@@ -329,7 +329,7 @@ app.patch('/api/orders/:id', requireAuth('orders', 'calls', 'shipping'), async (
   const order = memoryOrders.find(o => String(o.id) === String(id));
   if (order) {
     if (updates?.status && updates.status !== order.status) {
-      audit(req.user, 'order.status', `${id}: ${order.status} → ${updates.status}`, req);
+      await audit(req.user, 'order.status', `${id}: ${order.status} → ${updates.status}`, req);
     }
     Object.assign(order, updates);
   }
@@ -411,7 +411,7 @@ app.get('/api/blacklist', requireAuth(), (req, res) => {
   res.json({ blacklistedPhones: Array.from(blacklistedPhones) });
 });
 
-app.post('/api/blacklist', requireAuth('orders', 'calls', 'team'), (req, res) => {
+app.post('/api/blacklist', requireAuth('orders', 'calls', 'team'), async (req, res) => {
   const { phone, action } = req.body || {};
   const cPhone = cleanPhone(phone);
   if (!cPhone) return res.status(400).json({ error: 'Valid phone is required' });
@@ -421,7 +421,7 @@ app.post('/api/blacklist', requireAuth('orders', 'calls', 'team'), (req, res) =>
   } else {
     blacklistedPhones.add(cPhone);
   }
-  audit(req.user, action === 'remove' ? 'blacklist.removed' : 'blacklist.added', cPhone, req);
+  await audit(req.user, action === 'remove' ? 'blacklist.removed' : 'blacklist.added', cPhone, req);
   res.json({ success: true, count: blacklistedPhones.size });
 });
 
@@ -528,7 +528,7 @@ app.post('/api/purchase-orders', requireAuth('suppliers'), (req, res) => {
 });
 
 // Receive PO: Automatically increments product inventory and updates unit cost
-app.post('/api/purchase-orders/:id/receive', requireAuth('suppliers', 'products'), (req, res) => {
+app.post('/api/purchase-orders/:id/receive', requireAuth('suppliers', 'products'), async (req, res) => {
   const { id } = req.params;
   const po = memoryPurchaseOrders.find(p => p.id === id);
   if (!po) return res.status(404).json({ error: 'Purchase Order not found' });
@@ -543,7 +543,7 @@ app.post('/api/purchase-orders/:id/receive', requireAuth('suppliers', 'products'
     prod.cost = po.landedCostPerUnit; // update true landed cost!
   }
 
-  audit(req.user, 'purchase_order.received', `${po.id} · +${po.quantity} ${po.productName}`, req);
+  await audit(req.user, 'purchase_order.received', `${po.id} · +${po.quantity} ${po.productName}`, req);
   res.json({ success: true, purchaseOrder: po, updatedStock: prod?.stock, landedCost: po.landedCostPerUnit });
 });
 
@@ -635,7 +635,7 @@ app.get('/api/reconciliation', requireAuth('reconciliation', 'finance'), (req, r
   });
 });
 
-app.post('/api/reconciliation/batch-remit', requireAuth('reconciliation'), (req, res) => {
+app.post('/api/reconciliation/batch-remit', requireAuth('reconciliation'), async (req, res) => {
   const { orderIds, remittanceRef, carrier } = req.body || {};
   if (!orderIds || !Array.isArray(orderIds) || !orderIds.length) {
     return res.status(400).json({ error: 'Order IDs are required' });
@@ -654,7 +654,7 @@ app.post('/api/reconciliation/batch-remit', requireAuth('reconciliation'), (req,
     }
   });
 
-  audit(req.user, 'remittance.reconciled', `${reconciledCount} order(s) · ${ref}`, req);
+  await audit(req.user, 'remittance.reconciled', `${reconciledCount} order(s) · ${ref}`, req);
   res.json({ success: true, reconciledCount, remittanceRef: ref });
 });
 
@@ -835,12 +835,12 @@ app.get('/api/cms/:id', (req, res) => {
   return res.json(def);
 });
 
-app.post('/api/cms/:id', requireAuth('cms'), (req, res) => {
+app.post('/api/cms/:id', requireAuth('cms'), async (req, res) => {
   const p = memoryProducts.find(x => String(x.id) === String(req.params.id));
   if (!p) return res.status(404).json({ error: 'Product not found' });
   const updated = { ...(memoryCms.get(p.id) || getDefaultCms(p)), ...req.body, productId: p.id };
   memoryCms.set(p.id, updated);
-  audit(req.user, 'cms.saved', p.name, req);
+  await audit(req.user, 'cms.saved', p.name, req);
   return res.json({ success: true, cms: updated });
 });
 
@@ -851,6 +851,11 @@ app.get('/product', (req, res) => {
 
 app.get('/p/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'product.html'));
+});
+
+// Shop page: all categories and products
+app.get('/shop', (req, res) => {
+  res.sendFile(path.join(__dirname, 'shop.html'));
 });
 
 // Policies page
@@ -874,7 +879,7 @@ app.get('/admin', (req, res) => {
 
 // Storefront static assets and root. Only public files are served so server
 // source (server.js, auth.js, .env, schema) is never exposed.
-const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'demo.css', 'demo.js', 'product.html', 'track.html', 'policy.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'demo.css', 'demo.js', 'product.html', 'track.html', 'policy.html', 'shop.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
 app.get('/:file', (req, res, next) => {
   if (!PUBLIC_ROOT_FILES.has(req.params.file)) return next();
   res.sendFile(path.join(__dirname, req.params.file));
@@ -890,6 +895,7 @@ if (!process.env.VERCEL) {
     console.log(`Rosaino server running at http://${HOST}:${PORT}`);
     console.log(`Storefront: http://${HOST}:${PORT}/`);
     console.log(`Customer Tracking: http://${HOST}:${PORT}/track`);
+    console.log(`Shop: http://${HOST}:${PORT}/shop`);
     console.log(`Policies: http://${HOST}:${PORT}/policy`);
     console.log(`Operations Demo: http://${HOST}:${PORT}/admin/`);
     console.log(`Supabase URL: ${SUPABASE_URL}`);

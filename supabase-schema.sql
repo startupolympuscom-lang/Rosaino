@@ -117,5 +117,7 @@ CREATE POLICY "Allow public read suppliers" ON public.suppliers FOR SELECT USING
 CREATE POLICY "Allow public insert suppliers" ON public.suppliers FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Allow public read roles" ON public.roles FOR SELECT USING (true);
--- Admin sign-in and roles are handled by the app server (auth.js), not Supabase.
+-- Admin sign-in is handled by the app server (auth.js), not Supabase Auth. Its tables
+-- (admin_users, admin_roles, admin_audit, admin_login_attempts) are created automatically
+-- through DATABASE_URL, with RLS enabled and no public policies.
 DROP POLICY IF EXISTS "Allow public update roles" ON public.roles;

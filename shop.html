@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop all collections — Rosaino</title>
+  <meta name="description" content="Browse every Rosaino collection and product: home, electronics, fashion, beauty, sports and kids.">
+  <meta property="og:title" content="Rosaino — Curated Everyday Essentials">
+  <meta property="og:description" content="Thoughtful objects for daily rituals. Modern silhouettes, honest materials, and quiet craft.">
+  <link rel="icon" href="/assets/icon.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body id="top">
+  <div class="announcement">Discover our curated everyday essentials · Preview collection</div>
+  <header>
+    <a class="brand" href="/" aria-label="Rosaino home"><img src="/assets/logo.png" alt="Rosaino"></a>
+    <form id="searchform" role="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input id="search" type="search" placeholder="Search discoveries..." autocomplete="off" aria-label="Search discoveries">
+    </form>
+    <div class="region">Worldwide delivery · USD</div>
+    <a href="/shop" style="font-size:13px;font-weight:600;color:var(--ink);margin-left:12px;text-decoration:none;">Shop</a>
+    <a href="/track" style="font-size:13px;font-weight:600;color:var(--teal);margin-left:12px;text-decoration:none;">Track Order</a>
+    <a href="/admin/" style="font-size:13px;font-weight:600;color:var(--ink);margin-left:12px;text-decoration:none;" title="Operations & Admin Portal">Admin Portal</a>
+    <button class="bag-button" id="bag-open" aria-label="Open shopping bag">
+      <span>Bag</span>
+      <span id="bag-count">0</span>
+    </button>
+  </header>
+
+  <nav id="nav" aria-label="Product categories"></nav>
+
+  <section class="shop-hero">
+    <span class="eyebrow">SHOP</span>
+    <h1>All <span>collections</span>.</h1>
+    <p>Every Rosaino category and product in one place. Pick a collection to jump straight to it.</p>
+    <span class="text-button" id="results">Loading products…</span>
+  </section>
+
+  <section class="section shop-index" aria-label="Collections">
+    <div id="categories" class="categories"></div>
+  </section>
+
+  <div id="shop-catalog" class="shop-catalog"></div>
+
+  <footer>
+    <div class="footer-top">
+      <a class="brand" href="/" aria-label="Rosaino home"><img src="/assets/logo.png" alt="Rosaino"></a>
+      <p>Everyday objects designed for mindful living. Modern silhouettes, honest materials, and quiet craft.</p>
+      <a href="/shop">Shop</a>
+      <a href="/track">Track Order</a>
+      <a href="/#contact">Contact</a>
+      <a href="/policy">Policies</a>
+      <button id="footer-bag">Bag</button>
+      <a href="/admin/">Operations Portal</a>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year"></span> Rosaino. All rights reserved.</span>
+      <span>Curated Everyday Essentials</span>
+    </div>
+  </footer>
+
+  <dialog id="detail">
+    <button class="close" data-close="detail" aria-label="Close dialog">×</button>
+    <div id="detail-content"></div>
+  </dialog>
+
+  <dialog id="bag">
+    <button class="close" data-close="bag" aria-label="Close dialog">×</button>
+    <div class="bag-heading">
+      <h2>Your Bag</h2>
+    </div>
+    <div id="bag-items"></div>
+    <div id="bag-summary"></div>
+  </dialog>
+
+  <!-- Cash on Delivery Checkout Dialog -->
+  <dialog id="checkout" style="width: min(840px, 94vw);">
+    <button class="close" data-close="checkout" aria-label="Close checkout">×</button>
+    <div class="checkout-heading">
+      <h2>Checkout (Cash on Delivery)</h2>
+      <p>Confirm your delivery details. Payment is collected upon doorstep delivery.</p>
+    </div>
+    <div id="checkout-container"></div>
+  </dialog>
+
+  <!-- Order Success Confirmation Dialog -->
+  <dialog id="order-success" style="width: min(580px, 92vw);">
+    <button class="close" data-close="order-success" aria-label="Close confirmation">×</button>
+    <div id="order-success-content" class="order-success-wrap"></div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

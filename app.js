@@ -129,74 +129,127 @@ function photoStyle(p) {
   return `background-position:${posX}% 65.3%;background-size:714.42% auto;`;
 }
 
+// Category helpers. The shop page (/shop) lists every category with its products.
+const isShopPage = () => !!$('#shop-catalog');
+const slug = c => String(c).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const categoryHref = c => (isShopPage() ? '' : '/shop') + '#' + slug(c);
+// Known categories first, then any new category created in the admin portal
+const allCategories = () => [...cats, ...[...new Set(products.map(p => p.category))].filter(c => c && !cats.includes(c))];
+const categoryPhoto = c => {
+  const i = cats.indexOf(c);
+  return `background-position:${i >= 0 ? positions[i] : 50}% 65.3%`;
+};
+
 // Initialize navigation
 function initNav() {
   const nav = $('#nav');
   if (nav) {
-    nav.innerHTML = ['Shop all', ...cats].map((c, i) =>
-      `<button data-category="${i ? c : 'All'}" class="${(i === 0 && category === 'All') || category === c ? 'active' : ''}">${c}</button>`
-    ).join('');
+    nav.innerHTML = `<a href="/shop" class="${isShopPage() ? 'active' : ''}">Shop all</a>` +
+      allCategories().map(c => `<a href="${categoryHref(c)}">${esc(c)}</a>`).join('');
   }
 
   const catGrid = $('#categories');
   if (catGrid) {
-    catGrid.innerHTML = cats.map((c, i) =>
-      `<button class="category" data-category="${c}">
-        <div class="category-photo" role="img" aria-label="${c} collection" style="background-position:${positions[i]}% 65.3%"></div>
-        <div class="category-label"><span>${c}</span><span aria-hidden="true">↗</span></div>
-      </button>`
-    ).join('');
+    catGrid.innerHTML = allCategories().map(c => {
+      const count = products.filter(p => p.category === c).length;
+      return `<a class="category" href="${categoryHref(c)}">
+        <div class="category-photo" role="img" aria-label="${esc(c)} collection" style="${categoryPhoto(c)}"></div>
+        <div class="category-label"><span>${esc(c)}<small>${count} ${count === 1 ? 'product' : 'products'}</small></span><span aria-hidden="true">↗</span></div>
+      </a>`;
+    }).join('');
   }
+}
+
+// Product card shared by the home page and the shop page
+function productCard(p) {
+  const { available } = getStockInfo(p);
+  const isOutOfStock = available <= 0;
+  const isLowStock = available > 0 && available < 15;
+
+  return `
+    <article class="product ${isOutOfStock ? 'out-of-stock' : ''}">
+      <div class="product-visual">
+        ${isOutOfStock ? '<span class="stock-badge out-of-stock">Out of stock</span>' : isLowStock ? `<span class="stock-badge low-stock">Only ${available} left</span>` : ''}
+        <a href="/product?id=${esc(p.id)}" class="product-open" aria-label="View ${esc(p.name)} dedicated landing page">
+          <div class="product-photo" role="img" aria-label="${esc(p.name)}" style="${photoStyle(p)}"></div>
+        </a>
+        <button class="add-button" data-add="${esc(p.id)}" aria-label="Add ${esc(p.name)} to bag" ${isOutOfStock ? 'disabled title="Out of stock"' : ''}>
+          ${isOutOfStock ? '✕' : '+'}
+        </button>
+      </div>
+      <div class="product-meta">
+        <div>
+          <a href="/product?id=${esc(p.id)}" style="padding:0;text-align:left;color:inherit;text-decoration:none;display:block;">
+            <h3>${esc(p.name)}</h3>
+          </a>
+          <p>${esc(p.category)} · <small>${isOutOfStock ? 'Out of stock' : available + ' available'}</small></p>
+        </div>
+        <span class="price">${money(p.price)}</span>
+      </div>
+      <div class="product-landing-row">
+        <a href="/product?id=${esc(p.id)}" class="btn-product-landing" aria-label="Open dedicated landing page and order ${esc(p.name)}">
+          <span>View Landing Page & Order</span>
+          <span class="landing-arrow">➔</span>
+        </a>
+      </div>
+      <div class="swatches" aria-hidden="true"><i></i><i></i><i></i></div>
+    </article>
+  `;
+}
+
+const matchesQuery = p => `${p.name} ${p.category} ${p.sku || ''} ${p.desc || ''}`.toLowerCase().includes(query);
+
+// Shop page: every category with all of its products
+function renderShop() {
+  const catalog = $('#shop-catalog');
+  const sections = allCategories().map(c => {
+    const items = products.filter(p => p.category === c && matchesQuery(p));
+    if (query && !items.length) return '';
+    return `
+      <section class="shop-category" id="${slug(c)}" aria-labelledby="${slug(c)}-title">
+        <div class="shop-category-head">
+          <div class="shop-category-photo category-photo" role="img" aria-label="${esc(c)} collection" style="${categoryPhoto(c)}"></div>
+          <div>
+            <span class="eyebrow">COLLECTION</span>
+            <h2 id="${slug(c)}-title">${esc(c)}</h2>
+            <p>${items.length} ${items.length === 1 ? 'product' : 'products'}</p>
+          </div>
+          <a href="#top" class="text-button">Back to top ↑</a>
+        </div>
+        ${items.length
+          ? `<div class="products">${items.map(productCard).join('')}</div>`
+          : '<p class="shop-empty">New pieces are coming to this collection soon.</p>'}
+      </section>
+    `;
+  }).join('');
+
+  catalog.innerHTML = sections || `
+    <div class="empty">
+      <h3>No discoveries found</h3>
+      <p>No products match "${esc(query)}". Try a different keyword.</p>
+      <button class="primary" style="margin-top:16px;" data-category="All">Show all products ↗</button>
+    </div>
+  `;
+
+  const total = products.filter(matchesQuery).length;
+  const results = $('#results');
+  if (results) results.textContent = `${total} ${total === 1 ? 'product' : 'products'} · ${allCategories().length} collections`;
 }
 
 // Render product catalog
 function render() {
   loadDb();
-  const list = products.filter(p => {
-    const matchCat = (category === 'All' || p.category === category);
-    const text = `${p.name} ${p.category} ${p.sku || ''} ${p.desc || ''}`.toLowerCase();
-    const matchQuery = text.includes(query);
-    return matchCat && matchQuery;
-  });
+  if (isShopPage()) {
+    initNav();
+    renderShop();
+    return;
+  }
+  const list = products.filter(p => (category === 'All' || p.category === category) && matchesQuery(p));
 
   const productContainer = $('#products');
   if (productContainer) {
     if (list.length) {
-      productContainer.innerHTML = list.map(p => {
-        const { available } = getStockInfo(p);
-        const isOutOfStock = available <= 0;
-        const isLowStock = available > 0 && available < 15;
-
-        return `
-          <article class="product ${isOutOfStock ? 'out-of-stock' : ''}">
-            <div class="product-visual">
-              ${isOutOfStock ? '<span class="stock-badge out-of-stock">Out of stock</span>' : isLowStock ? `<span class="stock-badge low-stock">Only ${available} left</span>` : ''}
-              <a href="/product?id=${esc(p.id)}" class="product-open" aria-label="View ${esc(p.name)} dedicated landing page">
-                <div class="product-photo" role="img" aria-label="${esc(p.name)}" style="${photoStyle(p)}"></div>
-              </a>
-              <button class="add-button" data-add="${esc(p.id)}" aria-label="Add ${esc(p.name)} to bag" ${isOutOfStock ? 'disabled title="Out of stock"' : ''}>
-                ${isOutOfStock ? '✕' : '+'}
-              </button>
-            </div>
-            <div class="product-meta">
-              <div>
-                <a href="/product?id=${esc(p.id)}" style="padding:0;text-align:left;color:inherit;text-decoration:none;display:block;">
-                  <h3>${esc(p.name)}</h3>
-                </a>
-                <p>${esc(p.category)} · <small>${isOutOfStock ? 'Out of stock' : available + ' available'}</small></p>
-              </div>
-              <span class="price">${money(p.price)}</span>
-            </div>
-            <div class="product-landing-row">
-              <a href="/product?id=${esc(p.id)}" class="btn-product-landing" aria-label="Open dedicated landing page and order ${esc(p.name)}">
-                <span>View Landing Page & Order</span>
-                <span class="landing-arrow">➔</span>
-              </a>
-            </div>
-            <div class="swatches" aria-hidden="true"><i></i><i></i><i></i></div>
-          </article>
-        `;
-      }).join('');
+      productContainer.innerHTML = list.map(productCard).join('');
     } else {
       productContainer.innerHTML = `
         <div class="empty">
@@ -219,21 +272,20 @@ function render() {
     productTitle.textContent = query ? `Search: "${query}"` : (category === 'All' ? 'Everyday favourites.' : `${category}.`);
   }
 
-  document.querySelectorAll('#nav button').forEach(b => {
-    const isAct = b.dataset.category === category;
-    b.classList.toggle('active', isAct);
-    b.setAttribute('aria-pressed', String(isAct));
-  });
 }
 
 function filterCategory(c) {
-  category = c;
+  if (!isShopPage() && c !== 'All') {
+    location.href = categoryHref(c);
+    return;
+  }
+  category = 'All';
   query = '';
   const searchInput = $('#search');
   if (searchInput) searchInput.value = '';
   render();
-  const shopEl = $('#shop');
-  if (shopEl) shopEl.scrollIntoView({ behavior: 'smooth' });
+  const target = c === 'All' ? ($('#shop-catalog') || $('#shop')) : document.getElementById(slug(c));
+  if (target) target.scrollIntoView({ behavior: 'smooth' });
 }
 
 let toastTimer;
@@ -739,7 +791,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (searchForm) {
     searchForm.onsubmit = e => {
       e.preventDefault();
-      const shopEl = $('#shop');
+      const shopEl = $('#shop-catalog') || $('#shop');
       if (shopEl) shopEl.scrollIntoView({ behavior: 'smooth' });
     };
   }
@@ -760,6 +812,7 @@ window.addEventListener('DOMContentLoaded', () => {
         db.products = prods;
         products = prods;
         saveDb();
+        initNav();
         render();
       }
     })

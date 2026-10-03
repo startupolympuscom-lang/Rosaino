@@ -1,13 +1,15 @@
-// Simple, stateless admin authentication for the Rosaino operations portal.
+// Simple email + password authentication for the Rosaino operations portal.
 //
+// - No external auth provider (Supabase Auth is not used). Accounts, roles,
+//   login throttling and the audit trail are stored in Supabase Postgres via
+//   auth-store.js (or in memory for local development).
 // - Passwords are hashed with scrypt (never stored or returned in plain text).
-// - Sessions are HMAC-signed tokens, so they keep working across serverless
-//   instances (Vercel) without a shared session store.
+// - Sessions are HMAC-signed tokens, so they work across serverless instances
+//   (Vercel). Each request re-checks the account in the database, so disabling
+//   a user or changing a password takes effect immediately.
 // - Role permissions are enforced on the server for every admin API route.
-// - No external auth provider (no Supabase Auth): accounts are defined here
-//   and in environment variables; users, roles and the audit trail live in
-//   server memory.
 import crypto from 'crypto';
+import { createStore } from './auth-store.js';
 
 export const PERMISSIONS = [
   'overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers',
@@ -29,6 +31,7 @@ const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_FAILED_LOGINS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
+const AUDIT_LIMIT = 500;
 
 const SECRET = process.env.AUTH_SECRET
   || crypto.createHash('sha256').update('rosaino-admin:' + (process.env.SUPABASE_KEY || 'local-dev')).digest('hex');
@@ -54,46 +57,83 @@ function verifyPassword(password, stored) {
 }
 
 // ---------------------------------------------------------------------------
-// Users and roles
+// Store, roles and first-run setup
 // ---------------------------------------------------------------------------
+const store = createStore();
+let roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
+
 const initials = name => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 
-function seedUsers() {
-  const envEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const envPassword = process.env.ADMIN_PASSWORD;
-  const demoUsersEnabled = process.env.DISABLE_DEMO_USERS !== 'true';
-
-  const seeds = [
-    { id: 'usr_superadmin', name: 'Rosaino Super Admin', email: envEmail || 'superadmin@rosaino.com', password: envPassword || 'RosainoSuperAdmin2026!', role: SUPER_ADMIN }
-  ];
-  if (demoUsersEnabled) {
-    seeds.push(
-      { id: 'usr_admin', name: 'Operations Admin', email: 'admin@rosaino.com', password: 'RosainoAdmin2026!', role: 'Admin' },
-      { id: 'usr_ops', name: 'Lina Benali', email: 'operations@rosaino.com', password: 'OpsManager2026!', role: 'Operations manager' },
-      { id: 'usr_agent', name: 'Sara Amrani', email: 'agent@rosaino.com', password: 'Agent2026!', role: 'Confirmation agent' },
-      { id: 'usr_finance', name: 'Tariq Mansouri', email: 'finance@rosaino.com', password: 'Finance2026!', role: 'Finance viewer' }
-    );
-  }
-  if (!envPassword) {
-    console.warn('[auth] ADMIN_PASSWORD is not set; the default demo Super Admin password is active. Set ADMIN_EMAIL/ADMIN_PASSWORD in production.');
-  }
-
-  const now = new Date().toISOString();
-  return new Map(seeds.map(({ password, ...u }) => [u.id, {
-    ...u,
-    avatar: initials(u.name),
+function newUser({ id, name, email, role, password }) {
+  return {
+    id: id || 'usr_' + crypto.randomBytes(6).toString('hex'),
+    name,
+    email: email.trim().toLowerCase(),
+    role,
+    avatar: initials(name),
     active: true,
     passwordHash: hashPassword(password),
     tokenVersion: 1,
-    createdAt: now,
+    createdAt: new Date().toISOString(),
     lastLoginAt: null
-  }]));
+  };
 }
 
-const users = seedUsers();
-let roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
-const auditLog = [];
-const failedLogins = new Map();
+async function bootstrap() {
+  await store.init();
+
+  const storedRoles = await store.getRoles();
+  if (storedRoles) {
+    roles = { ...storedRoles, [SUPER_ADMIN]: [...PERMISSIONS] };
+  } else {
+    await store.saveRoles(roles);
+  }
+
+  const envEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const envPassword = process.env.ADMIN_PASSWORD;
+
+  // First run: create the Super Admin (and sample accounts unless disabled).
+  if ((await store.countUsers()) === 0) {
+    const seeds = [
+      { id: 'usr_superadmin', name: 'Rosaino Super Admin', email: envEmail || 'superadmin@rosaino.com', password: envPassword || 'RosainoSuperAdmin2026!', role: SUPER_ADMIN }
+    ];
+    if (process.env.DISABLE_DEMO_USERS !== 'true') {
+      seeds.push(
+        { id: 'usr_admin', name: 'Operations Admin', email: 'admin@rosaino.com', password: 'RosainoAdmin2026!', role: 'Admin' },
+        { id: 'usr_ops', name: 'Lina Benali', email: 'operations@rosaino.com', password: 'OpsManager2026!', role: 'Operations manager' },
+        { id: 'usr_agent', name: 'Sara Amrani', email: 'agent@rosaino.com', password: 'Agent2026!', role: 'Confirmation agent' },
+        { id: 'usr_finance', name: 'Tariq Mansouri', email: 'finance@rosaino.com', password: 'Finance2026!', role: 'Finance viewer' }
+      );
+    }
+    for (const s of seeds) await store.saveUser(newUser(s));
+    console.log(`[auth] Created ${seeds.length} admin account(s) in ${store.kind} storage.`);
+    if (!envPassword) {
+      console.warn('[auth] Default Super Admin password in use. Set ADMIN_EMAIL/ADMIN_PASSWORD before going live, or change it in the portal.');
+    }
+  } else if (envEmail && envPassword && !(await store.findByEmail(envEmail))) {
+    // Recovery: a new ADMIN_EMAIL/ADMIN_PASSWORD pair adds a fresh Super Admin.
+    await store.saveUser(newUser({ name: 'Rosaino Super Admin', email: envEmail, password: envPassword, role: SUPER_ADMIN }));
+    console.log(`[auth] Added Super Admin ${envEmail} from environment variables.`);
+  }
+}
+
+let ready = null;
+function ensureReady() {
+  if (!ready) {
+    ready = bootstrap().catch(err => {
+      ready = null; // retry on the next request
+      throw err;
+    });
+  }
+  return ready;
+}
+
+// Refresh role permissions so every serverless instance sees the same matrix.
+async function loadRoles() {
+  const stored = await store.getRoles();
+  if (stored) roles = { ...stored, [SUPER_ADMIN]: [...PERMISSIONS] };
+  return roles;
+}
 
 export function publicUser(u) {
   return {
@@ -117,8 +157,9 @@ export function can(user, perm) {
   return !!user && (user.role === SUPER_ADMIN || (roles[user.role] || []).includes(perm));
 }
 
-const findByEmail = email => [...users.values()].find(u => u.email.toLowerCase() === String(email || '').trim().toLowerCase());
-const activeSuperAdmins = () => [...users.values()].filter(u => u.active !== false && u.role === SUPER_ADMIN);
+async function activeSuperAdminCount() {
+  return (await store.listUsers()).filter(u => u.active !== false && u.role === SUPER_ADMIN).length;
+}
 
 export function audit(actor, action, detail = '', req = null) {
   const entry = {
@@ -129,9 +170,8 @@ export function audit(actor, action, detail = '', req = null) {
     detail,
     ip: req ? clientIp(req) : ''
   };
-  auditLog.unshift(entry);
-  auditLog.length = Math.min(auditLog.length, 500);
-  return entry;
+  // Returns a promise; await it where the response should wait for the write.
+  return store.addAudit(entry).catch(err => console.warn('[auth] audit write failed:', err.message));
 }
 
 // ---------------------------------------------------------------------------
@@ -146,21 +186,22 @@ function issueToken(u) {
   return { token: `${payload}.${sign(payload)}`, expiresAt: new Date(expiresAt).toISOString() };
 }
 
-function verifyToken(token) {
+async function verifyToken(token) {
   const [payload, sig] = String(token || '').split('.');
   if (!payload || !sig) return null;
   const expected = Buffer.from(sign(payload));
   const actual = Buffer.from(sig);
   if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return null;
+  let data;
   try {
-    const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    if (!data.exp || data.exp < Date.now()) return null;
-    const u = users.get(data.sub);
-    if (!u || u.active === false || u.tokenVersion !== data.ver) return null;
-    return u;
+    data = JSON.parse(Buffer.from(payload, 'base64url').toString());
   } catch {
     return null;
   }
+  if (!data.exp || data.exp < Date.now()) return null;
+  const [u] = await Promise.all([store.getUser(data.sub), loadRoles()]);
+  if (!u || u.active === false || u.tokenVersion !== data.ver) return null;
+  return u;
 }
 
 function clientIp(req) {
@@ -172,20 +213,36 @@ function bearer(req) {
   return h.startsWith('Bearer ') ? h.slice(7) : null;
 }
 
+function unavailable(res, err) {
+  console.error('[auth] storage error:', err.message);
+  return res.status(503).json({ error: 'Sign-in is temporarily unavailable. Please try again shortly.' });
+}
+
 // ---------------------------------------------------------------------------
 // Middleware
 // ---------------------------------------------------------------------------
 
 /** Attach req.user when a valid token is present; never rejects. */
-export function optionalAuth(req, res, next) {
-  req.user = verifyToken(bearer(req));
+export async function optionalAuth(req, res, next) {
+  try {
+    await ensureReady();
+    req.user = await verifyToken(bearer(req));
+  } catch {
+    req.user = null;
+  }
   next();
 }
 
 /** Require a signed-in user holding at least one of the given permissions. */
 export function requireAuth(...perms) {
-  return (req, res, next) => {
-      const u = verifyToken(bearer(req));
+  return async (req, res, next) => {
+    let u;
+    try {
+      await ensureReady();
+      u = await verifyToken(bearer(req));
+    } catch (err) {
+      return unavailable(res, err);
+    }
     if (!u) return res.status(401).json({ error: 'Authentication required' });
     if (perms.length && !perms.some(p => can(u, p))) {
       return res.status(403).json({ error: `Your role (${u.role}) is not allowed to perform this action` });
@@ -194,6 +251,15 @@ export function requireAuth(...perms) {
     next();
   };
 }
+
+// Wrap async route handlers so storage errors return 503 instead of hanging.
+const handle = fn => async (req, res) => {
+  try {
+    await fn(req, res);
+  } catch (err) {
+    unavailable(res, err);
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -215,49 +281,53 @@ function sessionPayload(u) {
 
 export function registerAuthRoutes(app) {
   // --- Session ---------------------------------------------------------------
-  app.post('/api/auth/login', (req, res) => {
-      const email = String(req.body?.email || '').trim().toLowerCase();
+  app.post('/api/auth/login', handle(async (req, res) => {
+    await ensureReady();
+    const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
 
     const key = `${clientIp(req)}|${email}`;
-    const attempt = failedLogins.get(key);
+    const attempt = await store.getAttempt(key);
     if (attempt && attempt.count >= MAX_FAILED_LOGINS && Date.now() - attempt.first < LOCKOUT_MS) {
       const minutes = Math.ceil((LOCKOUT_MS - (Date.now() - attempt.first)) / 60000);
       return res.status(429).json({ error: `Too many failed attempts. Try again in ${minutes} minute(s).` });
     }
 
-    const u = findByEmail(email);
+    const u = await store.findByEmail(email);
     if (!u || !verifyPassword(password, u.passwordHash) || u.active === false) {
       const fresh = !attempt || Date.now() - attempt.first >= LOCKOUT_MS;
-      failedLogins.set(key, fresh ? { count: 1, first: Date.now() } : { ...attempt, count: attempt.count + 1 });
-      audit(email, 'login.failed', u && u.active === false ? 'Account disabled' : 'Invalid credentials', req);
+      await store.setAttempt(key, fresh ? { count: 1, first: Date.now() } : { ...attempt, count: attempt.count + 1 });
+      await audit(email, 'login.failed', u && u.active === false ? 'Account disabled' : 'Invalid credentials', req);
       return res.status(401).json({ error: u && u.active === false ? 'This account has been disabled' : 'Invalid email or password' });
     }
 
-    failedLogins.delete(key);
+    await store.clearAttempt(key);
     u.lastLoginAt = new Date().toISOString();
-    audit(u, 'login', '', req);
+    await store.saveUser(u);
+    await loadRoles();
+    await audit(u, 'login', '', req);
     return res.json({ success: true, ...issueToken(u), ...sessionPayload(u) });
-  });
+  }));
 
   app.get('/api/auth/me', requireAuth(), (req, res) => {
     res.json({ authenticated: true, ...sessionPayload(req.user) });
   });
 
-  app.post('/api/auth/logout', optionalAuth, (req, res) => {
-    if (req.user) audit(req.user, 'logout', '', req);
+  app.post('/api/auth/logout', optionalAuth, async (req, res) => {
+    if (req.user) await audit(req.user, 'logout', '', req);
     res.json({ success: true });
   });
 
   // Invalidate every token for the current user (all devices).
-  app.post('/api/auth/logout-all', requireAuth(), (req, res) => {
+  app.post('/api/auth/logout-all', requireAuth(), handle(async (req, res) => {
     req.user.tokenVersion += 1;
-    audit(req.user, 'logout.all', 'All sessions revoked', req);
+    await store.saveUser(req.user);
+    await audit(req.user, 'logout.all', 'All sessions revoked', req);
     res.json({ success: true });
-  });
+  }));
 
-  app.post('/api/auth/change-password', requireAuth(), (req, res) => {
+  app.post('/api/auth/change-password', requireAuth(), handle(async (req, res) => {
     const { currentPassword, newPassword } = req.body || {};
     if (!verifyPassword(currentPassword || '', req.user.passwordHash)) {
       return res.status(400).json({ error: 'Current password is incorrect' });
@@ -266,22 +336,25 @@ export function registerAuthRoutes(app) {
     if (err) return res.status(400).json({ error: err });
     req.user.passwordHash = hashPassword(newPassword);
     req.user.tokenVersion += 1; // sign out other devices
-    audit(req.user, 'password.changed', '', req);
+    await store.saveUser(req.user);
+    await audit(req.user, 'password.changed', '', req);
     res.json({ success: true, ...issueToken(req.user), ...sessionPayload(req.user) });
-  });
+  }));
 
   // --- Roles & permissions ---------------------------------------------------
   app.get('/api/roles', requireAuth(), (req, res) => {
     res.json({ roles, permissions: PERMISSIONS });
   });
 
-  app.put('/api/roles', requireAuth('rbac_manage'), (req, res) => {
+  app.put('/api/roles', requireAuth('rbac_manage'), handle(async (req, res) => {
+    const assigned = new Set((await store.listUsers()).map(u => u.role));
+
     if (req.body?.reset) {
-      const removed = Object.keys(roles).filter(r => !DEFAULT_ROLES[r]);
-      const inUse = removed.filter(r => [...users.values()].some(u => u.role === r));
+      const inUse = Object.keys(roles).filter(r => !DEFAULT_ROLES[r] && assigned.has(r));
       if (inUse.length) return res.status(400).json({ error: `Reassign users before resetting; custom role(s) in use: ${inUse.join(', ')}` });
       roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
-      audit(req.user, 'roles.reset', 'Permissions reset to defaults', req);
+      await store.saveRoles(roles);
+      await audit(req.user, 'roles.reset', 'Permissions reset to defaults', req);
       return res.json({ success: true, roles });
     }
 
@@ -298,54 +371,46 @@ export function registerAuthRoutes(app) {
     next[SUPER_ADMIN] = [...PERMISSIONS];
 
     const removed = Object.keys(roles).filter(r => !(r in next));
-    const inUse = removed.filter(r => [...users.values()].some(u => u.role === r));
+    const inUse = removed.filter(r => assigned.has(r));
     if (inUse.length) return res.status(400).json({ error: `Cannot delete role(s) still assigned to users: ${inUse.join(', ')}` });
 
     const changes = Object.keys(next).filter(r => JSON.stringify(next[r]) !== JSON.stringify(roles[r]));
     roles = next;
-    audit(req.user, 'roles.updated', [changes.length ? `Changed: ${changes.join(', ')}` : '', removed.length ? `Removed: ${removed.join(', ')}` : ''].filter(Boolean).join(' · '), req);
+    await store.saveRoles(roles);
+    await audit(req.user, 'roles.updated', [changes.length ? `Changed: ${changes.join(', ')}` : '', removed.length ? `Removed: ${removed.join(', ')}` : ''].filter(Boolean).join(' · '), req);
     res.json({ success: true, roles });
-  });
+  }));
 
   // --- User management -------------------------------------------------------
-  app.get('/api/users', requireAuth(), (req, res) => {
-    res.json([...users.values()].map(publicUser));
-  });
+  app.get('/api/users', requireAuth(), handle(async (req, res) => {
+    res.json((await store.listUsers()).map(publicUser));
+  }));
 
-  app.post('/api/users', requireAuth('rbac_manage'), (req, res) => {
+  app.post('/api/users', requireAuth('rbac_manage'), handle(async (req, res) => {
     const name = String(req.body?.name || '').trim().slice(0, 80);
     const email = String(req.body?.email || '').trim().toLowerCase();
     const role = String(req.body?.role || '');
     const password = req.body?.password;
     if (!name) return res.status(400).json({ error: 'Name is required' });
     if (!validEmail(email)) return res.status(400).json({ error: 'A valid email is required' });
-    if (findByEmail(email)) return res.status(409).json({ error: 'A user with this email already exists' });
+    if (await store.findByEmail(email)) return res.status(409).json({ error: 'A user with this email already exists' });
     if (!roles[role]) return res.status(400).json({ error: 'Unknown role' });
     const pwErr = validatePassword(password);
     if (pwErr) return res.status(400).json({ error: pwErr });
 
-    const u = {
-      id: 'usr_' + crypto.randomBytes(6).toString('hex'),
-      name, email, role,
-      avatar: initials(name),
-      active: true,
-      passwordHash: hashPassword(password),
-      tokenVersion: 1,
-      createdAt: new Date().toISOString(),
-      lastLoginAt: null
-    };
-    users.set(u.id, u);
-    audit(req.user, 'user.created', `${email} (${role})`, req);
+    const u = newUser({ name, email, role, password });
+    await store.saveUser(u);
+    await audit(req.user, 'user.created', `${email} (${role})`, req);
     res.status(201).json({ success: true, user: publicUser(u) });
-  });
+  }));
 
-  app.patch('/api/users/:id', requireAuth('rbac_manage'), (req, res) => {
-    const u = users.get(req.params.id);
+  app.patch('/api/users/:id', requireAuth('rbac_manage'), handle(async (req, res) => {
+    const u = await store.getUser(req.params.id);
     if (!u) return res.status(404).json({ error: 'User not found' });
     const { name, email, role, active, password } = req.body || {};
     const isSelf = u.id === req.user.id;
     const losesSuper = u.role === SUPER_ADMIN && ((role !== undefined && role !== SUPER_ADMIN) || active === false);
-    if (losesSuper && activeSuperAdmins().length <= 1) {
+    if (losesSuper && (await activeSuperAdminCount()) <= 1) {
       return res.status(400).json({ error: 'At least one active Super Admin is required' });
     }
     if (isSelf && (active === false || (role !== undefined && role !== u.role))) {
@@ -361,7 +426,7 @@ export function registerAuthRoutes(app) {
     if (email !== undefined) {
       const e = String(email).trim().toLowerCase();
       if (!validEmail(e)) return res.status(400).json({ error: 'A valid email is required' });
-      const other = findByEmail(e);
+      const other = await store.findByEmail(e);
       if (other && other.id !== u.id) return res.status(409).json({ error: 'A user with this email already exists' });
       u.email = e; changes.push('email');
     }
@@ -380,25 +445,32 @@ export function registerAuthRoutes(app) {
       u.tokenVersion += 1;
       changes.push('password reset');
     }
-    if (changes.length) audit(req.user, 'user.updated', `${u.email}: ${changes.join(', ')}`, req);
+    await store.saveUser(u);
+    if (changes.length) await audit(req.user, 'user.updated', `${u.email}: ${changes.join(', ')}`, req);
     res.json({ success: true, user: publicUser(u) });
-  });
+  }));
 
-  app.delete('/api/users/:id', requireAuth('rbac_manage'), (req, res) => {
-    const u = users.get(req.params.id);
+  app.delete('/api/users/:id', requireAuth('rbac_manage'), handle(async (req, res) => {
+    const u = await store.getUser(req.params.id);
     if (!u) return res.status(404).json({ error: 'User not found' });
     if (u.id === req.user.id) return res.status(400).json({ error: 'You cannot delete your own account' });
-    if (u.role === SUPER_ADMIN && u.active !== false && activeSuperAdmins().length <= 1) {
+    if (u.role === SUPER_ADMIN && u.active !== false && (await activeSuperAdminCount()) <= 1) {
       return res.status(400).json({ error: 'At least one active Super Admin is required' });
     }
-    users.delete(u.id);
-    audit(req.user, 'user.deleted', u.email, req);
+    await store.deleteUser(u.id);
+    await audit(req.user, 'user.deleted', u.email, req);
     res.json({ success: true });
-  });
+  }));
 
   // --- Audit trail -----------------------------------------------------------
-  app.get('/api/audit', requireAuth('audit'), (req, res) => {
-    const limit = Math.min(Number(req.query.limit) || 200, 500);
-    res.json(auditLog.slice(0, limit));
-  });
+  app.get('/api/audit', requireAuth('audit'), handle(async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 200, AUDIT_LIMIT);
+    res.json(await store.listAudit(limit));
+  }));
+
+  // --- Health ----------------------------------------------------------------
+  app.get('/api/auth/status', handle(async (req, res) => {
+    await ensureReady();
+    res.json({ storage: store.kind, ok: true });
+  }));
 }
