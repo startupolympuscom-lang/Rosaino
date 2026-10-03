@@ -37,6 +37,16 @@ This export comes from the existing Rosaino Sites source. It preserves that sour
 - `/`: storefront home, with featured products and a **Contact us** section (`#contact`). Messages appear in the portal under **Stores & media → Contact inbox**.
 - `/shop`: every category with all of its products. The category menu, the home page's collections link and every footer's **Shop** link open it.
 - `/policy`: shipping, cash on delivery, returns, privacy and terms. Linked from the footer.
+
+### Contact form emails (Resend)
+
+Every message sent from the **Contact us** section is emailed through [Resend](https://resend.com) and also listed in the portal's Contact inbox. Replying to the email answers the customer directly. Set these in Vercel (Project → Settings → Environment Variables), never in code:
+
+- `RESEND_API_KEY`: your Resend API key.
+- `CONTACT_TO_EMAIL`: where messages go (defaults to boucheikhasofyane@gmail.com).
+- `CONTACT_FROM_EMAIL`: optional sender. The default, `onboarding@resend.dev`, only delivers to the email address of your Resend account; verify your own domain in Resend to send from e.g. `hello@yourdomain.com`.
+
+If Resend rejects a message, the customer is told it couldn't be delivered instead of seeing a false confirmation. Without `RESEND_API_KEY`, messages only appear in the portal inbox.
 - `/product`, `/track`: product landing page and order tracking.
 
 ## Admin sign-in

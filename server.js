@@ -5,6 +5,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { registerAuthRoutes, requireAuth, optionalAuth, can, audit } from './auth.js';
+import { emailConfigured, sendContactNotification } from './mailer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -710,7 +711,7 @@ app.post('/api/upload', requireAuth('products', 'cms', 'stores'), (req, res) => 
 const contactMessages = [];
 const contactRate = new Map();
 
-app.post('/api/contact', (req, res) => {
+app.post('/api/contact', async (req, res) => {
   const b = req.body || {};
   if (b.website) return res.json({ success: true }); // honeypot: silently drop bots
   const clip = (v, n) => String(v || '').trim().slice(0, n);
@@ -735,6 +736,17 @@ app.post('/api/contact', (req, res) => {
 
   contactMessages.unshift(msg);
   contactMessages.length = Math.min(contactMessages.length, 500);
+
+  // Email the shop owner (Resend). Only confirm to the customer once it is accepted.
+  if (emailConfigured()) {
+    try {
+      msg.emailId = await sendContactNotification(msg);
+    } catch (err) {
+      console.error('Contact email failed:', err.message);
+      msg.emailError = err.message;
+      return res.status(502).json({ error: 'Your message could not be delivered right now.' });
+    }
+  }
   res.json({ success: true, id: msg.id });
 });
 
