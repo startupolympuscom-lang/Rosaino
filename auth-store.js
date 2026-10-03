@@ -66,7 +66,22 @@ const fromRow = r => r && ({
 
 const auditFromRow = r => ({ ...r, at: r.at instanceof Date ? r.at.toISOString() : r.at });
 
-function postgresStore(connectionString) {
+// Supabase connection strings may carry ?sslmode=require, which makes the pg
+// driver override our TLS settings and reject Supabase's certificate. TLS is
+// configured below instead, so drop those URL parameters.
+function normalizeConnectionString(raw) {
+  const value = String(raw).trim();
+  try {
+    const url = new URL(value);
+    ['sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'uselibpqcompat'].forEach(k => url.searchParams.delete(k));
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+function postgresStore(rawConnectionString) {
+  const connectionString = normalizeConnectionString(rawConnectionString);
   const local = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
   const pool = new pg.Pool({
     connectionString,
@@ -189,7 +204,7 @@ export function createMemoryStore() {
 }
 
 export function createStore() {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL?.trim();
   if (url) return postgresStore(url);
   console.warn('[auth] DATABASE_URL is not set; admin accounts are kept in memory and reset on restart. Set it to your Supabase Postgres connection string.');
   return createMemoryStore();

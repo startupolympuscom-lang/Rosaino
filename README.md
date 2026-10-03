@@ -49,6 +49,7 @@ The operations portal at `/admin/` requires an account. Sign-in is the app's own
 - Five failed sign-ins for the same email and IP lock that pair out for 15 minutes.
 - If `DATABASE_URL` is wrong or the database can't be reached at startup, sign-in keeps working with the built-in Super Admin (accounts are then kept in memory), and `/api/auth/status` shows a warning. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` so that fallback uses your own credentials.
 - The server needs Node.js 22 (`engines` in `package.json`, which Vercel follows).
+- Setting `ADMIN_EMAIL`/`ADMIN_PASSWORD` retires the default `superadmin@rosaino.com` login (unless you gave it a new password). `?sslmode=require` on `DATABASE_URL` is fine; TLS is handled by the app.
 
 ### Connecting Supabase Postgres
 

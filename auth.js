@@ -80,6 +80,8 @@ function newUser({ id, name, email, role, password }) {
   };
 }
 
+const DEFAULT_SUPER_ADMIN = { id: 'usr_superadmin', email: 'superadmin@rosaino.com', password: 'RosainoSuperAdmin2026!' };
+
 const RETIRED_DEMO_ACCOUNTS = [
   { id: 'usr_admin', email: 'admin@rosaino.com', password: 'RosainoAdmin2026!' },
   { id: 'usr_ops', email: 'operations@rosaino.com', password: 'OpsManager2026!' },
@@ -107,15 +109,16 @@ async function bootstrap() {
   }
 
   const envEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const envPassword = process.env.ADMIN_PASSWORD;
+  // Pasted values often carry a stray space or line break; ignore it.
+  const envPassword = process.env.ADMIN_PASSWORD?.trim() || undefined;
 
   // First run: create the Super Admin. No sample/demo accounts are created.
   if ((await store.countUsers()) === 0) {
     await store.saveUser(newUser({
       id: 'usr_superadmin',
       name: 'Rosaino Super Admin',
-      email: envEmail || 'superadmin@rosaino.com',
-      password: envPassword || 'RosainoSuperAdmin2026!',
+      email: envEmail || DEFAULT_SUPER_ADMIN.email,
+      password: envPassword || DEFAULT_SUPER_ADMIN.password,
       role: SUPER_ADMIN
     }));
     console.log(`[auth] Created the Super Admin account in ${store.kind} storage.`);
@@ -128,15 +131,22 @@ async function bootstrap() {
     console.log(`[auth] Added Super Admin ${envEmail} from environment variables.`);
   }
 
+  // Once your own Super Admin comes from ADMIN_EMAIL/ADMIN_PASSWORD, the default
+  // login (whose password is public) is retired the same way as the samples.
+  const retired = [...RETIRED_DEMO_ACCOUNTS];
+  if (envEmail && envPassword && envEmail !== DEFAULT_SUPER_ADMIN.email && (await store.findByEmail(envEmail))?.active !== false) {
+    retired.push(DEFAULT_SUPER_ADMIN);
+  }
+
   // Sample accounts created by earlier versions are switched off and signed out,
   // unless someone has since given them a new password.
-  for (const demo of RETIRED_DEMO_ACCOUNTS) {
+  for (const demo of retired) {
     const u = await store.getUser(demo.id);
     if (u && u.active !== false && u.email === demo.email && verifyPassword(demo.password, u.passwordHash)) {
       u.active = false;
       u.tokenVersion += 1;
       await store.saveUser(u);
-      console.log(`[auth] Disabled sample account ${u.email}.`);
+      console.log(`[auth] Disabled default account ${u.email}.`);
     }
   }
 }
