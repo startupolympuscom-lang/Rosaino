@@ -4250,7 +4250,7 @@ const actions = {
   call,
   route: runRouting,
   pause: () => {
-    const a = agent(selectedAgent);
+    const a = agent(selectedAgent) || db.agents[0];
     if (!a) return;
     a.status = a.status === 'Paused' ? 'Available' : 'Paused';
     log(`${a.name} ${a.status.toLowerCase()}`);

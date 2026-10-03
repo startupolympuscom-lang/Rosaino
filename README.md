@@ -53,20 +53,18 @@ The operations portal at `/admin/` requires an account. Sign-in is the app's own
 
 1. In the Supabase dashboard, open **Connect** and copy the **Transaction pooler** connection string (port 6543), with your database password filled in.
 2. In Vercel (Project → Settings → Environment Variables), add `DATABASE_URL` with that value, plus `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`).
-3. Optionally add `ADMIN_EMAIL` and `ADMIN_PASSWORD` **before the first deploy** to choose the Super Admin login, and `DISABLE_DEMO_USERS=true` to skip the sample accounts.
-4. Redeploy. The first request creates the tables and the accounts.
+3. Optionally add `ADMIN_EMAIL` and `ADMIN_PASSWORD` **before the first deploy** to choose the Super Admin login.
+4. Redeploy. The first request creates the tables and the Super Admin account.
 
 Accounts are only seeded when `admin_users` is empty. Later, setting `ADMIN_EMAIL`/`ADMIN_PASSWORD` to an email that doesn't exist yet adds it as a new Super Admin (useful for recovering access).
 
-Default accounts (created on first start unless you set the variables above; change them before going live):
+Only one account is created: the **Super Admin**. There are no demo or sample accounts; create your team's accounts in the portal under **Team & RBAC**. Sample accounts created by earlier versions (admin@, operations@, agent@, finance@rosaino.com) are disabled automatically on startup.
+
+Default Super Admin login, used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not set on first start. Change it before going live (Settings → Change password):
 
 | Role | Email | Password |
 | --- | --- | --- |
 | Super Admin | superadmin@rosaino.com | RosainoSuperAdmin2026! |
-| Admin | admin@rosaino.com | RosainoAdmin2026! |
-| Operations manager | operations@rosaino.com | OpsManager2026! |
-| Confirmation agent | agent@rosaino.com | Agent2026! |
-| Finance viewer | finance@rosaino.com | Finance2026! |
 
 ### Admin features
 

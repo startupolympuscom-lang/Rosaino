@@ -79,6 +79,13 @@ function newUser({ id, name, email, role, password }) {
   };
 }
 
+const RETIRED_DEMO_ACCOUNTS = [
+  { id: 'usr_admin', email: 'admin@rosaino.com', password: 'RosainoAdmin2026!' },
+  { id: 'usr_ops', email: 'operations@rosaino.com', password: 'OpsManager2026!' },
+  { id: 'usr_agent', email: 'agent@rosaino.com', password: 'Agent2026!' },
+  { id: 'usr_finance', email: 'finance@rosaino.com', password: 'Finance2026!' }
+];
+
 async function bootstrap() {
   await store.init();
 
@@ -92,21 +99,16 @@ async function bootstrap() {
   const envEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const envPassword = process.env.ADMIN_PASSWORD;
 
-  // First run: create the Super Admin (and sample accounts unless disabled).
+  // First run: create the Super Admin. No sample/demo accounts are created.
   if ((await store.countUsers()) === 0) {
-    const seeds = [
-      { id: 'usr_superadmin', name: 'Rosaino Super Admin', email: envEmail || 'superadmin@rosaino.com', password: envPassword || 'RosainoSuperAdmin2026!', role: SUPER_ADMIN }
-    ];
-    if (process.env.DISABLE_DEMO_USERS !== 'true') {
-      seeds.push(
-        { id: 'usr_admin', name: 'Operations Admin', email: 'admin@rosaino.com', password: 'RosainoAdmin2026!', role: 'Admin' },
-        { id: 'usr_ops', name: 'Lina Benali', email: 'operations@rosaino.com', password: 'OpsManager2026!', role: 'Operations manager' },
-        { id: 'usr_agent', name: 'Sara Amrani', email: 'agent@rosaino.com', password: 'Agent2026!', role: 'Confirmation agent' },
-        { id: 'usr_finance', name: 'Tariq Mansouri', email: 'finance@rosaino.com', password: 'Finance2026!', role: 'Finance viewer' }
-      );
-    }
-    for (const s of seeds) await store.saveUser(newUser(s));
-    console.log(`[auth] Created ${seeds.length} admin account(s) in ${store.kind} storage.`);
+    await store.saveUser(newUser({
+      id: 'usr_superadmin',
+      name: 'Rosaino Super Admin',
+      email: envEmail || 'superadmin@rosaino.com',
+      password: envPassword || 'RosainoSuperAdmin2026!',
+      role: SUPER_ADMIN
+    }));
+    console.log(`[auth] Created the Super Admin account in ${store.kind} storage.`);
     if (!envPassword) {
       console.warn('[auth] Default Super Admin password in use. Set ADMIN_EMAIL/ADMIN_PASSWORD before going live, or change it in the portal.');
     }
@@ -114,6 +116,18 @@ async function bootstrap() {
     // Recovery: a new ADMIN_EMAIL/ADMIN_PASSWORD pair adds a fresh Super Admin.
     await store.saveUser(newUser({ name: 'Rosaino Super Admin', email: envEmail, password: envPassword, role: SUPER_ADMIN }));
     console.log(`[auth] Added Super Admin ${envEmail} from environment variables.`);
+  }
+
+  // Sample accounts created by earlier versions are switched off and signed out,
+  // unless someone has since given them a new password.
+  for (const demo of RETIRED_DEMO_ACCOUNTS) {
+    const u = await store.getUser(demo.id);
+    if (u && u.active !== false && u.email === demo.email && verifyPassword(demo.password, u.passwordHash)) {
+      u.active = false;
+      u.tokenVersion += 1;
+      await store.saveUser(u);
+      console.log(`[auth] Disabled sample account ${u.email}.`);
+    }
   }
 }
 
