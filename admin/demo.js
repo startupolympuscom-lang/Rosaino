@@ -5097,11 +5097,15 @@ if (loginForm) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json().catch(() => ({}));
+      const raw = await res.text();
+      let data = {};
+      try { data = JSON.parse(raw); } catch {}
 
       if (!res.ok || !data.success) {
         if (errorMsg) {
-          errorMsg.textContent = data.error || 'Authentication failed. Please verify email and password.';
+          // Show what actually happened so problems can be diagnosed instead of guessed.
+          errorMsg.textContent = data.error
+            || `The sign-in service did not respond correctly (HTTP ${res.status}${raw ? ': ' + raw.replace(/\s+/g, ' ').slice(0, 120) : ''}).`;
           errorMsg.style.display = 'block';
         }
         return;
