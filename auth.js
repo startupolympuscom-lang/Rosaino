@@ -9,7 +9,7 @@
 //   a user or changing a password takes effect immediately.
 // - Role permissions are enforced on the server for every admin API route.
 import crypto from 'crypto';
-import { createStore } from './auth-store.js';
+import { createStore, createMemoryStore } from './auth-store.js';
 
 export const PERMISSIONS = [
   'overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers',
@@ -59,7 +59,8 @@ function verifyPassword(password, stored) {
 // ---------------------------------------------------------------------------
 // Store, roles and first-run setup
 // ---------------------------------------------------------------------------
-const store = createStore();
+let store = createStore();
+let storageError = null;
 let roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
 
 const initials = name => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
@@ -87,7 +88,16 @@ const RETIRED_DEMO_ACCOUNTS = [
 ];
 
 async function bootstrap() {
-  await store.init();
+  try {
+    await store.init();
+  } catch (err) {
+    if (store.kind !== 'postgres') throw err;
+    // Keep sign-in working: fall back to built-in accounts for this server instance.
+    storageError = `Database unreachable (${err.message}); using built-in sign-in.`;
+    console.error('[auth] ' + storageError + ' Check DATABASE_URL.');
+    store = createMemoryStore();
+    await store.init();
+  }
 
   const storedRoles = await store.getRoles();
   if (storedRoles) {
@@ -485,6 +495,6 @@ export function registerAuthRoutes(app) {
   // --- Health ----------------------------------------------------------------
   app.get('/api/auth/status', handle(async (req, res) => {
     await ensureReady();
-    res.json({ storage: store.kind, ok: true });
+    res.json({ storage: store.kind, ok: true, ...(storageError ? { warning: storageError } : {}) });
   }));
 }

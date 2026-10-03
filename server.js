@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import { registerAuthRoutes, requireAuth, optionalAuth, can, audit } from './auth.js';
@@ -15,17 +16,36 @@ const HOST = '0.0.0.0';
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'assets', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
+// Uploaded images. Serverless hosts (Vercel) have a read-only code folder, so
+// uploads go to the system temp folder there; never crash on startup over it.
+const uploadsDir = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'rosaino-uploads')
+  : path.join(__dirname, 'assets', 'uploads');
+try {
   fs.mkdirSync(uploadsDir, { recursive: true });
+} catch (err) {
+  console.warn('Uploads folder unavailable:', err.message);
 }
 app.use('/assets/uploads', express.static(uploadsDir));
 
 // Supabase Configuration
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kwqbghlwarkibhlgbgft.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_-Uik0W47t9fLoE8_JETPZg_U0xY-je7';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Never let the database client take the whole API (and sign-in) down at startup.
+// If it can't be created (e.g. an old Node.js without WebSocket), product and
+// order calls fall back to the in-memory data below.
+let supabase;
+try {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (err) {
+  console.error('Supabase client unavailable:', err.message);
+  const offline = { data: null, error: { message: 'Supabase client unavailable' } };
+  const query = new Proxy(() => {}, {
+    get: (_, prop) => (prop === 'then' ? (resolve) => resolve(offline) : query),
+    apply: () => query
+  });
+  supabase = { from: () => query };
+}
 
 // In-Memory Fallback State (synchronizes with Supabase when tables are created)
 let memoryProducts = [

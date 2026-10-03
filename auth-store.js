@@ -7,7 +7,8 @@
 // have row-level security enabled with no policies, so the public (anon) API
 // key can never read password hashes.
 //
-// Without DATABASE_URL (local development), the same data is kept in memory.
+// Without DATABASE_URL, or if the database can't be reached at startup, the same
+// data is kept in memory so the Super Admin can always sign in.
 import pg from 'pg';
 
 const SCHEMA_SQL = `
@@ -76,7 +77,7 @@ function postgresStore(connectionString) {
       : { rejectUnauthorized: false },
     max: Number(process.env.DATABASE_POOL_MAX) || 3,
     idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 8000
+    connectionTimeoutMillis: 5000
   });
   const q = (text, params) => pool.query(text, params);
 
@@ -158,7 +159,7 @@ function postgresStore(connectionString) {
   };
 }
 
-function memoryStore() {
+export function createMemoryStore() {
   const users = new Map();
   const attempts = new Map();
   const audit = [];
@@ -191,5 +192,5 @@ export function createStore() {
   const url = process.env.DATABASE_URL;
   if (url) return postgresStore(url);
   console.warn('[auth] DATABASE_URL is not set; admin accounts are kept in memory and reset on restart. Set it to your Supabase Postgres connection string.');
-  return memoryStore();
+  return createMemoryStore();
 }

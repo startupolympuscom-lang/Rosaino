@@ -47,7 +47,8 @@ The operations portal at `/admin/` requires an account. Sign-in is the app's own
 - **Passwords** are hashed with scrypt. **Sessions** are signed tokens that expire after 12 hours; every request re-checks the account in the database, so disabling a user or changing a password takes effect immediately on every server instance.
 - Every admin API route checks the caller's role permissions on the server. The storefront, shop, product landing page and tracking page stay public; anonymous storefront orders are always created as `New`.
 - Five failed sign-ins for the same email and IP lock that pair out for 15 minutes.
-- If the database can't be reached, sign-in returns "temporarily unavailable" instead of falling back to default passwords.
+- If `DATABASE_URL` is wrong or the database can't be reached at startup, sign-in keeps working with the built-in Super Admin (accounts are then kept in memory), and `/api/auth/status` shows a warning. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` so that fallback uses your own credentials.
+- The server needs Node.js 22 (`engines` in `package.json`, which Vercel follows).
 
 ### Connecting Supabase Postgres
 
