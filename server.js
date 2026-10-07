@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, getStore } from './auth.js';
 import { emailConfigured, sendContactNotification } from './mailer.js';
 import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers } from './carriers.js';
+import { registerCallRoutes } from './calls.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -376,6 +377,9 @@ app.get('/api/setup-status', requireAuth(), async (req, res) => {
   } catch {}
   res.json(status);
 });
+
+// Confirmation call log (phone & WhatsApp calls, duration, transcript)
+registerCallRoutes(app);
 
 // Carriers (transporteurs): dispatch orders to carrier APIs and receive status updates.
 registerCarrierRoutes(app, {

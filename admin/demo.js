@@ -1181,62 +1181,122 @@ function orderResults() {
 }
 
 // 3. Calls
+// Call log from the server (every agent's calls, with duration and transcript)
+let callLogs = null;
+
+async function loadCallLogs() {
+  try {
+    callLogs = await api('/api/calls?limit=300');
+  } catch {
+    callLogs = callLogs || [];
+  }
+  return callLogs;
+}
+
+// Moroccan numbers: 06…/07… -> 2126…/2127… for tel: and WhatsApp links.
+function intlPhone(phone) {
+  let d = cleanPhone(phone);
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('212')) return d;
+  if (d.startsWith('0')) return '212' + d.slice(1);
+  return d.length === 9 ? '212' + d : d;
+}
+
+function callButtons(o, compact = false) {
+  const n = intlPhone(o.phone);
+  return `
+    <a class="btn-call" href="tel:+${n}" data-action="start-call" data-id="${esc(o.id)}:phone" title="Call ${esc(o.phone)} with your phone">${compact ? 'Call' : 'Phone call'}</a>
+    <a class="btn-call wa" href="https://wa.me/${n}" target="_blank" rel="noopener" data-action="start-call" data-id="${esc(o.id)}:whatsapp" title="Open WhatsApp and tap the call icon">${compact ? 'WhatsApp' : 'WhatsApp call'}</a>
+  `;
+}
+
+const fmtDuration = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
 function calls() {
-  const a = agent(selectedAgent) || db.agents[0];
-  const queue = db.orders.filter(o => o.agent === a.id && ['New', 'Callback'].includes(o.status));
-  const history = db.calls.filter(c => c.agent === a.id);
+  if (!callLogs) loadCallLogs().then(() => page === 'calls' && render());
+  const me = db.currentUser;
+  const isAgent = !hasPermission('orders');
+  if (isAgent && agent(me.id)) selectedAgent = me.id;
+  if (!selectedAgent || (selectedAgent !== 'all' && !agent(selectedAgent))) selectedAgent = agent(me.id) ? me.id : 'all';
+  const a = selectedAgent === 'all' ? null : agent(selectedAgent);
+  const open = db.orders.filter(o => ['New', 'Callback'].includes(o.status));
+  const queue = (a ? open.filter(o => o.agent === a.id) : open)
+    .sort((x, y) => (x.status === 'Callback') - (y.status === 'Callback') || String(x.callback || '').localeCompare(String(y.callback || '')));
+  const today = new Date().toISOString().slice(0, 10);
+  const logs = (callLogs || []).filter(c => !a || c.agentId === a.id);
+  const todays = logs.filter(c => c.startedAt.slice(0, 10) === today);
+  const talk = todays.reduce((t, c) => t + c.durationSec, 0);
+  const next = queue[0];
 
   return title(
-    'Conversations that convert.',
-    'A focused workspace with customer trust scores & WhatsApp integration.',
-    `<select id="agent-select" aria-label="Agent">${db.agents.map(x => `<option value="${x.id}" ${x.id === a.id ? 'selected' : ''}>${esc(x.name)} (${esc(x.role)})</option>`).join('')}</select><button data-action="pause">${a.status === 'Paused' ? 'Resume agent' : 'Pause agent'}</button>`
+    'Call center',
+    'Call each lead by phone or WhatsApp. Every call is timed and saved with its outcome, notes and transcript.',
+    isAgent ? '' : `<label class="inline-label">Queue
+      <select id="agent-select" aria-label="Show queue for">
+        <option value="all" ${!a ? 'selected' : ''}>All open leads</option>
+        ${db.agents.map(x => `<option value="${esc(x.id)}" ${a?.id === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}
+      </select></label>`
   ) + `
     <div class="metrics">
-      ${metric('In your queue', queue.length, 'Assigned new leads & callbacks')}
-      ${metric('Calls completed', history.length, 'Recorded in this session')}
-      ${metric('Confirmed', history.filter(c => c.outcome === 'Confirmed').length, 'Confirmation outcomes')}
-      ${metric('Agent status', a.status, 'Change with the pause control')}
+      ${metric('Leads to call', queue.length, a ? `Assigned to ${esc(a.name)}` : 'New leads and callbacks')}
+      ${metric('Calls today', todays.length, `${todays.filter(c => c.outcome === 'No answer').length} without answer`)}
+      ${metric('Confirmed today', todays.filter(c => c.outcome === 'Confirmed').length, todays.length ? `${Math.round(todays.filter(c => c.outcome === 'Confirmed').length / todays.length * 100)}% of calls` : 'No calls yet')}
+      ${metric('Talk time today', fmtDuration(talk), todays.length ? `Average ${fmtDuration(Math.round(talk / todays.length))} per call` : '—')}
     </div>
     <div class="grid">
       <div class="panel">
-        <h2>Next in your queue</h2>
-        ${queue.length ? `
-          <div class="call-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span class="eyebrow">${esc(queue[0].id)} · SOURCE: ${esc(queue[0].source)}</span>
-              ${getTrustInfo(queue[0].phone, queue[0].id).badge}
+        <div class="panel-head"><div><h2>Next lead</h2><p>${next ? (next.status === 'Callback' ? 'Scheduled callback' : 'New lead') : 'Nothing waiting'}</p></div></div>
+        ${next ? `
+          <div class="lead-card">
+            <div class="lead-top">
+              <span class="eyebrow">${esc(next.id)} · ${esc(next.source || 'Storefront')}</span>
+              ${getTrustInfo(next.phone, next.id).badge}
             </div>
-            <h2>${esc(queue[0].customer)}</h2>
-            <p>
-              ${esc(product(queue[0].product)?.name || queue[0].product)} · ${money(queue[0].amount)}<br>
-              ${esc(queue[0].city)} · <strong>${esc(queue[0].phone)}</strong>
-            </p>
-            ${queue[0].callback ? `<p>Scheduled Callback: <b>${esc(queue[0].callback)}</b></p>` : ''}
-            <div style="display:flex;gap:10px;margin-top:16px;">
-              <button class="primary" data-action="call" data-id="${queue[0].id}" ${a.status === 'Paused' ? 'disabled' : ''}>
-                ◉ Start simulated call
-              </button>
-              <a href="https://wa.me/212${cleanPhone(queue[0].phone).replace(/^0/, '')}?text=${encodeURIComponent('Hello ' + queue[0].customer + ', Rosaino confirmation team regarding order ' + queue[0].id)}" target="_blank" rel="noopener" class="btn-wa">
-                WhatsApp 💬
-              </a>
+            <h2>${esc(next.customer)}</h2>
+            <div class="lead-facts">
+              <div><small>Phone</small><b>${esc(next.phone)}</b></div>
+              <div><small>City</small><b>${esc(next.city)}</b></div>
+              <div><small>Order</small><b>${next.quantity} × ${esc(product(next.product)?.name || next.product)}</b></div>
+              <div><small>Cash on delivery</small><b>${money(next.amount)}</b></div>
             </div>
+            ${next.callback ? `<p class="info">Callback planned for <b>${esc(next.callback.replace('T', ' '))}</b></p>` : ''}
+            <div class="actions">${callButtons(next)}<button data-action="order" data-id="${esc(next.id)}">Order details</button></div>
           </div>
-        ` : '<div class="empty">Your queue is clear.</div>'}
-        <h2>Recent call history</h2>
-        ${table(['Order', 'Outcome', 'Duration'], history.slice(0, 5).map(c => `<tr><td>${esc(c.order)}</td><td>${badge(c.outcome)}</td><td>${c.seconds}s</td></tr>`))}
+        ` : '<div class="empty">No leads waiting. New orders from the store appear here automatically.</div>'}
       </div>
       <div class="panel">
-        <h2>Assigned leads</h2>
-        ${queue.map(o => `
+        <div class="panel-head"><div><h2>Queue</h2><p>${queue.length} lead(s), callbacks last</p></div></div>
+        ${queue.slice(0, 25).map(o => `
           <div class="queue">
             <div>
               <b>${esc(o.customer)}</b>
-              <p class="info">${esc(o.id)} · ${esc(o.city)} · ${esc(o.source)}</p>
+              <p class="info">${esc(o.id)} · ${esc(o.city)} · ${badge(o.status)}</p>
             </div>
-            <button data-action="order" data-id="${o.id}">${esc(o.status)} ↗</button>
+            <div class="actions">${callButtons(o, true)}</div>
           </div>
-        `).join('') || '<p class="info">Assign leads from Orders or Lead routing.</p>'}
+        `).join('') || '<p class="info">Assign leads from Leads &amp; orders or Lead routing.</p>'}
       </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div><h2>Call history</h2><p>${callLogs ? `${logs.length} call(s) saved` : 'Loading…'}</p></div>
+        <button data-action="refresh-calls">Refresh</button>
+      </div>
+      ${logs.length ? table(
+        ['When', 'Lead', 'Channel', 'Duration', 'Outcome', 'Agent', ''],
+        logs.slice(0, 50).map(c => {
+          const o = db.orders.find(x => x.id === c.orderId);
+          return `<tr>
+            <td>${esc(new Date(c.startedAt).toLocaleString())}</td>
+            <td><b>${esc(o?.customer || c.orderId)}</b><small>${esc(c.orderId)} · ${esc(c.phone || '')}</small></td>
+            <td>${c.channel === 'whatsapp' ? 'WhatsApp' : 'Phone'}</td>
+            <td>${fmtDuration(c.durationSec)}</td>
+            <td>${badge(c.outcome)}</td>
+            <td>${esc(c.agentName || '')}</td>
+            <td>${c.transcript || c.notes ? `<button data-action="view-call" data-id="${esc(c.id)}">${c.transcript ? 'Transcript' : 'Notes'}</button>` : ''}</td>
+          </tr>`;
+        })
+      ) : `<div class="empty">${callLogs ? 'No calls yet. Use Phone call or WhatsApp call on a lead to start.' : ''}</div>`}
     </div>
   `;
 }
@@ -3675,7 +3735,7 @@ function render() {
       $('#order-results').innerHTML = orderResults();
     };
   }
-  if (page === 'calls') {
+  if (page === 'calls' && $('#agent-select')) {
     $('#agent-select').onchange = e => {
       selectedAgent = e.target.value;
       render();
@@ -3896,9 +3956,8 @@ function orderDialog(id) {
       </div>
 
       <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
-        <a href="https://wa.me/212${cleanP.replace(/^0/, '')}?text=${waMsg}" target="_blank" rel="noopener" class="btn-wa">
-          💬 Send WhatsApp Confirmation
-        </a>
+        ${callButtons(o)}
+        <a href="https://wa.me/${intlPhone(o.phone)}?text=${waMsg}" target="_blank" rel="noopener" class="btn-link">WhatsApp message</a>
         <button type="button" data-action="awb" data-id="${o.id}">
           🏷️ Thermal 4x6 Label
         </button>
@@ -3917,6 +3976,8 @@ function orderDialog(id) {
         <label class="full">Add note<textarea name="note" maxlength="1000"></textarea></label>
       </div>
       <div class="history">${o.notes.map(n => esc(n)).join('<br>') || 'No notes recorded.'}</div>
+      <h3 class="sub">Calls</h3>
+      <div id="order-calls" class="info">Loading calls…</div>
     `,
     'Save changes',
     f => {
@@ -3936,6 +3997,18 @@ function orderDialog(id) {
       }).catch(() => {});
     }
   );
+
+  // Calls for this order, from the server
+  api(`/api/calls?orderId=${encodeURIComponent(o.id)}`).then(list => {
+    const box = $('#order-calls');
+    if (!box) return;
+    callLogs = [...list, ...(callLogs || []).filter(c => c.orderId !== o.id)];
+    box.innerHTML = list.length ? list.map(c => `
+      <div class="stat-line">
+        <span>${esc(new Date(c.startedAt).toLocaleString())} · ${c.channel === 'whatsapp' ? 'WhatsApp' : 'Phone'} · ${esc(c.agentName || '')}</span>
+        <span>${fmtDuration(c.durationSec)} · ${badge(c.outcome)} ${c.transcript || c.notes ? `<button type="button" data-action="view-call" data-id="${esc(c.id)}">View</button>` : ''}</span>
+      </div>`).join('') : 'No calls yet.';
+  }).catch(() => { const box = $('#order-calls'); if (box) box.textContent = 'Calls could not be loaded.'; });
 }
 
 // Thermal Airway Bill (AWB) Label Modal
@@ -4251,51 +4324,188 @@ function editProduct(id) {
   );
 }
 
-function call(id) {
-  if (!checkAction('calls', 'Simulated call')) return;
-  const o = db.orders.find(o => o.id === id);
-  activeCall = { id, start: Date.now() };
+// Live call panel: timer, optional transcription, outcome. Saved to the server.
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null;
+let transcribing = false;
+
+function stopTranscription() {
+  transcribing = false;
+  try { recognizer?.stop(); } catch {}
+  recognizer = null;
+  const btn = $('#transcribe-btn');
+  if (btn) { btn.textContent = 'Start transcription'; btn.classList.remove('recording'); }
+  const st = $('#transcribe-state');
+  if (st) st.textContent = '';
+}
+
+function startTranscription() {
+  const consent = $('#transcribe-consent');
+  const box = $('#call-transcript');
+  const st = $('#transcribe-state');
+  if (!consent?.checked) { st.textContent = 'Tick the box once the customer has been told.'; return; }
+  recognizer = new SpeechRec();
+  recognizer.lang = $('#transcribe-lang').value;
+  recognizer.continuous = true;
+  recognizer.interimResults = true;
+  let finalText = box.value.trim();
+  box.oninput = () => { finalText = box.value.trim(); };
+  recognizer.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) finalText += (finalText ? ' ' : '') + r[0].transcript.trim();
+      else interim += r[0].transcript;
+    }
+    box.value = finalText + (interim ? ' ' + interim : '');
+    box.scrollTop = box.scrollHeight;
+  };
+  recognizer.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      stopTranscription();
+      $('#transcribe-state').textContent = 'Microphone access was blocked. Allow it in the browser address bar, or type notes instead.';
+    }
+  };
+  // Browsers stop listening after a pause; keep going until the agent stops it.
+  recognizer.onend = () => { if (transcribing) { try { recognizer.start(); } catch {} } };
+  transcribing = true;
+  recognizer.start();
+  const btn = $('#transcribe-btn');
+  btn.textContent = 'Stop transcription';
+  btn.classList.add('recording');
+  st.textContent = 'Listening through your microphone…';
+}
+
+function startCall(value) {
+  const [id, channel] = String(value).split(':');
+  if (!checkAction('calls', 'Call lead')) return;
+  const o = db.orders.find(x => x.id === id);
+  if (!o) return;
+  stopTranscription();
+  clearInterval(timer);
+  activeCall = { id, channel, start: Date.now() };
+  const p = product(o.product);
+  const n = intlPhone(o.phone);
+  const reopen = channel === 'whatsapp'
+    ? `<a href="https://wa.me/${n}" target="_blank" rel="noopener">Open WhatsApp again</a> and tap the call icon.`
+    : `<a href="tel:+${n}">Dial again</a> if your phone did not open.`;
+
   modal(
-    'Simulated confirmation call',
+    `${channel === 'whatsapp' ? 'WhatsApp call' : 'Phone call'} · ${esc(o.customer)}`,
     `
-      <div class="call-card">
-        <h2>${esc(o.customer)}</h2>
-        <p>${esc(product(o.product)?.name)} · ${money(o.amount)} · ${esc(o.city)}</p>
-        <div id="call-time" class="big">00:00</div>
-        <small>No phone call is placed.</small>
+      <div class="call-live">
+        <div>
+          <span class="live-dot" aria-hidden="true"></span>
+          <b id="call-time" class="call-timer">00:00</b>
+          <small>Started ${new Date(activeCall.start).toLocaleTimeString()}</small>
+        </div>
+        <div class="call-who">
+          <b>${esc(o.phone)}</b>
+          <small>${esc(o.id)} · ${o.quantity} × ${esc(p?.name || o.product)} · ${money(o.amount)} · ${esc(o.city)}</small>
+        </div>
       </div>
+      <p class="info">${reopen}</p>
+
+      <div class="transcribe-box">
+        <div class="panel-head" style="margin-bottom:10px;">
+          <div><b>Transcript</b><p>${SpeechRec ? 'Optional. Uses your microphone, so put the call on speaker for both voices.' : 'Live transcription works in Chrome or Edge. You can type a summary here instead.'}</p></div>
+          ${SpeechRec ? `<div class="actions">
+            <select id="transcribe-lang" aria-label="Transcription language">
+              <option value="fr-FR">Français</option>
+              <option value="ar-MA">العربية (المغرب)</option>
+              <option value="en-US">English</option>
+            </select>
+            <button type="button" id="transcribe-btn" data-action="toggle-transcription">Start transcription</button>
+          </div>` : ''}
+        </div>
+        ${SpeechRec ? `<label class="checkline"><input type="checkbox" id="transcribe-consent"> The customer has been told this call is transcribed</label>` : ''}
+        <small id="transcribe-state" class="transcribe-state"></small>
+        <textarea id="call-transcript" name="transcript" rows="5" maxlength="20000" placeholder="${SpeechRec ? 'The transcript appears here. You can correct it before saving.' : 'Summary of the conversation'}"></textarea>
+      </div>
+
+      <fieldset class="outcomes">
+        <legend>Outcome</legend>
+        ${['Confirmed', 'Callback', 'No answer', 'Cancelled', 'Spam'].map((x, i) => `
+          <label class="outcome"><input type="radio" name="outcome" value="${x}" ${i === 0 ? 'checked' : ''}><span>${x}</span></label>`).join('')}
+      </fieldset>
       <div class="form-grid">
-        ${select('outcome', 'Call outcome', ['Confirmed', 'Callback', 'Cancelled', 'Spam'])}
         <label>Callback time<input type="datetime-local" name="callback"></label>
-        <label class="full">Call notes<textarea name="note" maxlength="1000"></textarea></label>
+        <label>Notes<input name="note" maxlength="1000" placeholder="e.g. Deliver after 6pm"></label>
       </div>
+      <div id="call-error" role="alert" class="form-error"></div>
     `,
     'End call & save',
     f => {
-      if (f.get('outcome') === 'Callback' && !f.get('callback')) throw Error('Choose a callback time.');
-      changeStatus(o, f.get('outcome'));
-      o.callback = f.get('callback');
-      if (f.get('note').trim()) o.notes.push(f.get('note').trim());
-      db.calls.unshift({
-        order: id,
-        agent: o.agent,
-        outcome: f.get('outcome'),
-        seconds: Math.max(1, Math.round((Date.now() - activeCall.start) / 1000)),
-        date: new Date().toISOString()
+      const outcome = f.get('outcome');
+      const err = $('#call-error');
+      if (outcome === 'Callback' && !f.get('callback')) { err.textContent = 'Choose when to call back.'; return false; }
+      stopTranscription();
+      const endedAt = new Date();
+      const btn = $('#dialog-form button.primary');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      const transcript = ($('#call-transcript')?.value || '').trim();
+      api('/api/calls', 'POST', {
+        orderId: o.id,
+        channel,
+        phone: o.phone,
+        startedAt: new Date(activeCall.start).toISOString(),
+        endedAt: endedAt.toISOString(),
+        outcome,
+        notes: f.get('note').trim(),
+        transcript,
+        transcriptLang: $('#transcribe-lang')?.value || ''
+      }).then(({ call: saved }) => {
+        clearInterval(timer);
+        activeCall = null;
+        $('#modal').close();
+        callLogs = [saved, ...(callLogs || [])];
+        db.calls.unshift({ order: o.id, agent: o.agent, outcome, seconds: saved.durationSec, date: saved.startedAt });
+        if (f.get('note').trim()) o.notes.push(f.get('note').trim());
+        if (outcome === 'No answer') {
+          o.notes.push(`No answer (${channel === 'whatsapp' ? 'WhatsApp' : 'phone'}, ${new Date().toLocaleString()})`);
+        } else {
+          try {
+            changeStatus(o, outcome);
+            if (outcome === 'Callback') o.callback = f.get('callback');
+          } catch (e) {
+            toast(`Call saved, but the order could not be updated: ${e.message}`);
+          }
+        }
+        persist();
+        render();
+        toast(`Call saved · ${fmtDuration(saved.durationSec)} · ${outcome}`);
+      }).catch(e => {
+        err.textContent = e.message;
+        btn.disabled = false;
+        btn.textContent = 'End call & save';
       });
-      clearInterval(timer);
-      activeCall = null;
-      toast('Call outcome saved');
+      return false;
     }
   );
 
   timer = setInterval(() => {
     const el = $('#call-time');
     if (el && activeCall) {
-      const n = Math.floor((Date.now() - activeCall.start) / 1000);
-      el.textContent = String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+      const sec = Math.floor((Date.now() - activeCall.start) / 1000);
+      el.textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
     }
   }, 1000);
+}
+
+function viewCall(id) {
+  const c = (callLogs || []).find(x => x.id === id);
+  if (!c) return;
+  const o = db.orders.find(x => x.id === c.orderId);
+  modal(`Call with ${esc(o?.customer || c.orderId)}`, `
+    <div class="stat-line"><span>When</span><b>${esc(new Date(c.startedAt).toLocaleString())}</b></div>
+    <div class="stat-line"><span>Channel</span><b>${c.channel === 'whatsapp' ? 'WhatsApp' : 'Phone'} · ${esc(c.phone || '')}</b></div>
+    <div class="stat-line"><span>Duration</span><b>${fmtDuration(c.durationSec)}</b></div>
+    <div class="stat-line"><span>Outcome</span><b>${esc(c.outcome)}</b></div>
+    <div class="stat-line"><span>Agent</span><b>${esc(c.agentName || '')}</b></div>
+    ${c.notes ? `<h3 class="sub">Notes</h3><p>${esc(c.notes)}</p>` : ''}
+    ${c.transcript ? `<h3 class="sub">Transcript</h3><div class="transcript">${esc(c.transcript)}</div>` : ''}
+  `, '', () => {});
 }
 
 function csvRows(text) {
@@ -4571,7 +4781,11 @@ const actions = {
   template: () => download('rosaino-lead-template.csv', 'customer,phone,city,sku,quantity\r\nDemo Customer,06 12 34 56 78,Casablanca,ROS-TECH-01,1', 'text/csv'),
   'new-product': () => editProduct(),
   'edit-product': id => editProduct(id),
-  call,
+  call: id => startCall(`${id}:phone`),
+  'start-call': startCall,
+  'toggle-transcription': () => (transcribing ? stopTranscription() : startTranscription()),
+  'view-call': viewCall,
+  'refresh-calls': () => { callLogs = null; render(); },
   route: runRouting,
   pause: () => {
     const a = agent(selectedAgent) || db.agents[0];
@@ -5441,6 +5655,7 @@ document.querySelectorAll('.back, .logo').forEach(el => {
 
 $('#modal').addEventListener('close', () => {
   clearInterval(timer);
+  stopTranscription();
   activeCall = null;
 });
 
@@ -5512,6 +5727,7 @@ window.addEventListener('hashchange', () => {
   document.body.classList.remove('nav-open');
   if (location.hash === '#security') auditEntries = null; // always show the latest audit trail
   if (location.hash === '#overview' || location.hash === '') setupStatus = null;
+  if (location.hash === '#calls') callLogs = null;
   if (location.hash === '#team') serverUsers = null; // and the latest team accounts
   if (location.hash === '#stores') contactInbox = null; // and new contact messages
   if (location.hash === '#shipping' || location.hash === '#carriers') { shipmentList = null; carrierList = null; } // and fresh carrier updates
