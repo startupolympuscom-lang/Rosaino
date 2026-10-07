@@ -895,7 +895,7 @@ function getTrustInfo(phone, orderId) {
   if (isBlacklisted) {
     return {
       type: 'risk',
-      badge: '<span class="trust-pill risk" title="Blacklisted / High Return Risk">⛔ Blacklisted</span>',
+      badge: '<span class="trust-pill risk" title="Blacklisted / High Return Risk">Blacklisted</span>',
       label: 'Blacklisted Serial Refuser',
       score: 10,
       isRisk: true
@@ -906,7 +906,7 @@ function getTrustInfo(phone, orderId) {
   if (past.length === 0) {
     return {
       type: 'new',
-      badge: '<span class="trust-pill new" title="First Time Buyer">✨ New</span>',
+      badge: '<span class="trust-pill new" title="First Time Buyer">New</span>',
       label: 'First-time Customer',
       score: 60,
       isRisk: false
@@ -919,7 +919,7 @@ function getTrustInfo(phone, orderId) {
   if (returned >= 2) {
     return {
       type: 'risk',
-      badge: `<span class="trust-pill risk" title="Refused ${returned} past parcels">⚠️ Risk (${returned} Returns)</span>`,
+      badge: `<span class="trust-pill risk" title="Refused ${returned} past parcels">Risk (${returned} Returns)</span>`,
       label: `Serial Refuser (${returned} past returns)`,
       score: 20,
       isRisk: true
@@ -929,7 +929,7 @@ function getTrustInfo(phone, orderId) {
   if (delivered >= 2 && returned === 0) {
     return {
       type: 'vip',
-      badge: `<span class="trust-pill vip" title="VIP Buyer (${delivered} delivered)">🟢 VIP (${delivered})</span>`,
+      badge: `<span class="trust-pill vip" title="VIP Buyer (${delivered} delivered)">VIP (${delivered})</span>`,
       label: `VIP Verified Customer (${delivered} Delivered)`,
       score: 95,
       isVIP: true
@@ -944,13 +944,17 @@ function getTrustInfo(phone, orderId) {
   };
 }
 
+// A duplicate is a second open order for the same phone and product;
+// past delivered or returned orders are repeat purchases, not duplicates.
+const CLOSED_STATUSES = ['Delivered', 'Returned', 'Cancelled', 'Spam'];
 function checkDuplicateOrder(order) {
+  if (CLOSED_STATUSES.includes(order.status)) return false;
   const cPhone = cleanPhone(order.phone);
   return db.orders.some(o =>
     o.id !== order.id &&
     cleanPhone(o.phone) === cPhone &&
     String(o.product) === String(order.product) &&
-    o.status !== 'Cancelled'
+    !CLOSED_STATUSES.includes(o.status)
   );
 }
 
@@ -990,15 +994,13 @@ function orderTable(list) {
       const trust = getTrustInfo(o.phone, o.id);
       const isDup = checkDuplicateOrder(o);
       const p = product(o.product);
-      const cleanP = cleanPhone(o.phone);
-      const waMsg = encodeURIComponent(`Hello ${o.customer}, this is Rosaino Confirmation regarding your order ${o.id} for ${p?.name || 'your items'} (${money(o.amount)} COD). Please reply YES to confirm your delivery address in ${o.city}.`);
 
       return `
         <tr>
           <td>
             <b>${esc(o.id)}</b>
             <small>${esc(o.customer)} · ${esc(o.phone)}</small>
-            ${isDup ? '<span class="trust-pill duplicate" title="Duplicate lead detected with same phone & product">⚠️ Duplicate</span>' : ''}
+            ${isDup ? '<span class="trust-pill duplicate" title="Duplicate lead detected with same phone & product">Duplicate</span>' : ''}
           </td>
           <td>
             ${esc(p?.name || o.product)}
@@ -1008,11 +1010,11 @@ function orderTable(list) {
           <td><b>${money(o.amount)}</b></td>
           <td>${trust.badge}</td>
           <td>${badge(o.status)}</td>
-          <td style="white-space:nowrap;">
-            <button data-action="order" data-id="${esc(o.id)}">Details ↗</button>
-            <a href="https://wa.me/212${cleanP.replace(/^0/, '')}?text=${waMsg}" target="_blank" rel="noopener" class="btn-wa" title="Send WhatsApp Confirmation">WA 💬</a>
-            <button data-action="awb" data-id="${esc(o.id)}" title="Print Thermal Shipping Label">AWB 🏷️</button>
-          </td>
+          <td><div class="row-actions">
+            ${hasPermission('calls') && ['New', 'Callback'].includes(o.status) ? callButtons(o, true) : ''}
+            <button data-action="order" data-id="${esc(o.id)}">Details</button>
+            <button data-action="awb" data-id="${esc(o.id)}" title="Print shipping label">Label</button>
+          </div></td>
         </tr>
       `;
     })
@@ -1044,7 +1046,6 @@ function previewBanner() {
 function accessDeniedView(pageName, reqPerm) {
   return `
     <div class="panel empty" style="padding:48px 24px;text-align:center;">
-      <div class="mini-icon" style="background:#fee2e2;color:#dc2626;margin:0 auto 16px;">🔒</div>
       <h2>Access Restricted</h2>
       <p class="info" style="max-width:480px;margin:0 auto 16px;">
         Your role <strong>${esc(effectiveRole())}</strong> does not have the <code>${esc(reqPerm)}</code> permission required to view <strong>${esc(pageName)}</strong>. Ask a Super Admin to grant access.
@@ -1096,8 +1097,8 @@ function overview() {
   const transit = db.orders.filter(o => o.status === 'In transit');
 
   return title(
-    'A clear view of your day.',
-    'From first lead to doorstep. Connected to Supabase Cloud Database & Public Customer Tracking.',
+    'Overview',
+    'Today at a glance: orders, confirmations, deliveries and cash collected.',
     `<span class="pill">${db.orders.length} total orders · MAD</span><button class="primary" data-action="new-order">＋ New order</button>`
   ) + `
     ${setupChecklist()}
@@ -1155,10 +1156,10 @@ function orders() {
     ${duplicates.length ? `
       <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <strong style="color:#b45309;">⚠️ Duplicate Lead Detection Active:</strong>
-          <span style="font-size:13px;color:#78350f;"> Found ${duplicates.length} potential duplicate orders placed with matching phone numbers.</span>
+          <strong style="color:#b45309;">Possible duplicates:</strong>
+          <span style="font-size:13px;color:#78350f;"> ${duplicates.length} open order(s) share a phone number and product with another open order.</span>
         </div>
-        <button data-action="filter-duplicates" style="font-size:12px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Filter Duplicates 🔍</button>
+        <button data-action="filter-duplicates" style="font-size:12px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Show duplicates</button>
       </div>
     ` : ''}
     <div class="panel">
@@ -1243,7 +1244,7 @@ function calls() {
       ${metric('Confirmed today', todays.filter(c => c.outcome === 'Confirmed').length, todays.length ? `${Math.round(todays.filter(c => c.outcome === 'Confirmed').length / todays.length * 100)}% of calls` : 'No calls yet')}
       ${metric('Talk time today', fmtDuration(talk), todays.length ? `Average ${fmtDuration(Math.round(talk / todays.length))} per call` : '—')}
     </div>
-    <div class="grid">
+    <div class="grid calls-grid">
       <div class="panel">
         <div class="panel-head"><div><h2>Next lead</h2><p>${next ? (next.status === 'Callback' ? 'Scheduled callback' : 'New lead') : 'Nothing waiting'}</p></div></div>
         ${next ? `
@@ -1266,6 +1267,7 @@ function calls() {
       </div>
       <div class="panel">
         <div class="panel-head"><div><h2>Queue</h2><p>${queue.length} lead(s), callbacks last</p></div></div>
+        <div class="queue-list">
         ${queue.slice(0, 25).map(o => `
           <div class="queue">
             <div>
@@ -1275,6 +1277,7 @@ function calls() {
             <div class="actions">${callButtons(o, true)}</div>
           </div>
         `).join('') || '<p class="info">Assign leads from Leads &amp; orders or Lead routing.</p>'}
+        </div>
       </div>
     </div>
     <div class="panel">
@@ -1304,7 +1307,7 @@ function calls() {
 // 4. Routing
 function routing() {
   return title(
-    'The right lead. The right agent.',
+    'Lead routing',
     'Create product, source or region rules and distribute unassigned leads.',
     `<button class="primary" data-action="new-rule">＋ Add rule</button><button data-action="route">Run routing</button>`
   ) + `
@@ -1383,7 +1386,7 @@ function shipping() {
   };
 
   return title(
-    'Every doorstep, accounted for.',
+    'Shipping',
     'Send confirmed orders to your carriers, print labels, and follow each parcel until it is delivered.',
     `<button data-action="sync-shipments">Check carrier updates ↻</button><button data-action="batch-labels">Print all labels</button>`
   ) + `
@@ -1436,7 +1439,7 @@ function carriers() {
   const count = (c, st) => (shipmentList || []).filter(s => s.carrierId === c.id && s.status === st).length;
 
   return title(
-    'Your delivery partners.',
+    'Carriers',
     'Add each carrier you work with. Dispatched orders are sent to them, and their delivery updates come back into Rosaino and the customer tracking page.',
     manage ? '<button class="primary" data-action="new-carrier">+ Add carrier</button>' : ''
   ) + `
@@ -1643,8 +1646,8 @@ function openDispatchDialog(id) {
 // 6. Products & Stock
 function products() {
   return title(
-    'Stock you can count on.',
-    'Manage product pricing, available units and true landed costs. Storefront and Supabase adapt immediately.',
+    'Products & stock',
+    'Manage product pricing, available units and landed costs. The storefront updates immediately.',
     `<button class="primary" data-action="new-product">+ Add product</button>`
   ) + `
     <div class="panel">
@@ -1712,7 +1715,6 @@ function renderImageDropzone(label, fieldName, currentSrc, hintText) {
 
       <div class="image-upload-zone" data-target="${fieldName}">
         <input type="file" id="file-input-${fieldName}" accept="image/*" class="cms-file-input" data-target="${fieldName}">
-        <div class="upload-icon-circle">📷</div>
         <p class="upload-text-main">${t('upload_image')}: ${label}</p>
         <p class="upload-text-sub">${hintText || t('upload_hint')} · JPG, PNG, WebP</p>
       </div>
@@ -1721,9 +1723,9 @@ function renderImageDropzone(label, fieldName, currentSrc, hintText) {
 
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;color:#789096;margin-top:6px;">
         <span>Presets:</span>
-        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/collection.png" style="font-size:11px;padding:4px 8px;">Collection 🖼️</button>
-        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/pattern.png" style="font-size:11px;padding:4px 8px;">Pattern 🖼️</button>
-        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/ribbon.png" style="font-size:11px;padding:4px 8px;">Ribbon 🖼️</button>
+        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/collection.png" style="font-size:11px;padding:4px 8px;">Collection</button>
+        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/pattern.png" style="font-size:11px;padding:4px 8px;">Pattern</button>
+        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/ribbon.png" style="font-size:11px;padding:4px 8px;">Ribbon</button>
       </div>
     </div>
   `;
@@ -1784,7 +1786,7 @@ function cms() {
           ${pList.map(item => `<option value="${item.id}" ${item.id === p.id ? 'selected' : ''}>${esc(item.name)} (${esc(item.sku)})</option>`).join('')}
         </select>
         <button type="button" class="primary" data-action="save-cms-trigger" style="display:inline-flex;align-items:center;gap:6px;">
-          💾 ${t('save_cms')}
+          ${t('save_cms')}
         </button>
         <a href="/product?id=${p.id}&lang=${targetLang}" target="_blank" style="padding:10px 14px;border:1px solid #147d86;border-radius:8px;font-size:12px;color:#147d86;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
           ${t('preview_landing')}
@@ -1796,7 +1798,7 @@ function cms() {
     <div class="cms-lang-bar">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <span style="font-size:13px;font-weight:700;color:#183243;display:inline-flex;align-items:center;gap:6px;">
-          🌐 ${t('target_language')}
+          ${t('target_language')}
         </span>
         <div class="cms-lang-pill-group">
           <button type="button" class="btn-cms-lang ${targetLang === 'fr' ? 'active' : ''}" data-action="set-cms-lang" data-lang="fr">
@@ -1814,16 +1816,16 @@ function cms() {
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:12px;color:#557077;">${t('presets')}:</span>
         <button type="button" class="btn-cms-lang" data-action="apply-preset" data-preset="flash_cod" title="High-converting urgency layout with countdown and COD form at top">
-          ⚡ Flash COD
+          Flash COD
         </button>
         <button type="button" class="btn-cms-lang" data-action="apply-preset" data-preset="minimal" title="Clean minimalist luxury layout">
-          ✨ Minimal Luxury
+          Minimal Luxury
         </button>
         <button type="button" class="btn-cms-lang" data-action="apply-preset" data-preset="bundles" title="Quantity bundles layout to boost average order value">
-          📦 Bundle Booster
+          Bundle Booster
         </button>
         <button type="button" class="btn-cms-lang" data-action="apply-lang-template" data-lang="${targetLang}" title="Load idiomatic high-converting copy in ${targetLang.toUpperCase()}">
-          ✨ ${t('auto_translate')} ${targetLang.toUpperCase()}
+          ${t('auto_translate')} ${targetLang.toUpperCase()}
         </button>
       </div>
     </div>
@@ -1832,7 +1834,7 @@ function cms() {
     <details class="panel" style="border: 2px solid #147d86;background:#fcfefe;margin-bottom:20px;">
       <summary style="cursor:pointer;padding:8px 0;font-weight:700;color:#147d86;display:flex;justify-content:space-between;align-items:center;">
         <span style="display:inline-flex;align-items:center;gap:8px;">
-          <span>🎯</span> Ad Manager Boost Link & UTM Attribution (Meta, TikTok, Snapchat)
+          Ad Manager Boost Link & UTM Attribution (Meta, TikTok, Snapchat)
         </span>
         <span style="font-size:12px;text-decoration:underline;">Click to expand / collapse ▾</span>
       </summary>
@@ -1863,7 +1865,7 @@ function cms() {
           <code style="font-size:12px;color:#147d86;word-break:break-all;flex:1;">${esc(boostLink)}</code>
           <div style="display:flex;gap:8px;">
             <button type="button" data-action="copy-boost-url" data-url="${esc(boostLink)}" style="font-size:12px;font-weight:700;">
-              Copy Link 📋
+              Copy Link
             </button>
             <a href="${esc(boostLink)}" target="_blank" style="padding:6px 12px;border:1px solid #147d86;border-radius:6px;font-size:12px;color:#147d86;font-weight:600;">
               Test Link ↗
@@ -1906,7 +1908,6 @@ function cms() {
                 <div class="section-block ${isExpanded ? 'expanded' : ''} ${!isEnabled ? 'disabled-section' : ''}" data-section-id="${secId}" draggable="true">
                   <div class="section-head">
                     <span class="drag-handle" title="Drag to reorder section">⠿</span>
-                    <span class="section-icon">${def.icon}</span>
                     <div class="section-meta">
                       <h3>
                         ${esc(titleText)}
@@ -1916,7 +1917,7 @@ function cms() {
                     </div>
                     <div class="section-actions">
                       <button type="button" class="btn-icon-action ${isEnabled ? 'toggle-active' : 'toggle-inactive'}" data-action="toggle-section" data-id="${secId}" title="${isEnabled ? 'Click to hide section' : 'Click to show section'}">
-                        ${isEnabled ? '👁️' : '👁️‍🗨️'}
+                        ${isEnabled ? 'Hide' : 'Show'}
                       </button>
                       <button type="button" class="btn-icon-action" data-action="move-section-up" data-id="${secId}" title="Move section up" ${index === 0 ? 'disabled' : ''}>
                         ▲
@@ -1941,7 +1942,7 @@ function cms() {
           <!-- Bottom Actions Card -->
           <div class="panel" style="margin-top:20px;background:#f0f8f7;border:1.5px solid #147d86;text-align:center;">
             <button type="submit" class="primary" style="width:100%;padding:14px;font-size:15px;justify-content:center;margin-bottom:10px;">
-              💾 ${t('save_cms')}
+              ${t('save_cms')}
             </button>
             <div style="display:flex;gap:10px;justify-content:center;">
               <a href="/product?id=${p.id}&lang=${targetLang}" target="_blank" style="padding:8px 14px;border:1px solid #147d86;border-radius:6px;font-size:12px;color:#147d86;font-weight:700;">
@@ -1958,11 +1959,11 @@ function cms() {
         <div class="cms-preview-column">
           <div class="device-toolbar">
             <span style="font-size:12px;font-weight:700;color:#183243;display:inline-flex;align-items:center;gap:6px;">
-              <span>👁️</span> ${t('live_preview')}
+              ${t('live_preview')}
             </span>
             <div style="display:flex;align-items:center;gap:8px;">
               <button type="button" class="btn-visual-mode ${visualEditMode ? 'active' : ''}" data-action="toggle-visual-edit-mode" title="Toggle interactive in-preview editing">
-                <span>✏️</span> ${visualEditMode ? 'Visual Edit ON' : 'Visual Edit Mode'}
+                ${visualEditMode ? 'Visual Edit ON' : 'Visual Edit Mode'}
               </button>
               <div class="device-toggles">
                 <button type="button" class="btn-device ${previewDevice === 'desktop' ? 'active' : ''}" data-device="desktop">
@@ -1980,7 +1981,6 @@ function cms() {
 
           ${visualEditMode ? `
             <div class="visual-edit-tip">
-              <span style="font-size:15px;">💡</span>
               <div style="flex:1;">
                 <strong>In-Preview Direct Editing Active:</strong>
                 <span>Click any text, button or COD field in the preview below to focus & edit it, or use the <b>▲/▼</b> section bars directly in the preview to reorder!</span>
@@ -1993,7 +1993,7 @@ function cms() {
           </div>
 
           <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#789096;">
-            <span>⚡ Updates in real-time as you drag or edit</span>
+            <span>Updates in real-time as you drag or edit</span>
             <a href="/product?id=${p.id}&lang=${targetLang}" target="_blank" style="color:#147d86;font-weight:600;">
               ${t('open_public')}
             </a>
@@ -2163,7 +2163,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
           <div>
             <h4 style="margin:0 0 4px;font-size:13.5px;color:#147d86;display:flex;align-items:center;gap:6px;">
-              <span>📝</span> Moroccan Express COD Form Fields Builder
+              Moroccan Express COD Form Fields Builder
               <span class="badge" style="background:#147d86;color:#fff;font-size:10.5px;font-weight:700;">${activeCount} / ${fields.length} Active</span>
             </h4>
             <p style="margin:0;font-size:11.5px;color:#64748b;">
@@ -2184,14 +2184,11 @@ function renderSectionBody(secId, cms, p, targetLang) {
           ${fields.map((f, idx) => {
             const isEnabled = f.enabled !== false;
             const isExpanded = expandedCodFields.has(f.id);
-            const typeIcons = { text: '🔤', tel: '📞', select: '📍', textarea: '📝', checkbox: '☑️', number: '🔢' };
-            const icon = typeIcons[f.type] || '🏷️';
 
             return `
               <div class="cod-field-item ${!isEnabled ? 'disabled-field' : ''} ${isExpanded ? 'expanded' : ''}" data-field-id="${esc(f.id)}" draggable="true">
                 <div class="cod-field-head">
                   <span class="drag-handle cod-drag-handle" title="Drag to reorder field">⠿</span>
-                  <span style="font-size:13px;">${icon}</span>
                   <div class="cod-field-meta">
                     <strong>${esc(f.label || f.key)}</strong>
                     <span class="cod-field-tag">key: ${esc(f.key)}</span>
@@ -2202,7 +2199,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
                   </div>
                   <div class="cod-field-actions" style="display:flex;align-items:center;gap:4px;">
                     <button type="button" class="btn-icon-action ${isEnabled ? 'toggle-active' : 'toggle-inactive'}" data-action="toggle-cod-field" data-id="${esc(f.id)}" title="${isEnabled ? 'Disable field' : 'Enable field'}" style="font-size:12px;padding:4px 6px;">
-                      ${isEnabled ? '👁️' : '👁️‍🗨️'}
+                      ${isEnabled ? 'Hide' : 'Show'}
                     </button>
                     <button type="button" class="btn-icon-action" data-action="move-cod-field-up" data-id="${esc(f.id)}" title="Move field up" ${idx === 0 ? 'disabled' : ''} style="font-size:10px;padding:4px 6px;">
                       ▲
@@ -2214,7 +2211,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
                       ${isExpanded ? '▴' : '▾'}
                     </button>
                     <button type="button" class="btn-icon-action" data-action="delete-cod-field" data-id="${esc(f.id)}" title="Delete field" style="color:#b91c1c;font-size:11px;padding:4px 6px;">
-                      🗑️
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -2288,7 +2285,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
           <div style="background:#f8fafb;border:1px solid #e3e9eb;border-radius:8px;padding:12px;position:relative;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <strong style="font-size:12px;color:#147d86;">Benefit Card #${i + 1}</strong>
-              <button type="button" class="btn-icon-action" data-action="delete-feature" data-id="${i}" title="Delete feature" style="color:#b91c1c;font-size:11px;padding:2px 6px;">🗑️</button>
+              <button type="button" class="btn-icon-action" data-action="delete-feature" data-id="${i}" title="Delete feature" style="color:#b91c1c;font-size:11px;padding:2px 6px;">Delete</button>
             </div>
             <label style="margin-top:6px;">Title<input name="feat_${i}_title" value="${esc(f.title)}" required></label>
             <label style="margin-top:6px;">Description<input name="feat_${i}_desc" value="${esc(f.desc)}" required></label>
@@ -2316,7 +2313,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
           <div style="background:#f8fafb;border:1px solid #e3e9eb;border-radius:8px;padding:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <strong style="font-size:11.5px;color:#147d86;">Reviewer #${i + 1}</strong>
-              <button type="button" class="btn-icon-action" data-action="delete-review" data-id="${i}" title="Delete testimonial" style="color:#b91c1c;font-size:11px;padding:2px 6px;">🗑️</button>
+              <button type="button" class="btn-icon-action" data-action="delete-review" data-id="${i}" title="Delete testimonial" style="color:#b91c1c;font-size:11px;padding:2px 6px;">Delete</button>
             </div>
             <div class="form-grid" style="margin-top:6px;">
               <label>Name<input name="rev_${i}_name" value="${esc(r.name)}" required></label>
@@ -2348,7 +2345,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
           <div style="background:#f8fafb;border:1px solid #e3e9eb;border-radius:8px;padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <strong style="font-size:11.5px;color:#147d86;">FAQ #${i + 1}</strong>
-              <button type="button" class="btn-icon-action" data-action="delete-faq" data-id="${i}" title="Delete FAQ" style="color:#b91c1c;font-size:11px;padding:2px 6px;">🗑️</button>
+              <button type="button" class="btn-icon-action" data-action="delete-faq" data-id="${i}" title="Delete FAQ" style="color:#b91c1c;font-size:11px;padding:2px 6px;">Delete</button>
             </div>
             <label style="margin-top:6px;">Question<input name="faq_${i}_q" value="${esc(faq.q)}" required></label>
             <label style="margin-top:8px;">Answer<textarea name="faq_${i}_a" style="min-height:60px;" required>${esc(faq.a)}</textarea></label>
@@ -2365,7 +2362,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
 function suppliers() {
   const poList = db.purchaseOrders || [];
   return title(
-    'Sourcing & Supply Chain.',
+    'Suppliers & purchase orders',
     'Track Purchase Orders from factory to warehouse. True Landed Cost engine factoring freight, customs and port handling.',
     `<button class="primary" data-action="new-po">＋ Create Purchase Order (PO)</button><button data-action="new-supplier">Add supplier</button>`
   ) + `
@@ -2442,7 +2439,7 @@ function finance() {
   const expenses = sum(db.expenses, 'amount');
 
   return title(
-    'Know what comes back.',
+    'COD accounting',
     'A transparent view of COD collections, true landed costs and courier remittance.',
     `<button class="primary" data-action="expense">＋ Record expense</button>`
   ) + `
@@ -2491,9 +2488,9 @@ function reconciliation() {
   else if (remittanceFilter === 'discrepancies') displayList = discrepancies;
 
   return title(
-    'Courier Cash Remittance Audit',
+    'Courier remittance audit',
     'Track collected COD cash in courier accounts, audit bank transfers, and eliminate courier payment leakage.',
-    `<button class="primary" data-action="reconcile-modal">💵 Batch Mark as Remitted</button><button data-action="dispute-statement">📄 Courier Claim Statement</button>`
+    `<button class="primary" data-action="reconcile-modal">Batch Mark as Remitted</button><button data-action="dispute-statement">Courier Claim Statement</button>`
   ) + `
     <div class="metrics">
       ${metric('Collected at Doorstep', money(totalCollected), `${delivered.length} parcels paid cash on delivery`)}
@@ -2513,7 +2510,6 @@ function reconciliation() {
         return `
           <div class="panel">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <div class="mini-icon" style="background:#eaf4f7;color:#147d86;">🚚</div>
               ${cOverdue ? '<span class="badge returned">Overdue Cash</span>' : '<span class="badge active">On Schedule</span>'}
             </div>
             <h2>${esc(c)}</h2>
@@ -2566,7 +2562,7 @@ function reconciliation() {
               <td><b style="font-size:14px;color:#147d86;">${money(o.amount)}</b></td>
               <td>
                 <b>${money(fee)}</b>
-                ${isOvercharged ? `<small style="color:#dc2626;font-weight:700;">⚠️ +${fee - 35} MAD Overcharge</small>` : '<small style="color:#16a34a;">Standard Tariff</small>'}
+                ${isOvercharged ? `<small style="color:#dc2626;font-weight:700;">+${fee - 35} MAD Overcharge</small>` : '<small style="color:#16a34a;">Standard Tariff</small>'}
               </td>
               <td><b>${money(netDue)}</b></td>
               <td>
@@ -2574,7 +2570,7 @@ function reconciliation() {
                   <span class="badge delivered">✓ Settled in Bank</span>
                   <small style="color:#16a34a;">${esc(o.remittanceRef || 'Wire Received')}</small>
                 ` : isOverdue ? `
-                  <span class="badge returned">⛔ Overdue (>7d)</span>
+                  <span class="badge returned">Overdue (>7d)</span>
                   <small style="color:#dc2626;">Cash with Courier</small>
                 ` : `
                   <span class="badge in-transit">⏳ Pending Payout</span>
@@ -2584,7 +2580,7 @@ function reconciliation() {
               <td>
                 ${!isRemitted ? `
                   <button data-action="single-remit" data-id="${o.id}" class="primary" style="font-size:11px;padding:6px 10px;">
-                    Mark Settled 💵
+                    Mark Settled
                   </button>
                 ` : `<span style="color:#16a34a;font-size:11px;font-weight:600;">Settled · ${esc(o.remittedDate || '2026-09-25')}</span>`}
               </td>
@@ -2606,8 +2602,8 @@ function reports() {
   ];
 
   return title(
-    'Turn activity into understanding.',
-    'Live unit economics, campaign attribution, and Delivered ROAS truth.',
+    'Reports',
+    'Unit economics, campaign attribution and delivered ROAS.',
     `<button data-action="export">Export order data</button>`
   ) + `
     <!-- Delivered ROAS Attribution Table -->
@@ -2722,7 +2718,7 @@ function contactInboxPanel() {
 
 function stores() {
   return title(
-    'Your storefront ecosystem.',
+    'Storefronts & assets',
     'Organize storefronts, customer tracking links, and creative assets.',
     `<button class="primary" data-action="new-page">+ Add page</button>`
   ) + `
@@ -2750,8 +2746,8 @@ function stores() {
 // 11. Integrations & Supabase Database Setup
 function integrations() {
   return title(
-    'Bring your tools together.',
-    'Supabase Cloud Database & external delivery/ad connectors.'
+    'Integrations',
+    'Database, email, carriers and ad platform connections.'
   ) + `
     <div class="panel" style="border: 2px solid #147d86;background:#f9fdfc;">
       <div class="panel-head">
@@ -2834,7 +2830,7 @@ function team() {
                   <tr>
                     <td>
                       <strong>${esc(r)}</strong>
-                      ${isSuper ? '<br><small style="color:#147d86;">★ Always has every permission</small>' : ''}
+                      ${isSuper ? '<br><small style="color:#147d86;">Always has every permission</small>' : ''}
                     </td>
                     <td style="text-align:center;">${count}</td>
                     ${ALL_PERMISSIONS.map(p => {
@@ -2864,7 +2860,7 @@ function team() {
   const fmtDate = d => d ? new Date(d).toLocaleString() : '—';
 
   return title(
-    'A team in sync.',
+    'Team & roles',
     'Team accounts, role-based access control and fraud blacklist.',
     `${canManage ? '<button class="primary" data-action="new-agent">+ Add team member</button>' : ''}<button data-action="manage-blacklist">Blacklist Management</button>`
   ) + `
@@ -2933,7 +2929,7 @@ function security() {
     'blacklist.added': 'Blacklisted phone', 'blacklist.removed': 'Unblacklisted phone', 'remittance.reconciled': 'Remittance reconciled',
     'purchase_order.received': 'PO received', 'product.saved': 'Product saved', 'cms.saved': 'Landing page saved'
   }[a] || a);
-  return title('Security & audit.', 'Who signed in, and who changed what. Recorded on the server.', '<button data-action="refresh-audit">Refresh</button>') + `
+  return title('Security & audit', 'Who signed in, and who changed what. Recorded on the server.', '<button data-action="refresh-audit">Refresh</button>') + `
     <div class="metrics">
       ${metric('Events recorded', list.length, 'Most recent 200')}
       ${metric('Successful sign-ins', logins.length, logins[0] ? `Last: ${esc(logins[0].actor)}` : '—')}
@@ -2961,7 +2957,7 @@ function security() {
 // 14. Settings
 function settings() {
   const me = db.currentUser;
-  return title('System & workspace settings.', 'Your account, workspace preferences and database connection.') + `
+  return title('Settings', 'Your account, workspace preferences and database connection.') + `
     <div class="grid">
       <div class="panel">
         <h2>Workspace preferences</h2>
@@ -3922,7 +3918,6 @@ function orderDialog(id) {
   const trust = getTrustInfo(o.phone, o.id);
   const isDup = checkDuplicateOrder(o);
   const p = product(o.product);
-  const cleanP = cleanPhone(o.phone);
   const waMsg = encodeURIComponent(`Hello ${o.customer}, this is Rosaino Confirmation regarding your order ${o.id} for ${p?.name || 'your items'} (${money(o.amount)} COD). Please reply YES to confirm your delivery address in ${o.city}.`);
 
   const choices = {
@@ -3949,7 +3944,7 @@ function orderDialog(id) {
         </p>
         ${isDup ? `
           <div style="margin-top:10px;padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;display:flex;justify-content:space-between;align-items:center;">
-            <span>⚠️ Duplicate Order: Same customer has another active order for this item.</span>
+            <span>Duplicate Order: Same customer has another active order for this item.</span>
             <button type="button" data-action="cancel-duplicate" data-id="${o.id}" style="font-size:11px;background:#fff;border:1px solid #d97706;color:#b45309;padding:4px 8px;">Cancel Duplicate</button>
           </div>
         ` : ''}
@@ -3959,13 +3954,13 @@ function orderDialog(id) {
         ${callButtons(o)}
         <a href="https://wa.me/${intlPhone(o.phone)}?text=${waMsg}" target="_blank" rel="noopener" class="btn-link">WhatsApp message</a>
         <button type="button" data-action="awb" data-id="${o.id}">
-          🏷️ Thermal 4x6 Label
+          Thermal 4x6 Label
         </button>
         <a href="/track?id=${encodeURIComponent(o.id)}" target="_blank" style="padding:7px 12px;border:1px solid #dce4e6;border-radius:6px;font-size:12px;display:inline-flex;align-items:center;font-weight:600;">
-          🚚 Public Tracking Portal ↗
+          Public Tracking Portal ↗
         </a>
         <button type="button" data-action="toggle-blacklist" data-phone="${esc(o.phone)}" style="font-size:12px;color:#ac3838;margin-left:auto;">
-          ⛔ ${trust.type === 'risk' ? 'Unblacklist Phone' : 'Blacklist Customer'}
+          ${trust.type === 'risk' ? 'Unblacklist Phone' : 'Blacklist Customer'}
         </button>
       </div>
 
@@ -4050,7 +4045,7 @@ function showThermalLabel(id) {
           COD TO COLLECT: ${money(o.amount)}
         </div>
       </div>
-      <p style="text-align:center;"><button type="button" class="primary" onclick="window.print()">🖨️ Print Label on Thermal Printer</button></p>
+      <p style="text-align:center;"><button type="button" class="primary" onclick="window.print()">Print Label on Thermal Printer</button></p>
     `,
     null
   );
@@ -4129,7 +4124,7 @@ function createPurchaseOrderModal() {
         <label class="full">Procurement Notes<input name="notes" placeholder="e.g. Sea freight shipment from Ningbo to Casablanca port"></label>
       </div>
       <div style="background:#f0f8f7;padding:12px 16px;border-radius:8px;margin-top:14px;font-size:12px;line-height:1.6;">
-        💡 <strong>Automatic Landed Cost Formula:</strong><br>
+        <strong>Automatic Landed Cost Formula:</strong><br>
         <code>Landed Unit Cost = (Units × Factory Price + Freight + Customs + Handling) ÷ Units</code><br>
         This gives you the exact true cost per unit before calculating gross profit.
       </div>
@@ -4645,7 +4640,7 @@ async function viewSupabaseSchema() {
       `
         <p class="info">Copy and paste this script into your Supabase SQL Editor (<a href="https://supabase.com/dashboard/project/kwqbghlwarkibhlgbgft/sql/new" target="_blank" rel="noopener">Open Supabase SQL Editor ↗</a>) to create the schema:</p>
         <textarea id="sql-schema-area" style="width:100%;height:320px;font-family:monospace;font-size:11px;background:#183243;color:#a3e635;padding:12px;border-radius:8px;" readonly>${esc(sql)}</textarea>
-        <p><button type="button" id="copy-sql-btn" class="primary">📋 Copy SQL to Clipboard</button></p>
+        <p><button type="button" id="copy-sql-btn" class="primary">Copy SQL to Clipboard</button></p>
       `,
       null
     );
@@ -4673,9 +4668,9 @@ async function testSupabaseSync() {
     supabaseStatus = data;
     const pill = $('#supabase-pill-text');
     if (pill) {
-      pill.textContent = data.mode === 'supabase_live' ? 'Supabase Live' : 'Supabase (Schema Pending)';
+      pill.textContent = data.connected ? 'Database connected' : 'Database not connected';
     }
-    toast(`Supabase Status: ${data.connected ? 'Connected' : 'Offline'} · Tables: ${data.tables.products ? 'Ready' : 'Pending schema'}`);
+    toast(`Database: ${data.connected ? 'connected' : 'not connected'} · Catalogue tables: ${data.tables.products ? 'ready' : 'not created yet'}`);
   } catch (e) {
     toast('Failed to test Supabase connection: ' + e.message);
   }
@@ -4859,7 +4854,7 @@ const actions = {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).catch(() => {});
     }
-    toast('📋 Ad Boost tracking link copied! Ready to paste into Meta/TikTok Ads Manager.');
+    toast('Ad Boost tracking link copied! Ready to paste into Meta/TikTok Ads Manager.');
   },
   'pick-image': src => {
     const input = $('#cms-input-heroImage');
@@ -5169,7 +5164,7 @@ const actions = {
       toast(`Phone ${cPhone} removed from blacklist.`);
     } else {
       db.blacklistedPhones.push(cPhone);
-      toast(`Phone ${cPhone} added to Serial Refuser Blacklist ⛔.`);
+      toast(`Phone ${cPhone} added to Serial Refuser Blacklist.`);
     }
     persist();
     render();
@@ -5384,7 +5379,7 @@ const actions = {
           <strong>Pending Parcels Eligible for Reconciliation:</strong> ${pendingOrders.length} parcels (${money(sum(pendingOrders, 'amount'))})
         </div>
       `,
-      'Confirm Bank Reconciliation 💵',
+      'Confirm Bank Reconciliation',
       f => {
         const selCarrier = f.get('carrier');
         const wireRef = f.get('wireRef').trim() || `VIR-${Date.now().toString(36).toUpperCase()}`;
@@ -5464,9 +5459,9 @@ const actions = {
           </p>
         </div>
         <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
-          <button type="button" class="primary" onclick="window.print()">🖨️ Print Claim Statement</button>
+          <button type="button" class="primary" onclick="window.print()">Print Claim Statement</button>
           <a class="btn-wa" href="https://wa.me/212600000000?text=${encodeURIComponent(`Hello Courier Accounts Manager, this is Rosaino Finance. Please find our Remittance Audit Statement for ${overdue.length} overdue parcels (${money(totalOverdueCash)} unremitted). Please process the bank wire today.`)}" target="_blank" rel="noopener">
-            💬 Send to Courier Manager on WhatsApp
+            Send to Courier Manager on WhatsApp
           </a>
         </div>
       `,
@@ -5799,7 +5794,19 @@ async function bootSync() {
     persist();
   } catch {}
 
-  testSupabaseSync();
+  refreshDbPill();
+}
+
+// Header pill: is the portal saving to the Postgres database or running in memory?
+function refreshDbPill() {
+  api('/api/setup-status').then(st => {
+    setupStatus = st;
+    const pill = $('#supabase-status-pill');
+    if (!pill) return;
+    pill.classList.toggle('warn', !st.database);
+    $('#supabase-pill-text').textContent = st.database ? 'Database connected' : 'Database not connected';
+    pill.title = st.database ? 'Saving to Supabase Postgres' : 'Set DATABASE_URL so data survives restarts';
+  }).catch(() => {});
 }
 
 checkAuth();

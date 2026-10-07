@@ -49,6 +49,16 @@ In the portal, **Carriers** lets an admin add each delivery company: choose it f
 - API keys are encrypted with `AUTH_SECRET` and never sent to browsers. Carriers and shipments are stored in Supabase Postgres (`carriers`, `shipments` tables, created automatically) when `DATABASE_URL` is set. Changing `AUTH_SECRET` later means re-entering carrier keys.
 - Every carrier's API is different, so connection details (paths, how the key is sent, JSON or form body, field names, where the tracking number and status are in replies) are adjustable under *Connection details*.
 
+### Call center (confirmation calls)
+
+Confirmation agents work from **Call center** (also from the order details and the order list).
+
+- **Phone call** opens the device dialer (`tel:` link). On a computer this needs a linked phone or softphone (e.g. Phone Link, FaceTime, a VoIP app).
+- **WhatsApp call** opens the customer's WhatsApp chat; the agent taps the call icon (WhatsApp does not allow websites to start a call by themselves).
+- A call panel opens with a running timer. The agent picks the outcome (Confirmed, Callback, No answer, Cancelled, Spam), adds a note, and clicks *End call & save*. The order is updated and the call (agent, channel, start/end time, duration, outcome, notes, transcript) is saved in the `call_logs` table (created automatically when `DATABASE_URL` is set).
+- **Transcript (optional):** in Chrome or Edge, *Start transcription* writes the conversation live using the agent's microphone. Put the call on speaker so both voices are captured, and tick the box confirming the customer was told. French, Moroccan Arabic and English are available. The agent can correct the text before saving. Saved transcripts open from *Call history*.
+- Recording the audio itself or transcribing without the speaker would need a calling provider such as Twilio; this can be added later.
+
 ### Contact form emails (Resend)
 
 Every message sent from the **Contact us** section is emailed through [Resend](https://resend.com) and also listed in the portal's Contact inbox. Replying to the email answers the customer directly. Set these in Vercel (Project → Settings → Environment Variables), never in code:
