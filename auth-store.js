@@ -100,6 +100,8 @@ function postgresStore(rawConnectionString) {
     kind: 'postgres',
     // Shared connection for other server modules (carriers & shipments).
     query: q,
+    // A dedicated connection, for transactions (release it when done).
+    connect: () => pool.connect(),
     async init() {
       await q(SCHEMA_SQL);
     },

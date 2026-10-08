@@ -669,11 +669,72 @@ const pages = [
 
 function persist() {
   try {
+    // Other tabs get a 'storage' event from the browser. Not re-dispatched here:
+    // reloading db in this tab would swap out objects code is still editing.
     localStorage.setItem(KEY, JSON.stringify(db));
-    window.dispatchEvent(new Event('storage'));
   } catch {
     toast('Browser storage is unavailable; changes last until this page closes.');
   }
+  scheduleServerSync();
+}
+
+// Server sync: orders and landing pages changed in this browser are sent to
+// the server (and its database), so every teammate and customer sees them.
+let synced = null; // last version the server has: { orders: Map, cms: Map }
+let syncTimer = null;
+
+function markSynced(orders, pages) {
+  synced = {
+    orders: new Map(orders.map(o => [String(o.id), JSON.stringify(o)])),
+    cms: new Map(Object.entries(pages).map(([id, c]) => [id, JSON.stringify(c)]))
+  };
+}
+
+function scheduleServerSync() {
+  if (!synced || !getSession()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushChanges, 400);
+}
+
+// Only the fields this browser changed, so a teammate's edits to other
+// fields of the same order are kept.
+function changedFields(before, after) {
+  return Object.fromEntries(Object.keys(after)
+    .filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+    .map(k => [k, after[k]]));
+}
+
+async function pushChanges() {
+  const jobs = [];
+  const send = (map, id, json, request) => {
+    const before = map.get(id);
+    map.set(id, json);
+    jobs.push(request(before).catch(err => {
+      if (before === undefined) map.delete(id); else map.set(id, before); // retry with the next change
+      throw err;
+    }));
+  };
+  db.orders.forEach(o => {
+    const id = String(o.id);
+    const json = JSON.stringify(o);
+    if (synced.orders.get(id) === json) return;
+    send(synced.orders, id, json, before => before === undefined
+      ? api('/api/orders', 'POST', o)
+      : api(`/api/orders/${encodeURIComponent(id)}`, 'PATCH', changedFields(JSON.parse(before), o)).then(r => {
+        // The server keeps stock; take its figure.
+        const p = r.product && db.products.find(x => String(x.id) === String(r.product.id));
+        if (p) p.stock = r.product.stock;
+      }));
+  });
+  if (hasPermission('cms')) {
+    Object.entries(db.cmsPages || {}).forEach(([id, c]) => {
+      const json = JSON.stringify(c);
+      if (synced.cms.get(id) === json) return;
+      send(synced.cms, id, json, () => api(`/api/cms/${encodeURIComponent(id)}`, 'POST', c));
+    });
+  }
+  const failed = (await Promise.allSettled(jobs)).find(r => r.status === 'rejected');
+  if (failed) toast(`Not saved to the server: ${failed.reason.message}`);
 }
 
 function log(text) {
@@ -1071,7 +1132,7 @@ function setupChecklist() {
   const items = [
     [setupStatus.carriers > 0, 'Connect a carrier', 'Orders are sent to them when you dispatch, and deliveries update by themselves.', '#carriers', 'Add carrier'],
     [setupStatus.email, 'Contact form emails', 'Customer messages are emailed to you through Resend (RESEND_API_KEY in Vercel).', '', ''],
-    [setupStatus.database, 'Database connected', 'Accounts, carriers and tracking are saved in Supabase (DATABASE_URL in Vercel).', '', ''],
+    [setupStatus.database, 'Database connected', setupStatus.databaseError ? `Not working: ${esc(setupStatus.databaseError)}` : 'Orders, products, accounts, carriers and calls are saved in Supabase (DATABASE_URL in Vercel).', '', ''],
     [setupStatus.team > 1, 'Invite your team', 'Give agents and managers their own login with only the pages they need.', '#team', 'Add member']
   ];
   const left = items.filter(i => !i[0]).length;
@@ -2752,17 +2813,18 @@ function integrations() {
     <div class="panel" style="border: 2px solid #147d86;background:#f9fdfc;">
       <div class="panel-head">
         <div>
-          <span class="badge active" style="margin-bottom:6px;">PRIMARY DATABASE</span>
+          <span class="badge ${setupStatus?.database ? 'active' : 'pending'}" style="margin-bottom:6px;">${setupStatus?.database ? 'CONNECTED' : setupStatus?.databaseConfigured ? 'NOT WORKING' : 'NOT CONNECTED'}</span>
           <h2>Supabase PostgreSQL Database</h2>
-          <p>Project URL: <code>https://kwqbghlwarkibhlgbgft.supabase.co</code></p>
+          <p>${setupStatus?.databaseError ? esc(setupStatus.databaseError) : 'Orders, products, landing pages, accounts, carriers and calls are saved here.'}</p>
         </div>
         <div style="display:flex;gap:10px;">
-          <button class="primary" data-action="view-schema">View SQL Schema ↗</button>
-          <button data-action="test-supabase">Test Live Sync ↺</button>
+          <button class="primary" data-action="test-supabase">Test connection</button>
+          <button data-action="view-schema">Security script</button>
         </div>
       </div>
       <p class="info" style="line-height:1.7;">
-        Your Rosaino app is configured with Supabase publishable credentials. To populate tables in your Supabase project, execute the bundled SQL schema in your Supabase SQL editor.
+        Connected through <code>DATABASE_URL</code> in Vercel. Tables are created automatically, with no public access.
+        Anyone can check the connection at <a href="/api/health" target="_blank" rel="noopener">/api/health</a>.
       </p>
     </div>
 
@@ -4636,9 +4698,9 @@ async function viewSupabaseSchema() {
     const res = await fetch('/api/schema');
     const sql = await res.text();
     modal(
-      'Supabase Database SQL Schema',
+      'Database security script',
       `
-        <p class="info">Copy and paste this script into your Supabase SQL Editor (<a href="https://supabase.com/dashboard/project/kwqbghlwarkibhlgbgft/sql/new" target="_blank" rel="noopener">Open Supabase SQL Editor ↗</a>) to create the schema:</p>
+        <p class="info">No setup script is needed: tables are created automatically. If an older version of this script was run in Supabase, run this one once in the <a href="https://supabase.com/dashboard/project/kwqbghlwarkibhlgbgft/sql/new" target="_blank" rel="noopener">Supabase SQL Editor ↗</a> to remove public access to the old tables. It does not delete data.</p>
         <textarea id="sql-schema-area" style="width:100%;height:320px;font-family:monospace;font-size:11px;background:#183243;color:#a3e635;padding:12px;border-radius:8px;" readonly>${esc(sql)}</textarea>
         <p><button type="button" id="copy-sql-btn" class="primary">Copy SQL to Clipboard</button></p>
       `,
@@ -4661,18 +4723,18 @@ async function viewSupabaseSchema() {
 }
 
 async function testSupabaseSync() {
-  toast('Testing Supabase Cloud connection...');
+  toast('Testing the database connection…');
   try {
-    const res = await fetch('/api/database/status');
-    const data = await res.json();
+    const data = await api('/api/database/status');
     supabaseStatus = data;
     const pill = $('#supabase-pill-text');
-    if (pill) {
-      pill.textContent = data.connected ? 'Database connected' : 'Database not connected';
-    }
-    toast(`Database: ${data.connected ? 'connected' : 'not connected'} · Catalogue tables: ${data.tables.products ? 'ready' : 'not created yet'}`);
+    if (pill) pill.textContent = data.connected ? 'Database connected' : data.configured ? 'Database error' : 'Database not connected';
+    const r = data.records || {};
+    toast(data.connected
+      ? `Database connected · ${r.orders || 0} orders · ${r.products || 0} products saved`
+      : data.error || 'No database: set DATABASE_URL in Vercel so data is saved.');
   } catch (e) {
-    toast('Failed to test Supabase connection: ' + e.message);
+    toast('Could not test the database: ' + e.message);
   }
 }
 
@@ -5779,19 +5841,22 @@ async function bootSync() {
         db.products = prods;
       }
     }
+    // The server is the source of truth, even when a list is empty.
+    let serverOrders = db.orders;
     if (oRes && oRes.ok) {
       const ords = await oRes.json();
-      if (Array.isArray(ords) && ords.length > 0) {
-        db.orders = ords;
-      }
+      if (Array.isArray(ords)) serverOrders = db.orders = ords.map(o => ({ notes: [], ...o }));
     }
     if (poRes && poRes.ok) {
       const pos = await poRes.json();
-      if (Array.isArray(pos) && pos.length > 0) {
-        db.purchaseOrders = pos;
-      }
+      if (Array.isArray(pos)) db.purchaseOrders = pos;
     }
+    // Pages edited only in this browser so far are sent up by the next sync.
+    const pages = (hasPermission('cms') || hasPermission('products')) ? await api('/api/cms').catch(() => ({})) : {};
+    db.cmsPages = { ...(db.cmsPages || {}), ...pages };
+    markSynced(serverOrders, pages);
     persist();
+    render();
   } catch {}
 
   refreshDbPill();
@@ -5804,8 +5869,8 @@ function refreshDbPill() {
     const pill = $('#supabase-status-pill');
     if (!pill) return;
     pill.classList.toggle('warn', !st.database);
-    $('#supabase-pill-text').textContent = st.database ? 'Database connected' : 'Database not connected';
-    pill.title = st.database ? 'Saving to Supabase Postgres' : 'Set DATABASE_URL so data survives restarts';
+    $('#supabase-pill-text').textContent = st.database ? 'Database connected' : st.databaseConfigured ? 'Database error' : 'Database not connected';
+    pill.title = st.database ? 'Saving to Supabase Postgres' : st.databaseError || 'Set DATABASE_URL so data survives restarts';
   }).catch(() => {});
 }
 

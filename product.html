@@ -2001,7 +2001,7 @@
 
       const tiers = currentCms.tiers || [];
       const chosenTier = tiers[selectedTierIndex] || { qty: 1, price: currentProduct.price };
-      const orderId = 'RS-' + Math.floor(1000 + Math.random() * 9000);
+      const orderId = 'RS-' + Math.floor(100000 + Math.random() * 900000);
 
       const urlParams = new URLSearchParams(window.location.search);
       const campaign = urlParams.get('utm_campaign') || 'Meta_Landing_Direct';
@@ -2040,6 +2040,25 @@
         remittanceStatus: 'N/A'
       };
 
+      // Save on the server first; only confirm once the order is stored.
+      const submitBtn = $('#btn-submit-landing');
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newOrder)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Order not saved');
+        if (data.order?.id) newOrder.id = data.order.id; // the server may assign a new number
+      } catch {
+        if (submitBtn) submitBtn.disabled = false;
+        alert(currentLang === 'ar' ? 'تعذر إرسال طلبك. يرجى التحقق من الاتصال والمحاولة مرة أخرى.' : currentLang === 'en' ? 'Your order could not be sent. Please check your connection and try again.' : "Votre commande n'a pas pu être envoyée. Vérifiez votre connexion et réessayez.");
+        return;
+      }
+      if (submitBtn) submitBtn.disabled = false;
+
       // Save to localStorage
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -2055,24 +2074,17 @@
         }
       } catch {}
 
-      // Sync to server API
-      fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newOrder)
-      }).catch(() => {});
-
       const t = I18N_LANDING[currentLang] || I18N_LANDING.fr;
 
       // Show confirmation dialog
       $('#success-modal-title').textContent = t.orderConfirmed;
       $('#success-modal-msg').innerHTML = t.thankYou(`<strong>${esc(customer)}</strong>`);
-      $('#success-order-id').textContent = orderId;
+      $('#success-order-id').textContent = newOrder.id;
       $('#success-prod-name').textContent = currentProduct.name;
       $('#success-qty').textContent = chosenTier.title;
       $('#success-amount').textContent = money(chosenTier.price);
       $('#success-dest').textContent = `${city} · ${address}`;
-      $('#success-track-btn').href = `/track?id=${encodeURIComponent(orderId)}`;
+      $('#success-track-btn').href = `/track?id=${encodeURIComponent(newOrder.id)}`;
       $('#success-track-btn').textContent = t.trackStatusBtn;
       $('#success-explore-btn').textContent = t.exploreMore;
 

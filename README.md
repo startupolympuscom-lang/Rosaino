@@ -88,6 +88,13 @@ The operations portal at `/admin/` requires an account. Sign-in is the app's own
 2. In Vercel (Project → Settings → Environment Variables), add `DATABASE_URL` with that value, plus `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`).
 3. Optionally add `ADMIN_EMAIL` and `ADMIN_PASSWORD` **before the first deploy** to choose the Super Admin login.
 4. Redeploy. The first request creates the tables and the Super Admin account.
+5. Check it: open `https://<your-site>/api/health`. It shows `"database":"connected"` when everything is saved to Supabase, `"not_configured"` when `DATABASE_URL` is missing, or `"unreachable"` with the reason (wrong password, wrong host, paused project…). The portal header and the Overview checklist show the same.
+
+**What is saved in the database:** orders, products and stock, purchase orders, product landing pages, contact messages, the blacklist, uploaded images (table `app_records`), plus sign-in accounts and roles, carriers and shipments, and call logs. Every table has Row Level Security on and no public access; only the app server reads and writes them. Order and stock changes run as database transactions, so two people editing the same order at once don't overwrite each other. Products and orders from the older `products`/`orders` tables are copied over automatically on first start.
+
+If the database is configured but unreachable, the shop catalogue stays visible, but checkouts and changes are refused with a clear message instead of being kept in temporary memory and lost. Without `DATABASE_URL` the app runs on built-in demo data that resets on restart.
+
+If an older version of `supabase-schema.sql` was run in your Supabase project, run the current one once in the SQL Editor: it removes the public read/write access those versions gave to the old `orders` and `products` tables (it does not delete data).
 
 Accounts are only seeded when `admin_users` is empty. Later, setting `ADMIN_EMAIL`/`ADMIN_PASSWORD` to an email that doesn't exist yet adds it as a new Super Admin (useful for recovering access).
 
@@ -107,9 +114,9 @@ Default Super Admin login, used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not
 
 ## Data and security
 
-All customer names and records are fictional. Operations data is still cached in this browser under `rosaino_operations_workspace_v1` and synced to the server API where available.
+The demo data (used without `DATABASE_URL`) is fictional. The portal keeps a working copy in the browser (`rosaino_operations_workspace_v1`), loads the server's data when it opens, and sends every order and landing-page change back to the server automatically.
 
-Still needed for production: tighten the open Supabase RLS policies on `products`, `orders`, `activity` and `suppliers`, which the server writes with the public key; validate webhooks; run order and stock changes as backend transactions; reconcile with carriers; and add real payment flows. API keys must never be stored in this frontend.
+Still worth adding for a larger operation: carrier remittance reconciliation against carrier statements, and real online payments. API keys must never be stored in this frontend.
 
 ## Source
 

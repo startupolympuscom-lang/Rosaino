@@ -561,7 +561,7 @@ function openCheckout() {
   if (checkoutDialog) checkoutDialog.showModal();
 }
 
-function handleCheckoutSubmit(e) {
+async function handleCheckoutSubmit(e) {
   e.preventDefault();
   loadDb();
 
@@ -589,7 +589,7 @@ function handleCheckoutSubmit(e) {
   const totalAmount = list.reduce((sum, p) => sum + (p.price * cart[p.id]), 0);
   const totalCost = list.reduce((sum, p) => sum + ((p.cost || p.price * 0.4) * cart[p.id]), 0);
 
-  const orderId = 'RS-' + Math.floor(1000 + Math.random() * 9000);
+  const orderId = 'RS-' + Math.floor(100000 + Math.random() * 900000);
   const itemsBreakdown = list.map(p => `${p.name} × ${cart[p.id]}`).join(', ');
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -623,6 +623,25 @@ function handleCheckoutSubmit(e) {
     stockDeducted: false
   };
 
+  // Save on the server first; only confirm to the customer once it is stored.
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrder)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Order not saved');
+    if (data.order?.id) newOrder.id = data.order.id; // the server may assign a new number
+  } catch {
+    if (submitBtn) submitBtn.disabled = false;
+    toast('Your order could not be sent. Please check your connection and try again.');
+    return;
+  }
+  if (submitBtn) submitBtn.disabled = false;
+
   db.orders.unshift(newOrder);
   db.activity.unshift({
     text: `New storefront COD order ${newOrder.id} placed by ${newOrder.customer} (${money(totalAmount)})`,
@@ -631,13 +650,6 @@ function handleCheckoutSubmit(e) {
   db.activity = db.activity.slice(0, 100);
 
   saveDb();
-
-  // Sync order to backend & Supabase
-  fetch('/api/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newOrder)
-  }).catch(() => {});
 
   // Clear cart
   cart = {};
@@ -678,9 +690,6 @@ function showOrderSuccess(order, itemsSummary) {
         <button data-close="order-success" style="padding:12px 18px;border:1px solid #d3dbd9;border-radius:5px;background:#fff;font-weight:600;">
           Continue Shopping
         </button>
-        <a href="/admin/#orders" style="display:inline-flex;align-items:center;padding:12px 18px;border:1px solid #147d86;border-radius:5px;color:#147d86;font-weight:600;">
-          View in Admin Operations ↗
-        </a>
       </div>
     `;
   }
