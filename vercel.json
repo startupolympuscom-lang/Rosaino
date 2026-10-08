@@ -4,11 +4,13 @@
   "buildCommand": "node build.js",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/product", "destination": "/product.html" },
     { "source": "/product/(.*)", "destination": "/product.html" },
     { "source": "/p/(.*)", "destination": "/product.html" },
     { "source": "/track", "destination": "/track.html" },
+    { "source": "/policy", "destination": "/policy.html" },
+    { "source": "/shop", "destination": "/shop.html" },
     { "source": "/track/(.*)", "destination": "/track.html" },
     { "source": "/admin", "destination": "/admin/index.html" },
     { "source": "/admin/", "destination": "/admin/index.html" }

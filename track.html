@@ -235,9 +235,9 @@
   <div class="track-wrapper">
     <div class="track-search-box">
       <h1>Track Your Package</h1>
-      <p>Enter your Rosaino Order Reference (e.g. <code>RS-1024</code>) or your Moroccan phone number.</p>
+      <p>Enter your Rosaino order reference (e.g. <code>RS-1024</code>), the carrier's tracking number, or your Moroccan phone number.</p>
       <form id="track-form" class="track-search-form">
-        <input id="track-query" placeholder="Order ID (e.g. RS-1024) or Phone (06...)" required>
+        <input id="track-query" placeholder="Order ID (RS-1024), tracking number or phone (06...)" required>
         <button type="submit" class="primary">Track Order ↗</button>
       </form>
     </div>
@@ -314,6 +314,22 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <footer>
+    <div class="footer-top">
+      <a class="brand" href="/" aria-label="Rosaino home"><img src="/assets/logo.png" alt="Rosaino"></a>
+      <p>Everyday objects designed for mindful living. Modern silhouettes, honest materials, and quiet craft.</p>
+      <a href="/shop">Shop</a>
+      <a href="/track">Track Order</a>
+      <a href="/#contact">Contact</a>
+      <a href="/policy">Policies</a>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="footer-year"></span> Rosaino. All rights reserved.</span>
+      <span>Curated Everyday Essentials</span>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
 
   <script>
     const $ = s => document.querySelector(s);
@@ -445,8 +461,13 @@
               <h3>🚚 Courier & Destination</h3>
               <div class="track-info-row">
                 <span>Courier Service</span>
-                <strong>${esc(o.carrier || 'Digylog Express')}</strong>
+                <strong>${esc(o.carrier || 'Rosaino delivery partner')}</strong>
               </div>
+              ${o.trackingNumber ? `
+              <div class="track-info-row">
+                <span>Tracking number</span>
+                <strong>${o.trackingUrl ? `<a href="${esc(o.trackingUrl)}" target="_blank" rel="noopener" style="color:var(--teal);">${esc(o.trackingNumber)} ↗</a>` : esc(o.trackingNumber)}</strong>
+              </div>` : ''}
               <div class="track-info-row">
                 <span>City</span>
                 <strong>${esc(o.city)}</strong>
@@ -461,6 +482,16 @@
               </div>
             </div>
           </div>
+
+          ${Array.isArray(o.events) && o.events.length ? `
+          <div class="track-info-box" style="margin-top:16px;">
+            <h3>Carrier updates</h3>
+            ${o.events.slice().reverse().map(e => `
+              <div class="track-info-row">
+                <span>${esc(new Date(e.at).toLocaleString())}</span>
+                <strong>${esc(e.text || e.status || '')}</strong>
+              </div>`).join('')}
+          </div>` : ''}
 
           <!-- Customer Self Service Actions -->
           ${!isDelivered && !isReturned ? `

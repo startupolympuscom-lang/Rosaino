@@ -129,74 +129,127 @@ function photoStyle(p) {
   return `background-position:${posX}% 65.3%;background-size:714.42% auto;`;
 }
 
+// Category helpers. The shop page (/shop) lists every category with its products.
+const isShopPage = () => !!$('#shop-catalog');
+const slug = c => String(c).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const categoryHref = c => (isShopPage() ? '' : '/shop') + '#' + slug(c);
+// Known categories first, then any new category created in the admin portal
+const allCategories = () => [...cats, ...[...new Set(products.map(p => p.category))].filter(c => c && !cats.includes(c))];
+const categoryPhoto = c => {
+  const i = cats.indexOf(c);
+  return `background-position:${i >= 0 ? positions[i] : 50}% 65.3%`;
+};
+
 // Initialize navigation
 function initNav() {
   const nav = $('#nav');
   if (nav) {
-    nav.innerHTML = ['Shop all', ...cats].map((c, i) =>
-      `<button data-category="${i ? c : 'All'}" class="${(i === 0 && category === 'All') || category === c ? 'active' : ''}">${c}</button>`
-    ).join('');
+    nav.innerHTML = `<a href="/shop" class="${isShopPage() ? 'active' : ''}">Shop all</a>` +
+      allCategories().map(c => `<a href="${categoryHref(c)}">${esc(c)}</a>`).join('');
   }
 
   const catGrid = $('#categories');
   if (catGrid) {
-    catGrid.innerHTML = cats.map((c, i) =>
-      `<button class="category" data-category="${c}">
-        <div class="category-photo" role="img" aria-label="${c} collection" style="background-position:${positions[i]}% 65.3%"></div>
-        <div class="category-label"><span>${c}</span><span aria-hidden="true">↗</span></div>
-      </button>`
-    ).join('');
+    catGrid.innerHTML = allCategories().map(c => {
+      const count = products.filter(p => p.category === c).length;
+      return `<a class="category" href="${categoryHref(c)}">
+        <div class="category-photo" role="img" aria-label="${esc(c)} collection" style="${categoryPhoto(c)}"></div>
+        <div class="category-label"><span>${esc(c)}<small>${count} ${count === 1 ? 'product' : 'products'}</small></span><span aria-hidden="true">↗</span></div>
+      </a>`;
+    }).join('');
   }
+}
+
+// Product card shared by the home page and the shop page
+function productCard(p) {
+  const { available } = getStockInfo(p);
+  const isOutOfStock = available <= 0;
+  const isLowStock = available > 0 && available < 15;
+
+  return `
+    <article class="product ${isOutOfStock ? 'out-of-stock' : ''}">
+      <div class="product-visual">
+        ${isOutOfStock ? '<span class="stock-badge out-of-stock">Out of stock</span>' : isLowStock ? `<span class="stock-badge low-stock">Only ${available} left</span>` : ''}
+        <a href="/product?id=${esc(p.id)}" class="product-open" aria-label="View ${esc(p.name)} dedicated landing page">
+          <div class="product-photo" role="img" aria-label="${esc(p.name)}" style="${photoStyle(p)}"></div>
+        </a>
+        <button class="add-button" data-add="${esc(p.id)}" aria-label="Add ${esc(p.name)} to bag" ${isOutOfStock ? 'disabled title="Out of stock"' : ''}>
+          ${isOutOfStock ? '✕' : '+'}
+        </button>
+      </div>
+      <div class="product-meta">
+        <div>
+          <a href="/product?id=${esc(p.id)}" style="padding:0;text-align:left;color:inherit;text-decoration:none;display:block;">
+            <h3>${esc(p.name)}</h3>
+          </a>
+          <p>${esc(p.category)} · <small>${isOutOfStock ? 'Out of stock' : available + ' available'}</small></p>
+        </div>
+        <span class="price">${money(p.price)}</span>
+      </div>
+      <div class="product-landing-row">
+        <a href="/product?id=${esc(p.id)}" class="btn-product-landing" aria-label="Open dedicated landing page and order ${esc(p.name)}">
+          <span>View Landing Page & Order</span>
+          <span class="landing-arrow">➔</span>
+        </a>
+      </div>
+      <div class="swatches" aria-hidden="true"><i></i><i></i><i></i></div>
+    </article>
+  `;
+}
+
+const matchesQuery = p => `${p.name} ${p.category} ${p.sku || ''} ${p.desc || ''}`.toLowerCase().includes(query);
+
+// Shop page: every category with all of its products
+function renderShop() {
+  const catalog = $('#shop-catalog');
+  const sections = allCategories().map(c => {
+    const items = products.filter(p => p.category === c && matchesQuery(p));
+    if (query && !items.length) return '';
+    return `
+      <section class="shop-category" id="${slug(c)}" aria-labelledby="${slug(c)}-title">
+        <div class="shop-category-head">
+          <div class="shop-category-photo category-photo" role="img" aria-label="${esc(c)} collection" style="${categoryPhoto(c)}"></div>
+          <div>
+            <span class="eyebrow">COLLECTION</span>
+            <h2 id="${slug(c)}-title">${esc(c)}</h2>
+            <p>${items.length} ${items.length === 1 ? 'product' : 'products'}</p>
+          </div>
+          <a href="#top" class="text-button">Back to top ↑</a>
+        </div>
+        ${items.length
+          ? `<div class="products">${items.map(productCard).join('')}</div>`
+          : '<p class="shop-empty">New pieces are coming to this collection soon.</p>'}
+      </section>
+    `;
+  }).join('');
+
+  catalog.innerHTML = sections || `
+    <div class="empty">
+      <h3>No discoveries found</h3>
+      <p>No products match "${esc(query)}". Try a different keyword.</p>
+      <button class="primary" style="margin-top:16px;" data-category="All">Show all products ↗</button>
+    </div>
+  `;
+
+  const total = products.filter(matchesQuery).length;
+  const results = $('#results');
+  if (results) results.textContent = `${total} ${total === 1 ? 'product' : 'products'} · ${allCategories().length} collections`;
 }
 
 // Render product catalog
 function render() {
   loadDb();
-  const list = products.filter(p => {
-    const matchCat = (category === 'All' || p.category === category);
-    const text = `${p.name} ${p.category} ${p.sku || ''} ${p.desc || ''}`.toLowerCase();
-    const matchQuery = text.includes(query);
-    return matchCat && matchQuery;
-  });
+  if (isShopPage()) {
+    initNav();
+    renderShop();
+    return;
+  }
+  const list = products.filter(p => (category === 'All' || p.category === category) && matchesQuery(p));
 
   const productContainer = $('#products');
   if (productContainer) {
     if (list.length) {
-      productContainer.innerHTML = list.map(p => {
-        const { available } = getStockInfo(p);
-        const isOutOfStock = available <= 0;
-        const isLowStock = available > 0 && available < 15;
-
-        return `
-          <article class="product ${isOutOfStock ? 'out-of-stock' : ''}">
-            <div class="product-visual">
-              ${isOutOfStock ? '<span class="stock-badge out-of-stock">Out of stock</span>' : isLowStock ? `<span class="stock-badge low-stock">Only ${available} left</span>` : ''}
-              <a href="/product?id=${esc(p.id)}" class="product-open" aria-label="View ${esc(p.name)} dedicated landing page">
-                <div class="product-photo" role="img" aria-label="${esc(p.name)}" style="${photoStyle(p)}"></div>
-              </a>
-              <button class="add-button" data-add="${esc(p.id)}" aria-label="Add ${esc(p.name)} to bag" ${isOutOfStock ? 'disabled title="Out of stock"' : ''}>
-                ${isOutOfStock ? '✕' : '+'}
-              </button>
-            </div>
-            <div class="product-meta">
-              <div>
-                <a href="/product?id=${esc(p.id)}" style="padding:0;text-align:left;color:inherit;text-decoration:none;display:block;">
-                  <h3>${esc(p.name)}</h3>
-                </a>
-                <p>${esc(p.category)} · <small>${isOutOfStock ? 'Out of stock' : available + ' available'}</small></p>
-              </div>
-              <span class="price">${money(p.price)}</span>
-            </div>
-            <div class="product-landing-row">
-              <a href="/product?id=${esc(p.id)}" class="btn-product-landing" aria-label="Open dedicated landing page and order ${esc(p.name)}">
-                <span>View Landing Page & Order</span>
-                <span class="landing-arrow">➔</span>
-              </a>
-            </div>
-            <div class="swatches" aria-hidden="true"><i></i><i></i><i></i></div>
-          </article>
-        `;
-      }).join('');
+      productContainer.innerHTML = list.map(productCard).join('');
     } else {
       productContainer.innerHTML = `
         <div class="empty">
@@ -219,21 +272,20 @@ function render() {
     productTitle.textContent = query ? `Search: "${query}"` : (category === 'All' ? 'Everyday favourites.' : `${category}.`);
   }
 
-  document.querySelectorAll('#nav button').forEach(b => {
-    const isAct = b.dataset.category === category;
-    b.classList.toggle('active', isAct);
-    b.setAttribute('aria-pressed', String(isAct));
-  });
 }
 
 function filterCategory(c) {
-  category = c;
+  if (!isShopPage() && c !== 'All') {
+    location.href = categoryHref(c);
+    return;
+  }
+  category = 'All';
   query = '';
   const searchInput = $('#search');
   if (searchInput) searchInput.value = '';
   render();
-  const shopEl = $('#shop');
-  if (shopEl) shopEl.scrollIntoView({ behavior: 'smooth' });
+  const target = c === 'All' ? ($('#shop-catalog') || $('#shop')) : document.getElementById(slug(c));
+  if (target) target.scrollIntoView({ behavior: 'smooth' });
 }
 
 let toastTimer;
@@ -509,7 +561,7 @@ function openCheckout() {
   if (checkoutDialog) checkoutDialog.showModal();
 }
 
-function handleCheckoutSubmit(e) {
+async function handleCheckoutSubmit(e) {
   e.preventDefault();
   loadDb();
 
@@ -537,7 +589,7 @@ function handleCheckoutSubmit(e) {
   const totalAmount = list.reduce((sum, p) => sum + (p.price * cart[p.id]), 0);
   const totalCost = list.reduce((sum, p) => sum + ((p.cost || p.price * 0.4) * cart[p.id]), 0);
 
-  const orderId = 'RS-' + Math.floor(1000 + Math.random() * 9000);
+  const orderId = 'RS-' + Math.floor(100000 + Math.random() * 900000);
   const itemsBreakdown = list.map(p => `${p.name} × ${cart[p.id]}`).join(', ');
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -571,6 +623,25 @@ function handleCheckoutSubmit(e) {
     stockDeducted: false
   };
 
+  // Save on the server first; only confirm to the customer once it is stored.
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrder)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Order not saved');
+    if (data.order?.id) newOrder.id = data.order.id; // the server may assign a new number
+  } catch {
+    if (submitBtn) submitBtn.disabled = false;
+    toast('Your order could not be sent. Please check your connection and try again.');
+    return;
+  }
+  if (submitBtn) submitBtn.disabled = false;
+
   db.orders.unshift(newOrder);
   db.activity.unshift({
     text: `New storefront COD order ${newOrder.id} placed by ${newOrder.customer} (${money(totalAmount)})`,
@@ -579,13 +650,6 @@ function handleCheckoutSubmit(e) {
   db.activity = db.activity.slice(0, 100);
 
   saveDb();
-
-  // Sync order to backend & Supabase
-  fetch('/api/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newOrder)
-  }).catch(() => {});
 
   // Clear cart
   cart = {};
@@ -626,9 +690,6 @@ function showOrderSuccess(order, itemsSummary) {
         <button data-close="order-success" style="padding:12px 18px;border:1px solid #d3dbd9;border-radius:5px;background:#fff;font-weight:600;">
           Continue Shopping
         </button>
-        <a href="/admin/#orders" style="display:inline-flex;align-items:center;padding:12px 18px;border:1px solid #147d86;border-radius:5px;color:#147d86;font-weight:600;">
-          View in Admin Operations ↗
-        </a>
       </div>
     `;
   }
@@ -672,6 +733,39 @@ document.addEventListener('click', e => {
 });
 
 // Setup handlers once DOM is loaded
+// Contact form: sends the message to the operations team inbox
+async function submitContact(e) {
+  e.preventDefault();
+  const form = e.target;
+  const status = $('#contact-status');
+  const button = form.querySelector('button[type="submit"]');
+  const data = Object.fromEntries(new FormData(form));
+  const setStatus = (text, ok) => {
+    status.textContent = text;
+    status.className = 'contact-status ' + (ok ? 'ok' : 'err');
+  };
+
+  if (!data.name.trim() || !data.message.trim()) return setStatus('Please add your name and a message.', false);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) return setStatus('Please enter a valid email address.', false);
+
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Your message could not be sent.');
+    form.reset();
+    setStatus('Thank you! Your message has been sent. We will reply by email within one business day.', true);
+  } catch (err) {
+    setStatus(err.message + ' You can also email hello@rosaino.com.', false);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   loadDb();
   loadCart();
@@ -688,6 +782,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const footerBag = $('#footer-bag');
   if (footerBag) footerBag.onclick = openBag;
 
+  const contactForm = $('#contact-form');
+  if (contactForm) contactForm.onsubmit = submitContact;
+
   const resetBtn = $('#reset');
   if (resetBtn) {
     resetBtn.onclick = () => {
@@ -703,7 +800,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (searchForm) {
     searchForm.onsubmit = e => {
       e.preventDefault();
-      const shopEl = $('#shop');
+      const shopEl = $('#shop-catalog') || $('#shop');
       if (shopEl) shopEl.scrollIntoView({ behavior: 'smooth' });
     };
   }
@@ -724,6 +821,7 @@ window.addEventListener('DOMContentLoaded', () => {
         db.products = prods;
         products = prods;
         saveDb();
+        initNav();
         render();
       }
     })

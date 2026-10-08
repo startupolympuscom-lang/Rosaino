@@ -29,6 +29,7 @@ const I18N = {
     calls: 'Centre d\'appels',
     routing: 'Routage des prospects',
     shipping: 'Expédition & Colis',
+    carriers: 'Transporteurs',
     products: 'Produits & Stock',
     cms: 'CMS Page Produit',
     suppliers: 'Fournisseurs & Bons',
@@ -38,6 +39,7 @@ const I18N = {
     stores: 'Boutiques & Médias',
     integrations: 'Intégrations & Supabase',
     team: 'Équipe & Rôles',
+    security: 'Sécurité & audit',
     settings: 'Paramètres',
     back_to_store: 'Retour à la boutique ↗',
     sign_out: 'Déconnexion',
@@ -67,6 +69,7 @@ const I18N = {
     calls: 'Call Center',
     routing: 'Lead Routing',
     shipping: 'Shipping & Labels',
+    carriers: 'Carriers',
     products: 'Products & Stock',
     cms: 'Landing Page CMS',
     suppliers: 'Suppliers & POs',
@@ -76,6 +79,7 @@ const I18N = {
     stores: 'Stores & Media',
     integrations: 'Integrations & Supabase',
     team: 'Team & RBAC',
+    security: 'Security & audit',
     settings: 'Settings',
     back_to_store: 'Back to storefront ↗',
     sign_out: 'Sign out',
@@ -105,6 +109,7 @@ const I18N = {
     calls: 'مركز الاتصال والتأكيد',
     routing: 'توزيع الطلبيات',
     shipping: 'الشحن والتوصيل',
+    carriers: 'شركات التوصيل',
     products: 'المنتجات والمخزون',
     cms: 'نظام صفحات الهبوط (CMS)',
     suppliers: 'الموردون وفواتير الشراء',
@@ -114,6 +119,7 @@ const I18N = {
     stores: 'المتجر والوسائط',
     integrations: 'الربط وقاعدة البيانات',
     team: 'فريق العمل والصلاحيات',
+    security: 'الأمان وسجل التدقيق',
     settings: 'الإعدادات',
     back_to_store: 'العودة للمتجر ↗',
     sign_out: 'تسجيل الخروج',
@@ -400,8 +406,8 @@ const CMS_TEMPLATES = {
 const statuses = ['New', 'Callback', 'Confirmed', 'In transit', 'Delivered', 'Returned', 'Cancelled', 'Spam'];
 
 const DEFAULT_ROLES = {
-  'Super Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'rbac_manage', 'settings'],
-  'Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'settings'],
+  'Super Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'audit', 'rbac_manage', 'settings'],
+  'Admin': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'finance', 'reconciliation', 'reports', 'stores', 'integrations', 'team', 'audit', 'settings'],
   'Operations manager': ['overview', 'orders', 'calls', 'routing', 'shipping', 'products', 'cms', 'suppliers', 'reconciliation', 'stores'],
   'Confirmation agent': ['calls'],
   'Finance viewer': ['overview', 'finance', 'reconciliation', 'reports']
@@ -422,7 +428,8 @@ const ALL_PERMISSIONS = [
   { id: 'stores', name: 'Stores & Media', desc: 'Storefront channels, landing pages, brand assets' },
   { id: 'integrations', name: 'Integrations & Supabase', desc: 'Supabase cloud database and platform connectors' },
   { id: 'team', name: 'Team & RBAC', desc: 'View team members and operational availability' },
-  { id: 'rbac_manage', name: 'RBAC Control', desc: 'Super Admin only: modify role permissions and access' },
+  { id: 'audit', name: 'Security & Audit', desc: 'View sign-in history and the audit trail of admin changes' },
+  { id: 'rbac_manage', name: 'Users & RBAC Control', desc: 'Create/disable users, reset passwords, and edit role permissions' },
   { id: 'settings', name: 'Settings', desc: 'Workspace preferences and demo controls' }
 ];
 
@@ -623,6 +630,7 @@ function getNavIcon(id) {
     case 'orders': return `<svg ${s}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
     case 'calls': return `<svg ${s}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
     case 'routing': return `<svg ${s}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`;
+    case 'carriers': return `<svg ${s}><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>`;
     case 'shipping': return `<svg ${s}><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`;
     case 'products': return `<svg ${s}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>`;
     case 'cms': return `<svg ${s}><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`;
@@ -632,6 +640,7 @@ function getNavIcon(id) {
     case 'reports': return `<svg ${s}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
     case 'stores': return `<svg ${s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
     case 'integrations': return `<svg ${s}><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`;
+    case 'security': return `<svg ${s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`;
     case 'team': return `<svg ${s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
     case 'settings': return `<svg ${s}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
     default: return `<svg ${s}><circle cx="12" cy="12" r="3"/></svg>`;
@@ -644,6 +653,7 @@ const pages = [
   ['calls', 'calls', 'Call center', 'calls'],
   ['routing', 'routing', 'Lead routing', 'routing'],
   ['shipping', 'shipping', 'Shipping & Labels', 'shipping'],
+  ['carriers', 'carriers', 'Carriers', 'shipping'],
   ['products', 'products', 'Products & stock', 'products'],
   ['cms', 'cms', 'Landing Page CMS', 'cms'],
   ['suppliers', 'suppliers', 'Suppliers & POs', 'suppliers'],
@@ -653,16 +663,78 @@ const pages = [
   ['stores', 'stores', 'Stores & media', 'stores'],
   ['integrations', 'integrations', 'Integrations & Supabase', 'integrations'],
   ['team', 'team', 'Team & RBAC', 'team'],
+  ['security', 'security', 'Security & audit', 'audit'],
   ['settings', 'settings', 'Settings', 'settings']
 ];
 
 function persist() {
   try {
+    // Other tabs get a 'storage' event from the browser. Not re-dispatched here:
+    // reloading db in this tab would swap out objects code is still editing.
     localStorage.setItem(KEY, JSON.stringify(db));
-    window.dispatchEvent(new Event('storage'));
   } catch {
     toast('Browser storage is unavailable; changes last until this page closes.');
   }
+  scheduleServerSync();
+}
+
+// Server sync: orders and landing pages changed in this browser are sent to
+// the server (and its database), so every teammate and customer sees them.
+let synced = null; // last version the server has: { orders: Map, cms: Map }
+let syncTimer = null;
+
+function markSynced(orders, pages) {
+  synced = {
+    orders: new Map(orders.map(o => [String(o.id), JSON.stringify(o)])),
+    cms: new Map(Object.entries(pages).map(([id, c]) => [id, JSON.stringify(c)]))
+  };
+}
+
+function scheduleServerSync() {
+  if (!synced || !getSession()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushChanges, 400);
+}
+
+// Only the fields this browser changed, so a teammate's edits to other
+// fields of the same order are kept.
+function changedFields(before, after) {
+  return Object.fromEntries(Object.keys(after)
+    .filter(k => JSON.stringify(before[k]) !== JSON.stringify(after[k]))
+    .map(k => [k, after[k]]));
+}
+
+async function pushChanges() {
+  const jobs = [];
+  const send = (map, id, json, request) => {
+    const before = map.get(id);
+    map.set(id, json);
+    jobs.push(request(before).catch(err => {
+      if (before === undefined) map.delete(id); else map.set(id, before); // retry with the next change
+      throw err;
+    }));
+  };
+  db.orders.forEach(o => {
+    const id = String(o.id);
+    const json = JSON.stringify(o);
+    if (synced.orders.get(id) === json) return;
+    send(synced.orders, id, json, before => before === undefined
+      ? api('/api/orders', 'POST', o)
+      : api(`/api/orders/${encodeURIComponent(id)}`, 'PATCH', changedFields(JSON.parse(before), o)).then(r => {
+        // The server keeps stock; take its figure.
+        const p = r.product && db.products.find(x => String(x.id) === String(r.product.id));
+        if (p) p.stock = r.product.stock;
+      }));
+  });
+  if (hasPermission('cms')) {
+    Object.entries(db.cmsPages || {}).forEach(([id, c]) => {
+      const json = JSON.stringify(c);
+      if (synced.cms.get(id) === json) return;
+      send(synced.cms, id, json, () => api(`/api/cms/${encodeURIComponent(id)}`, 'POST', c));
+    });
+  }
+  const failed = (await Promise.allSettled(jobs)).find(r => r.status === 'rejected');
+  if (failed) toast(`Not saved to the server: ${failed.reason.message}`);
 }
 
 function log(text) {
@@ -683,12 +755,19 @@ function badge(s) {
   return `<span class="badge ${esc(String(s).toLowerCase().replaceAll(' ', '-'))}">${esc(s)}</span>`;
 }
 
-// Simple Auth Check & Handlers
+// Simple Auth: signed server session + server-enforced permissions
+let previewRole = null; // Super Admin "view as role" preview (UI only; the server keeps enforcing real permissions)
+let serverUsers = null;
+let auditEntries = null;
+
 function getSession() {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const session = JSON.parse(raw);
+    if (!session?.token || !session.user) return null;
+    if (session.expiresAt && Date.parse(session.expiresAt) < Date.now()) return null;
+    return session;
   } catch {
     return null;
   }
@@ -706,16 +785,88 @@ function clearSession() {
   } catch {}
 }
 
+// Adopt the session payload returned by /api/auth/login, /me and change-password.
+function applySession(data, keepToken) {
+  const prev = getSession();
+  const session = {
+    token: data.token || keepToken || prev?.token,
+    expiresAt: data.expiresAt || prev?.expiresAt,
+    user: data.user,
+    permissions: data.permissions || []
+  };
+  setSession(session);
+  db.currentUser = session.user;
+  if (data.roles) db.roles = data.roles;
+  return session;
+}
+
+// Attach the session token to every same-origin API call and handle expiry.
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (input, init = {}) => {
+  const url = typeof input === 'string' ? input : input?.url || '';
+  const isApi = url.startsWith('/api/') || url.startsWith(location.origin + '/api/');
+  const session = isApi ? getSession() : null;
+  if (session) {
+    const headers = new Headers(init.headers || (typeof input !== 'string' ? input.headers : undefined));
+    if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${session.token}`);
+    init = { ...init, headers };
+  }
+  const res = await nativeFetch(input, init);
+  if (isApi && res.status === 401 && session && !url.includes('/api/auth/login')) {
+    handleSessionExpired();
+  }
+  return res;
+};
+
+// JSON helper for admin API calls that should surface server errors.
+async function api(url, method = 'GET', body) {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+function handleSessionExpired() {
+  if (!getSession() && $('#login-screen')?.style.display === 'flex') return;
+  clearSession();
+  previewRole = null;
+  try { $('#modal').open && $('#modal').close(); } catch {}
+  checkAuth();
+  const errorMsg = $('#login-error-msg');
+  if (errorMsg) {
+    errorMsg.textContent = 'Your session has ended. Please sign in again.';
+    errorMsg.style.display = 'block';
+  }
+}
+
+async function signOut(everywhere = false) {
+  try {
+    await api(everywhere ? '/api/auth/logout-all' : '/api/auth/logout', 'POST', {});
+  } catch {}
+  clearSession();
+  previewRole = null;
+  serverUsers = null;
+  auditEntries = null;
+  try { $('#modal').open && $('#modal').close(); } catch {}
+  checkAuth();
+  toast(everywhere ? 'Signed out on all devices.' : 'Signed out successfully.');
+}
+
 function checkAuth() {
   const session = getSession();
   const loginScreen = $('#login-screen');
   const sidebar = $('#sidebar');
   const main = $('main');
 
-  if (!session || !session.user) {
+  if (!session) {
     if (loginScreen) loginScreen.style.display = 'flex';
     if (sidebar) sidebar.style.display = 'none';
     if (main) main.style.display = 'none';
+    setTimeout(() => $('#login-email')?.focus(), 0);
     return false;
   }
 
@@ -729,24 +880,60 @@ function checkAuth() {
   const sideNameEl = $('#sidebar-user-name');
   if (sideNameEl) sideNameEl.textContent = db.currentUser.name;
   const sideRoleEl = $('#sidebar-user-role');
-  if (sideRoleEl) sideRoleEl.textContent = db.currentUser.role;
+  if (sideRoleEl) sideRoleEl.textContent = previewRole ? `Previewing: ${previewRole}` : db.currentUser.role;
   const avatarEl = $('#profile-avatar');
   if (avatarEl) avatarEl.textContent = db.currentUser.avatar || db.currentUser.name.slice(0, 2).toUpperCase();
 
   return true;
 }
 
+// Refresh the signed-in user, roles and team from the server.
+async function refreshSession() {
+  if (!getSession()) return false;
+  try {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) return false;
+    applySession(await res.json());
+    await loadUsers();
+    return true;
+  } catch {
+    return false; // offline: keep the cached session until the server says otherwise
+  }
+}
+
+// Sync the team roster from the server while keeping local call-center availability.
+async function loadUsers() {
+  try {
+    const res = await fetch('/api/users');
+    if (!res.ok) return;
+    serverUsers = await res.json();
+    db.agents = serverUsers.map(u => ({
+      ...u,
+      status: db.agents.find(a => a.id === u.id)?.status || 'Available'
+    }));
+    persist();
+  } catch {}
+}
+
+const effectiveRole = () => previewRole || db.currentUser?.role;
+
 // RBAC Permission Checking
 function hasPermission(perm) {
-  if (!db.currentUser) return true;
-  if (db.currentUser.role === 'Super Admin') return true;
-  const rolePerms = db.roles?.[db.currentUser.role] || [];
+  if (!db.currentUser) return false;
+  const role = effectiveRole();
+  if (role === 'Super Admin') return true;
+  const rolePerms = db.roles?.[role] || [];
   return rolePerms.includes(perm);
+}
+
+// True only for the real signed-in account (ignores role preview).
+function isRealSuperAdmin() {
+  return db.currentUser?.role === 'Super Admin' || (db.roles?.[db.currentUser?.role] || []).includes('rbac_manage');
 }
 
 function checkAction(perm, actionLabel) {
   if (!hasPermission(perm)) {
-    toast(`Access denied: "${actionLabel || perm}" requires "${perm}" permission for role ${db.currentUser.role}.`);
+    toast(`Access denied: "${actionLabel || perm}" requires "${perm}" permission for role ${effectiveRole()}.`);
     return false;
   }
   return true;
@@ -769,7 +956,7 @@ function getTrustInfo(phone, orderId) {
   if (isBlacklisted) {
     return {
       type: 'risk',
-      badge: '<span class="trust-pill risk" title="Blacklisted / High Return Risk">⛔ Blacklisted</span>',
+      badge: '<span class="trust-pill risk" title="Blacklisted / High Return Risk">Blacklisted</span>',
       label: 'Blacklisted Serial Refuser',
       score: 10,
       isRisk: true
@@ -780,7 +967,7 @@ function getTrustInfo(phone, orderId) {
   if (past.length === 0) {
     return {
       type: 'new',
-      badge: '<span class="trust-pill new" title="First Time Buyer">✨ New</span>',
+      badge: '<span class="trust-pill new" title="First Time Buyer">New</span>',
       label: 'First-time Customer',
       score: 60,
       isRisk: false
@@ -793,7 +980,7 @@ function getTrustInfo(phone, orderId) {
   if (returned >= 2) {
     return {
       type: 'risk',
-      badge: `<span class="trust-pill risk" title="Refused ${returned} past parcels">⚠️ Risk (${returned} Returns)</span>`,
+      badge: `<span class="trust-pill risk" title="Refused ${returned} past parcels">Risk (${returned} Returns)</span>`,
       label: `Serial Refuser (${returned} past returns)`,
       score: 20,
       isRisk: true
@@ -803,7 +990,7 @@ function getTrustInfo(phone, orderId) {
   if (delivered >= 2 && returned === 0) {
     return {
       type: 'vip',
-      badge: `<span class="trust-pill vip" title="VIP Buyer (${delivered} delivered)">🟢 VIP (${delivered})</span>`,
+      badge: `<span class="trust-pill vip" title="VIP Buyer (${delivered} delivered)">VIP (${delivered})</span>`,
       label: `VIP Verified Customer (${delivered} Delivered)`,
       score: 95,
       isVIP: true
@@ -818,13 +1005,17 @@ function getTrustInfo(phone, orderId) {
   };
 }
 
+// A duplicate is a second open order for the same phone and product;
+// past delivered or returned orders are repeat purchases, not duplicates.
+const CLOSED_STATUSES = ['Delivered', 'Returned', 'Cancelled', 'Spam'];
 function checkDuplicateOrder(order) {
+  if (CLOSED_STATUSES.includes(order.status)) return false;
   const cPhone = cleanPhone(order.phone);
   return db.orders.some(o =>
     o.id !== order.id &&
     cleanPhone(o.phone) === cPhone &&
     String(o.product) === String(order.product) &&
-    o.status !== 'Cancelled'
+    !CLOSED_STATUSES.includes(o.status)
   );
 }
 
@@ -832,7 +1023,7 @@ function title(name, desc, actions = '') {
   return `
     <div class="page-title">
       <div>
-        <div class="eyebrow">ROSAINO OPERATIONS · ${esc(db.currentUser.role).toUpperCase()}</div>
+        <div class="eyebrow">ROSAINO OPERATIONS · ${esc(effectiveRole()).toUpperCase()}</div>
         <h1>${name}</h1>
         <p>${desc}</p>
       </div>
@@ -864,15 +1055,13 @@ function orderTable(list) {
       const trust = getTrustInfo(o.phone, o.id);
       const isDup = checkDuplicateOrder(o);
       const p = product(o.product);
-      const cleanP = cleanPhone(o.phone);
-      const waMsg = encodeURIComponent(`Hello ${o.customer}, this is Rosaino Confirmation regarding your order ${o.id} for ${p?.name || 'your items'} (${money(o.amount)} COD). Please reply YES to confirm your delivery address in ${o.city}.`);
 
       return `
         <tr>
           <td>
             <b>${esc(o.id)}</b>
             <small>${esc(o.customer)} · ${esc(o.phone)}</small>
-            ${isDup ? '<span class="trust-pill duplicate" title="Duplicate lead detected with same phone & product">⚠️ Duplicate</span>' : ''}
+            ${isDup ? '<span class="trust-pill duplicate" title="Duplicate lead detected with same phone & product">Duplicate</span>' : ''}
           </td>
           <td>
             ${esc(p?.name || o.product)}
@@ -882,11 +1071,11 @@ function orderTable(list) {
           <td><b>${money(o.amount)}</b></td>
           <td>${trust.badge}</td>
           <td>${badge(o.status)}</td>
-          <td style="white-space:nowrap;">
-            <button data-action="order" data-id="${esc(o.id)}">Details ↗</button>
-            <a href="https://wa.me/212${cleanP.replace(/^0/, '')}?text=${waMsg}" target="_blank" rel="noopener" class="btn-wa" title="Send WhatsApp Confirmation">WA 💬</a>
-            <button data-action="awb" data-id="${esc(o.id)}" title="Print Thermal Shipping Label">AWB 🏷️</button>
-          </td>
+          <td><div class="row-actions">
+            ${hasPermission('calls') && ['New', 'Callback'].includes(o.status) ? callButtons(o, true) : ''}
+            <button data-action="order" data-id="${esc(o.id)}">Details</button>
+            <button data-action="awb" data-id="${esc(o.id)}" title="Print shipping label">Label</button>
+          </div></td>
         </tr>
       `;
     })
@@ -905,33 +1094,75 @@ function bars(items, total) {
   `).join('');
 }
 
+function previewBanner() {
+  if (!previewRole) return '';
+  return `
+    <div class="panel" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff4dc;border-color:#f3d48e;padding:14px 18px;">
+      <span>Previewing the workspace as <b>${esc(previewRole)}</b>. Your account keeps its own permissions.</span>
+      <button data-action="exit-preview">Exit preview</button>
+    </div>
+  `;
+}
+
 function accessDeniedView(pageName, reqPerm) {
   return `
     <div class="panel empty" style="padding:48px 24px;text-align:center;">
-      <div class="mini-icon" style="background:#fee2e2;color:#dc2626;margin:0 auto 16px;">🔒</div>
       <h2>Access Restricted</h2>
       <p class="info" style="max-width:480px;margin:0 auto 16px;">
-        Your active role <strong>${esc(db.currentUser.role)}</strong> does not possess the <code>${esc(reqPerm)}</code> permission required to view <strong>${esc(pageName)}</strong>.
+        Your role <strong>${esc(effectiveRole())}</strong> does not have the <code>${esc(reqPerm)}</code> permission required to view <strong>${esc(pageName)}</strong>. Ask a Super Admin to grant access.
       </p>
       <div style="display:flex;justify-content:center;gap:12px;margin-top:20px;">
-        <button class="primary" data-action="switch-user" data-id="usr_superadmin">Switch to Super Admin ↗</button>
-        <button data-action="switch-user-modal">Change Role ⇄</button>
+        ${previewRole ? '<button class="primary" data-action="exit-preview">Exit role preview</button>' : ''}
+        <button data-action="sign-out">Sign in as a different user</button>
       </div>
     </div>
   `;
 }
 
 // 1. Overview
+// Setup checklist for administrators: what is connected and what is left.
+let setupStatus = null;
+
+function setupChecklist() {
+  if (!hasPermission('integrations') && !isRealSuperAdmin()) return '';
+  if (!setupStatus) {
+    api('/api/setup-status').then(st => { setupStatus = st; if (page === 'overview') render(); }).catch(() => {});
+    return '';
+  }
+  const items = [
+    [setupStatus.carriers > 0, 'Connect a carrier', 'Orders are sent to them when you dispatch, and deliveries update by themselves.', '#carriers', 'Add carrier'],
+    [setupStatus.email, 'Contact form emails', 'Customer messages are emailed to you through Resend (RESEND_API_KEY in Vercel).', '', ''],
+    [setupStatus.database, 'Database connected', setupStatus.databaseError ? `Not working: ${esc(setupStatus.databaseError)}` : 'Orders, products, accounts, carriers and calls are saved in Supabase (DATABASE_URL in Vercel).', '', ''],
+    [setupStatus.team > 1, 'Invite your team', 'Give agents and managers their own login with only the pages they need.', '#team', 'Add member']
+  ];
+  const left = items.filter(i => !i[0]).length;
+  if (!left) return '';
+  return `
+    <div class="panel">
+      <div class="panel-head"><div><h2>Finish setting up</h2><p>${items.length - left} of ${items.length} done</p></div></div>
+      <ul class="checklist">
+        ${items.map(([done, name, desc, href, cta]) => `
+          <li class="${done ? 'done' : ''}">
+            <span class="tick" aria-hidden="true">${done ? '✓' : ''}</span>
+            <div><b>${name}</b><br><small>${desc}</small></div>
+            ${!done && href ? `<a href="${href}">${cta} →</a>` : ''}
+          </li>`).join('')}
+      </ul>
+    </div>
+  `;
+}
+
 function overview() {
   const delivered = db.orders.filter(o => o.status === 'Delivered');
   const pending = db.orders.filter(o => ['New', 'Callback'].includes(o.status));
   const transit = db.orders.filter(o => o.status === 'In transit');
 
   return title(
-    'A clear view of your day.',
-    'From first lead to doorstep. Connected to Supabase Cloud Database & Public Customer Tracking.',
+    'Overview',
+    'Today at a glance: orders, confirmations, deliveries and cash collected.',
     `<span class="pill">${db.orders.length} total orders · MAD</span><button class="primary" data-action="new-order">＋ New order</button>`
   ) + `
+    ${setupChecklist()}
     <div class="metrics">
       ${metric('Collected revenue', money(sum(delivered, 'amount')), 'Delivered orders · cash on delivery')}
       ${metric('Total orders', db.orders.length, 'Across all acquisition channels')}
@@ -986,10 +1217,10 @@ function orders() {
     ${duplicates.length ? `
       <div style="background:#fffbeb;border:1px solid #fef3c7;border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <strong style="color:#b45309;">⚠️ Duplicate Lead Detection Active:</strong>
-          <span style="font-size:13px;color:#78350f;"> Found ${duplicates.length} potential duplicate orders placed with matching phone numbers.</span>
+          <strong style="color:#b45309;">Possible duplicates:</strong>
+          <span style="font-size:13px;color:#78350f;"> ${duplicates.length} open order(s) share a phone number and product with another open order.</span>
         </div>
-        <button data-action="filter-duplicates" style="font-size:12px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Filter Duplicates 🔍</button>
+        <button data-action="filter-duplicates" style="font-size:12px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;">Show duplicates</button>
       </div>
     ` : ''}
     <div class="panel">
@@ -1012,62 +1243,124 @@ function orderResults() {
 }
 
 // 3. Calls
+// Call log from the server (every agent's calls, with duration and transcript)
+let callLogs = null;
+
+async function loadCallLogs() {
+  try {
+    callLogs = await api('/api/calls?limit=300');
+  } catch {
+    callLogs = callLogs || [];
+  }
+  return callLogs;
+}
+
+// Moroccan numbers: 06…/07… -> 2126…/2127… for tel: and WhatsApp links.
+function intlPhone(phone) {
+  let d = cleanPhone(phone);
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('212')) return d;
+  if (d.startsWith('0')) return '212' + d.slice(1);
+  return d.length === 9 ? '212' + d : d;
+}
+
+function callButtons(o, compact = false) {
+  const n = intlPhone(o.phone);
+  return `
+    <a class="btn-call" href="tel:+${n}" data-action="start-call" data-id="${esc(o.id)}:phone" title="Call ${esc(o.phone)} with your phone">${compact ? 'Call' : 'Phone call'}</a>
+    <a class="btn-call wa" href="https://wa.me/${n}" target="_blank" rel="noopener" data-action="start-call" data-id="${esc(o.id)}:whatsapp" title="Open WhatsApp and tap the call icon">${compact ? 'WhatsApp' : 'WhatsApp call'}</a>
+  `;
+}
+
+const fmtDuration = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
 function calls() {
-  const a = agent(selectedAgent) || db.agents[0];
-  const queue = db.orders.filter(o => o.agent === a.id && ['New', 'Callback'].includes(o.status));
-  const history = db.calls.filter(c => c.agent === a.id);
+  if (!callLogs) loadCallLogs().then(() => page === 'calls' && render());
+  const me = db.currentUser;
+  const isAgent = !hasPermission('orders');
+  if (isAgent && agent(me.id)) selectedAgent = me.id;
+  if (!selectedAgent || (selectedAgent !== 'all' && !agent(selectedAgent))) selectedAgent = agent(me.id) ? me.id : 'all';
+  const a = selectedAgent === 'all' ? null : agent(selectedAgent);
+  const open = db.orders.filter(o => ['New', 'Callback'].includes(o.status));
+  const queue = (a ? open.filter(o => o.agent === a.id) : open)
+    .sort((x, y) => (x.status === 'Callback') - (y.status === 'Callback') || String(x.callback || '').localeCompare(String(y.callback || '')));
+  const today = new Date().toISOString().slice(0, 10);
+  const logs = (callLogs || []).filter(c => !a || c.agentId === a.id);
+  const todays = logs.filter(c => c.startedAt.slice(0, 10) === today);
+  const talk = todays.reduce((t, c) => t + c.durationSec, 0);
+  const next = queue[0];
 
   return title(
-    'Conversations that convert.',
-    'A focused workspace with customer trust scores & WhatsApp integration.',
-    `<select id="agent-select" aria-label="Agent">${db.agents.map(x => `<option value="${x.id}" ${x.id === a.id ? 'selected' : ''}>${esc(x.name)} (${esc(x.role)})</option>`).join('')}</select><button data-action="pause">${a.status === 'Paused' ? 'Resume agent' : 'Pause agent'}</button>`
+    'Call center',
+    'Call each lead by phone or WhatsApp. Every call is timed and saved with its outcome, notes and transcript.',
+    isAgent ? '' : `<label class="inline-label">Queue
+      <select id="agent-select" aria-label="Show queue for">
+        <option value="all" ${!a ? 'selected' : ''}>All open leads</option>
+        ${db.agents.map(x => `<option value="${esc(x.id)}" ${a?.id === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}
+      </select></label>`
   ) + `
     <div class="metrics">
-      ${metric('In your queue', queue.length, 'Assigned new leads & callbacks')}
-      ${metric('Calls completed', history.length, 'Recorded in this session')}
-      ${metric('Confirmed', history.filter(c => c.outcome === 'Confirmed').length, 'Confirmation outcomes')}
-      ${metric('Agent status', a.status, 'Change with the pause control')}
+      ${metric('Leads to call', queue.length, a ? `Assigned to ${esc(a.name)}` : 'New leads and callbacks')}
+      ${metric('Calls today', todays.length, `${todays.filter(c => c.outcome === 'No answer').length} without answer`)}
+      ${metric('Confirmed today', todays.filter(c => c.outcome === 'Confirmed').length, todays.length ? `${Math.round(todays.filter(c => c.outcome === 'Confirmed').length / todays.length * 100)}% of calls` : 'No calls yet')}
+      ${metric('Talk time today', fmtDuration(talk), todays.length ? `Average ${fmtDuration(Math.round(talk / todays.length))} per call` : '—')}
     </div>
-    <div class="grid">
+    <div class="grid calls-grid">
       <div class="panel">
-        <h2>Next in your queue</h2>
-        ${queue.length ? `
-          <div class="call-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span class="eyebrow">${esc(queue[0].id)} · SOURCE: ${esc(queue[0].source)}</span>
-              ${getTrustInfo(queue[0].phone, queue[0].id).badge}
+        <div class="panel-head"><div><h2>Next lead</h2><p>${next ? (next.status === 'Callback' ? 'Scheduled callback' : 'New lead') : 'Nothing waiting'}</p></div></div>
+        ${next ? `
+          <div class="lead-card">
+            <div class="lead-top">
+              <span class="eyebrow">${esc(next.id)} · ${esc(next.source || 'Storefront')}</span>
+              ${getTrustInfo(next.phone, next.id).badge}
             </div>
-            <h2>${esc(queue[0].customer)}</h2>
-            <p>
-              ${esc(product(queue[0].product)?.name || queue[0].product)} · ${money(queue[0].amount)}<br>
-              ${esc(queue[0].city)} · <strong>${esc(queue[0].phone)}</strong>
-            </p>
-            ${queue[0].callback ? `<p>Scheduled Callback: <b>${esc(queue[0].callback)}</b></p>` : ''}
-            <div style="display:flex;gap:10px;margin-top:16px;">
-              <button class="primary" data-action="call" data-id="${queue[0].id}" ${a.status === 'Paused' ? 'disabled' : ''}>
-                ◉ Start simulated call
-              </button>
-              <a href="https://wa.me/212${cleanPhone(queue[0].phone).replace(/^0/, '')}?text=${encodeURIComponent('Hello ' + queue[0].customer + ', Rosaino confirmation team regarding order ' + queue[0].id)}" target="_blank" rel="noopener" class="btn-wa">
-                WhatsApp 💬
-              </a>
+            <h2>${esc(next.customer)}</h2>
+            <div class="lead-facts">
+              <div><small>Phone</small><b>${esc(next.phone)}</b></div>
+              <div><small>City</small><b>${esc(next.city)}</b></div>
+              <div><small>Order</small><b>${next.quantity} × ${esc(product(next.product)?.name || next.product)}</b></div>
+              <div><small>Cash on delivery</small><b>${money(next.amount)}</b></div>
             </div>
+            ${next.callback ? `<p class="info">Callback planned for <b>${esc(next.callback.replace('T', ' '))}</b></p>` : ''}
+            <div class="actions">${callButtons(next)}<button data-action="order" data-id="${esc(next.id)}">Order details</button></div>
           </div>
-        ` : '<div class="empty">Your queue is clear.</div>'}
-        <h2>Recent call history</h2>
-        ${table(['Order', 'Outcome', 'Duration'], history.slice(0, 5).map(c => `<tr><td>${esc(c.order)}</td><td>${badge(c.outcome)}</td><td>${c.seconds}s</td></tr>`))}
+        ` : '<div class="empty">No leads waiting. New orders from the store appear here automatically.</div>'}
       </div>
       <div class="panel">
-        <h2>Assigned leads</h2>
-        ${queue.map(o => `
+        <div class="panel-head"><div><h2>Queue</h2><p>${queue.length} lead(s), callbacks last</p></div></div>
+        <div class="queue-list">
+        ${queue.slice(0, 25).map(o => `
           <div class="queue">
             <div>
               <b>${esc(o.customer)}</b>
-              <p class="info">${esc(o.id)} · ${esc(o.city)} · ${esc(o.source)}</p>
+              <p class="info">${esc(o.id)} · ${esc(o.city)} · ${badge(o.status)}</p>
             </div>
-            <button data-action="order" data-id="${o.id}">${esc(o.status)} ↗</button>
+            <div class="actions">${callButtons(o, true)}</div>
           </div>
-        `).join('') || '<p class="info">Assign leads from Orders or Lead routing.</p>'}
+        `).join('') || '<p class="info">Assign leads from Leads &amp; orders or Lead routing.</p>'}
+        </div>
       </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div><h2>Call history</h2><p>${callLogs ? `${logs.length} call(s) saved` : 'Loading…'}</p></div>
+        <button data-action="refresh-calls">Refresh</button>
+      </div>
+      ${logs.length ? table(
+        ['When', 'Lead', 'Channel', 'Duration', 'Outcome', 'Agent', ''],
+        logs.slice(0, 50).map(c => {
+          const o = db.orders.find(x => x.id === c.orderId);
+          return `<tr>
+            <td>${esc(new Date(c.startedAt).toLocaleString())}</td>
+            <td><b>${esc(o?.customer || c.orderId)}</b><small>${esc(c.orderId)} · ${esc(c.phone || '')}</small></td>
+            <td>${c.channel === 'whatsapp' ? 'WhatsApp' : 'Phone'}</td>
+            <td>${fmtDuration(c.durationSec)}</td>
+            <td>${badge(c.outcome)}</td>
+            <td>${esc(c.agentName || '')}</td>
+            <td>${c.transcript || c.notes ? `<button data-action="view-call" data-id="${esc(c.id)}">${c.transcript ? 'Transcript' : 'Notes'}</button>` : ''}</td>
+          </tr>`;
+        })
+      ) : `<div class="empty">${callLogs ? 'No calls yet. Use Phone call or WhatsApp call on a lead to start.' : ''}</div>`}
     </div>
   `;
 }
@@ -1075,7 +1368,7 @@ function calls() {
 // 4. Routing
 function routing() {
   return title(
-    'The right lead. The right agent.',
+    'Lead routing',
     'Create product, source or region rules and distribute unassigned leads.',
     `<button class="primary" data-action="new-rule">＋ Add rule</button><button data-action="route">Run routing</button>`
   ) + `
@@ -1092,53 +1385,330 @@ function routing() {
 }
 
 // 5. Shipping & Airway Bills (AWB)
+// Carrier & shipment data from the server (API keys never reach the browser)
+let carrierList = null;
+let shipmentList = null;
+let lastShipmentSync = null;
+
+const canManageCarriers = () => hasPermission('integrations');
+const activeCarriers = () => (carrierList || []).filter(c => c.active);
+
+async function loadCarriers() {
+  try {
+    carrierList = await api('/api/carriers');
+  } catch {
+    carrierList = carrierList || [];
+  }
+  return carrierList;
+}
+
+// Pull shipments from the server and apply carrier updates to local orders.
+async function loadShipments() {
+  try {
+    shipmentList = await api('/api/shipments');
+  } catch {
+    shipmentList = shipmentList || [];
+    return 0;
+  }
+  let changed = 0;
+  for (const s of shipmentList) {
+    const o = db.orders.find(x => String(x.id) === String(s.orderId));
+    if (!o) continue;
+    o.carrier = s.carrierName;
+    o.trackingNumber = s.trackingNumber;
+    try {
+      if (o.status === 'Confirmed' && s.status !== 'Confirmed') { changeStatus(o, 'In transit'); changed++; }
+      if (o.status === 'In transit' && (s.status === 'Delivered' || s.status === 'Returned')) { changeStatus(o, s.status); changed++; }
+    } catch {}
+  }
+  persist();
+  return changed;
+}
+
+const shipmentFor = id => (shipmentList || []).find(s => String(s.orderId) === String(id));
+
+// 5. Shipping
 function shipping() {
+  if (!carrierList) loadCarriers().then(() => page === 'shipping' && render());
+  if (!shipmentList) loadShipments().then(n => { lastShipmentSync = new Date(); if (page === 'shipping') render(); if (n) toast(`${n} order(s) updated by carriers`); });
+
   const list = db.orders.filter(o => ['Confirmed', 'In transit', 'Delivered', 'Returned'].includes(o.status));
+  const ready = list.filter(o => o.status === 'Confirmed');
+  const noCarriers = carrierList && !activeCarriers().length;
+
+  const actionsFor = o => {
+    const s = shipmentFor(o.id);
+    const label = `<button data-action="awb" data-id="${esc(o.id)}">Label</button>`;
+    if (o.status === 'Confirmed') return `<button class="primary" data-action="dispatch" data-id="${esc(o.id)}">Dispatch</button> ${label}`;
+    if (o.status === 'In transit') {
+      return `${label} <button data-action="deliver" data-id="${esc(o.id)}" title="${s ? 'Record it yourself if the carrier has not updated it yet' : ''}">Mark delivered</button> <button data-action="return" data-id="${esc(o.id)}">Mark returned</button>`;
+    }
+    return `${label} <a class="btn-link" href="/track?id=${encodeURIComponent(o.id)}" target="_blank">Tracking page ↗</a>`;
+  };
+
   return title(
-    'Every doorstep, accounted for.',
-    'Thermal 4x6 shipping labels, carrier handover manifests, and live customer parcel tracking.',
-    `<button data-action="batch-labels">Print Batch 4x6 Labels 🏷️</button>`
+    'Shipping',
+    'Send confirmed orders to your carriers, print labels, and follow each parcel until it is delivered.',
+    `<button data-action="sync-shipments">Check carrier updates ↻</button><button data-action="batch-labels">Print all labels</button>`
   ) + `
+    ${noCarriers ? `
+      <div class="panel notice">
+        <div><b>Connect a carrier to dispatch automatically.</b> Add the delivery companies you work with and their API key; dispatched orders are then sent to them and their status updates appear here.</div>
+        <a href="#carriers" class="primary btn-link-primary">Add a carrier</a>
+      </div>` : ''}
     <div class="metrics">
-      ${metric('Ready to dispatch', list.filter(o => o.status === 'Confirmed').length, 'Confirmed orders with label ready')}
-      ${metric('In transit', list.filter(o => o.status === 'In transit').length, 'With courier out for delivery')}
-      ${metric('Delivered', list.filter(o => o.status === 'Delivered').length, 'COD collected at doorstep')}
-      ${metric('Returned', list.filter(o => o.status === 'Returned').length, 'Stock restored on return')}
+      ${metric('Ready to dispatch', ready.length, 'Confirmed orders waiting for a carrier')}
+      ${metric('In transit', list.filter(o => o.status === 'In transit').length, 'With the carrier')}
+      ${metric('Delivered', list.filter(o => o.status === 'Delivered').length, 'Cash collected at the door')}
+      ${metric('Returned', list.filter(o => o.status === 'Returned').length, 'Stock put back on return')}
     </div>
     <div class="panel">
-      ${table(
-        ['Order / Destination', 'Carrier', 'Status', 'COD Amount', 'Airway Bill (AWB)'],
-        list.map(o => `
+      <div class="panel-head">
+        <div>
+          <h2>Parcels</h2>
+          <p>${lastShipmentSync ? `Carrier updates checked at ${lastShipmentSync.toLocaleTimeString()}` : 'Checking carrier updates…'}</p>
+        </div>
+      </div>
+      ${list.length ? table(
+        ['Order', 'Carrier & tracking', 'Status', 'Cash on delivery', ''],
+        list.map(o => {
+          const s = shipmentFor(o.id);
+          return `
           <tr>
-            <td>
-              <b>${o.id}</b>
-              <small>${esc(o.customer)} · ${esc(o.city)}</small>
-            </td>
-            <td>
-              <select data-carrier="${o.id}" aria-label="Carrier for ${o.id}">
-                ${['Digylog', 'OzoneExpress', 'AMEEX'].map(c => `<option ${o.carrier === c ? 'selected' : ''}>${c}</option>`).join('')}
-              </select>
-            </td>
+            <td><b>${esc(o.id)}</b><small>${esc(o.customer)} · ${esc(o.city)}</small></td>
+            <td>${s
+              ? `<b>${esc(s.carrierName)}</b><small>${esc(s.trackingNumber || '')}${s.carrierStatus ? ' · ' + esc(s.carrierStatus) : ''}</small>`
+              : o.status === 'Confirmed' ? '<small>Not dispatched yet</small>' : `<b>${esc(o.carrier || '—')}</b>${o.trackingNumber ? `<small>${esc(o.trackingNumber)}</small>` : ''}`}</td>
             <td>${badge(o.status)}</td>
             <td><b>${money(o.amount)}</b></td>
-            <td>
-              <button data-action="awb" data-id="${o.id}" class="primary" style="font-size:11px;padding:6px 10px;">
-                Print 4x6 Label 🏷️
-              </button>
-              ${o.status === 'Confirmed' ? `<button data-action="dispatch" data-id="${o.id}">Dispatch ↗</button>` : o.status === 'In transit' ? `<button data-action="deliver" data-id="${o.id}">Delivered</button> <button data-action="return" data-id="${o.id}">Returned</button>` : `<a href="/track?id=${encodeURIComponent(o.id)}" target="_blank" style="font-size:11px;padding:6px 8px;border:1px solid #dce4e6;border-radius:6px;display:inline-block;">Track ↗</a>`}
-            </td>
-          </tr>
-        `)
-      )}
+            <td style="white-space:nowrap;">${actionsFor(o)}</td>
+          </tr>`;
+        })
+      ) : '<div class="empty">No confirmed orders yet. Confirm orders in the call center or in Leads &amp; orders, then dispatch them here.</div>'}
     </div>
   `;
+}
+
+// 5b. Carriers (transporteurs)
+const CARRIER_PRESETS = ['Digylog', 'OzoneExpress', 'AMEEX', 'Sendit', 'Cathedis', 'Amana', 'Other'];
+
+function carriers() {
+  if (!carrierList) loadCarriers().then(() => page === 'carriers' && render());
+  if (!shipmentList) loadShipments().then(() => page === 'carriers' && render());
+  const manage = canManageCarriers();
+  const list = carrierList || [];
+  const count = (c, st) => (shipmentList || []).filter(s => s.carrierId === c.id && s.status === st).length;
+
+  return title(
+    'Carriers',
+    'Add each carrier you work with. Dispatched orders are sent to them, and their delivery updates come back into Rosaino and the customer tracking page.',
+    manage ? '<button class="primary" data-action="new-carrier">+ Add carrier</button>' : ''
+  ) + `
+    ${!carrierList ? '<div class="panel empty">Loading carriers…</div>' : !list.length ? `
+      <div class="panel">
+        <h2>Get started in three steps</h2>
+        <ol class="steps">
+          <li><b>Add a carrier</b> and paste the API key from your carrier account (Settings or Developers section of their dashboard).</li>
+          <li><b>Copy the update link</b> Rosaino gives you into the carrier's webhook / notification settings, so they can tell us when a parcel is picked up, delivered or returned.</li>
+          <li><b>Dispatch</b> confirmed orders from the Shipping page. Tracking numbers and statuses then update by themselves.</li>
+        </ol>
+        ${manage ? '<p><button class="primary" data-action="new-carrier">+ Add your first carrier</button></p>' : '<p class="info">Ask an administrator with the Integrations permission to add carriers.</p>'}
+      </div>` : `
+      <div class="cards">
+        ${list.map(c => `
+          <div class="panel carrier-card">
+            <div class="panel-head">
+              <div>
+                <h2>${esc(c.name)}</h2>
+                <p>${c.kind === 'api' ? 'Connected by API' : 'Manual (no API)'} · ${c.active ? badge('Active') : badge('Paused')}</p>
+              </div>
+            </div>
+            <div class="stat-line"><span>In transit</span><b>${count(c, 'In transit')}</b></div>
+            <div class="stat-line"><span>Delivered</span><b>${count(c, 'Delivered')}</b></div>
+            <div class="stat-line"><span>Returned</span><b>${count(c, 'Returned')}</b></div>
+            ${c.kind === 'api' ? `<div class="stat-line"><span>API key</span><b>${esc(c.keyHint || 'not set')}</b></div>` : ''}
+            <label class="copy-field">Status update link (give this to ${esc(c.name)})
+              <span><input readonly value="${esc(c.webhookUrl)}" aria-label="Webhook link for ${esc(c.name)}"><button type="button" data-action="copy-webhook" data-id="${esc(c.id)}">Copy</button></span>
+            </label>
+            ${manage ? `
+              <div class="actions" style="margin-top:14px;">
+                ${c.kind === 'api' ? `<button data-action="test-carrier" data-id="${esc(c.id)}">Test connection</button>` : ''}
+                <button data-action="edit-carrier" data-id="${esc(c.id)}">Edit</button>
+                <button data-action="toggle-carrier" data-id="${esc(c.id)}">${c.active ? 'Pause' : 'Activate'}</button>
+                <button class="danger" data-action="delete-carrier" data-id="${esc(c.id)}">Remove</button>
+              </div>` : ''}
+          </div>
+        `).join('')}
+      </div>`}
+    <div class="panel">
+      <h2>How status updates work</h2>
+      <p class="info">Rosaino understands the usual carrier wording in French, English and Arabic transliteration, for example <i>Ramassé</i> or <i>En cours</i> (in transit), <i>Livré</i> (delivered), and <i>Retourné</i>, <i>Refusé</i> or <i>Annulé</i> (returned). A failed attempt such as <i>Non livré</i> keeps the parcel in transit. Updates arrive instantly through the update link, and "Check carrier updates" on the Shipping page asks carriers that offer a status API.</p>
+    </div>
+  `;
+}
+
+function carrierForm(c) {
+  const cfg = c?.config || {};
+  const json = v => (v && Object.keys(v).length ? esc(JSON.stringify(v)) : '');
+  return `
+    <div class="form-grid">
+      ${c ? '' : `<label>Carrier
+        <select name="preset" data-preset-select>${CARRIER_PRESETS.map(p => `<option>${p}</option>`).join('')}</select>
+      </label>`}
+      <label>Name shown in Rosaino<input name="name" required maxlength="60" value="${esc(c?.name || '')}" placeholder="e.g. OzoneExpress"></label>
+      <label class="full">How do you work with this carrier?
+        <select name="kind">
+          <option value="api" ${c?.kind !== 'manual' ? 'selected' : ''}>They have an API: send orders automatically</option>
+          <option value="manual" ${c?.kind === 'manual' ? 'selected' : ''}>No API: I'll type tracking numbers myself</option>
+        </select>
+      </label>
+      <label class="full api-only">API URL (from the carrier's developer documentation)<input name="baseUrl" value="${esc(cfg.baseUrl || '')}" placeholder="https://api.carrier.ma/v1"></label>
+      <label class="full api-only">API key<input name="apiKey" type="password" autocomplete="off" placeholder="${c?.hasKey ? `Leave empty to keep the saved key (${esc(c.keyHint)})` : 'Paste the key from your carrier account'}"></label>
+    </div>
+    <details class="api-only advanced">
+      <summary>Connection details (only if your carrier's documentation differs)</summary>
+      <div class="form-grid">
+        <label>Create parcel path<input name="createPath" value="${esc(cfg.createPath ?? '/shipments')}" placeholder="/shipments"></label>
+        <label>Parcel status path<input name="statusPath" value="${esc(cfg.statusPath || '')}" placeholder="/shipments/{tracking}"></label>
+        <label>How the key is sent
+          <select name="keyPlacement">
+            <option value="bearer" ${!cfg.keyPlacement || cfg.keyPlacement === 'bearer' ? 'selected' : ''}>Authorization: Bearer KEY</option>
+            <option value="header" ${cfg.keyPlacement === 'header' ? 'selected' : ''}>Custom header</option>
+            <option value="query" ${cfg.keyPlacement === 'query' ? 'selected' : ''}>In the URL (?key=…)</option>
+          </select>
+        </label>
+        <label>Header / parameter name<input name="keyName" value="${esc(cfg.keyName || '')}" placeholder="X-API-Key or api_key"></label>
+        <label>Request format
+          <select name="bodyFormat">
+            <option value="json" ${cfg.bodyFormat !== 'form' ? 'selected' : ''}>JSON</option>
+            <option value="form" ${cfg.bodyFormat === 'form' ? 'selected' : ''}>Form fields</option>
+          </select>
+        </label>
+        <label>Tracking number field in replies<input name="trackingField" value="${esc(cfg.trackingField || '')}" placeholder="auto-detect (e.g. data.tracking_number)"></label>
+        <label>Status field in replies<input name="statusField" value="${esc(cfg.statusField || '')}" placeholder="auto-detect (e.g. data.status)"></label>
+        <label>Carrier's public tracking page<input name="trackingUrl" value="${esc(cfg.trackingUrl || '')}" placeholder="https://carrier.ma/track/{tracking}"></label>
+        <label class="full">Field names the carrier expects (JSON)<textarea name="fieldMap" rows="2" placeholder='{"recipient_name": "nom", "recipient_phone": "telephone", "cod_amount": "prix"}'>${json(cfg.fieldMap)}</textarea></label>
+        <label class="full">Extra status wording (JSON)<textarea name="statusMap" rows="2" placeholder='{"Remis au client": "Delivered", "Retour expéditeur": "Returned"}'>${json(cfg.statusMap)}</textarea></label>
+      </div>
+      <p class="info">Rosaino sends: reference, recipient_name, recipient_phone, city, address, cod_amount, product, quantity, note. Rename them above if your carrier uses other names.</p>
+    </details>
+    <div id="carrier-error" role="alert" class="form-error"></div>
+  `;
+}
+
+function wireCarrierForm() {
+  const form = $('#dialog-form');
+  const sync = () => form.querySelectorAll('.api-only').forEach(el => { el.style.display = form.kind.value === 'api' ? '' : 'none'; });
+  form.kind.onchange = sync;
+  const preset = form.querySelector('[data-preset-select]');
+  const nameInput = form.elements.namedItem('name'); // form.name is the form's own attribute
+  if (preset) preset.onchange = () => { nameInput.value = preset.value === 'Other' ? '' : preset.value; nameInput.focus(); };
+  if (preset && !nameInput.value) nameInput.value = preset.value;
+  sync();
+}
+
+function carrierPayload(f) {
+  return {
+    name: f.get('name').trim(),
+    kind: f.get('kind'),
+    apiKey: (f.get('apiKey') || '').trim(),
+    config: {
+      baseUrl: (f.get('baseUrl') || '').trim(),
+      createPath: f.get('createPath') ?? '/shipments',
+      statusPath: f.get('statusPath') || '',
+      keyPlacement: f.get('keyPlacement') || 'bearer',
+      keyName: f.get('keyName') || '',
+      bodyFormat: f.get('bodyFormat') || 'json',
+      trackingField: f.get('trackingField') || '',
+      statusField: f.get('statusField') || '',
+      trackingUrl: f.get('trackingUrl') || '',
+      fieldMap: f.get('fieldMap') || '',
+      statusMap: f.get('statusMap') || ''
+    }
+  };
+}
+
+function openCarrierDialog(c) {
+  modal(c ? `Edit ${esc(c.name)}` : 'Add a carrier', carrierForm(c), c ? 'Save changes' : 'Add carrier', f => {
+    const body = carrierPayload(f);
+    if (c && !body.apiKey) delete body.apiKey;
+    api(c ? `/api/carriers/${encodeURIComponent(c.id)}` : '/api/carriers', c ? 'PATCH' : 'POST', body)
+      .then(async ({ carrier }) => {
+        $('#modal').close();
+        await loadCarriers();
+        render();
+        toast(c ? `${carrier.name} saved` : `${carrier.name} added. Copy its update link into the carrier's dashboard.`);
+      })
+      .catch(err => { $('#carrier-error').textContent = err.message; });
+    return false;
+  });
+  wireCarrierForm();
+}
+
+function openDispatchDialog(id) {
+  const o = db.orders.find(x => x.id === id);
+  if (!o || !checkAction('shipping', 'Dispatch order')) return;
+  const options = activeCarriers();
+  if (!options.length) {
+    modal('Dispatch ' + esc(o.id), `
+      <p>No carrier is connected yet. Connect one to send this order automatically and get a tracking number.</p>
+      <p class="info">You can also mark it as dispatched without a carrier; you'll then update its status yourself.</p>
+    `, 'Mark as dispatched', () => { shipment(o.id, 'In transit'); });
+    $('#modal-content .modal-actions').insertAdjacentHTML('afterbegin', '<a href="#carriers" class="btn-link" onclick="document.getElementById(\'modal\').close()">Add a carrier</a>');
+    return;
+  }
+  const p = product(o.product);
+  modal('Dispatch ' + esc(o.id), `
+    <div class="stat-line"><span>Customer</span><b>${esc(o.customer)} · ${esc(o.phone)}</b></div>
+    <div class="stat-line"><span>Address</span><b>${esc(o.city)} · ${esc(o.address || '')}</b></div>
+    <div class="stat-line"><span>Parcel</span><b>${o.quantity} × ${esc(p?.name || o.product)} · ${money(o.amount)} cash on delivery</b></div>
+    <div class="form-grid" style="margin-top:16px;">
+      <label class="full">Carrier
+        <select name="carrierId">${options.map(c => `<option value="${esc(c.id)}" data-kind="${c.kind}" ${c.name === o.carrier ? 'selected' : ''}>${esc(c.name)}${c.kind === 'manual' ? ' (manual)' : ''}</option>`).join('')}</select>
+      </label>
+      <label class="full manual-only">Tracking number from the carrier<input name="trackingNumber" maxlength="80" placeholder="e.g. AMX-2026-00123"></label>
+    </div>
+    <div id="dispatch-error" role="alert" class="form-error"></div>
+  `, 'Send to carrier', f => {
+    const btn = $('#dialog-form button.primary');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    api('/api/shipments', 'POST', {
+      orderId: o.id,
+      carrierId: f.get('carrierId'),
+      trackingNumber: f.get('trackingNumber') || '',
+      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, quantity: o.quantity, productName: p?.name || '', date: o.date, note: (o.notes || []).slice(-1)[0]?.text || '' }
+    }).then(({ shipment: s }) => {
+      $('#modal').close();
+      o.carrier = s.carrierName;
+      o.trackingNumber = s.trackingNumber;
+      shipmentList = [s, ...(shipmentList || []).filter(x => x.orderId !== s.orderId)];
+      try { changeStatus(o, 'In transit'); } catch (err) { toast(err.message); }
+      persist();
+      render();
+      toast(`${o.id} sent to ${s.carrierName} · tracking ${s.trackingNumber}`);
+    }).catch(err => {
+      $('#dispatch-error').textContent = err.message;
+      btn.disabled = false;
+      btn.textContent = 'Send to carrier';
+    });
+    return false;
+  });
+  const form = $('#dialog-form');
+  const syncKind = () => {
+    const kind = form.carrierId.selectedOptions[0]?.dataset.kind;
+    form.querySelector('.manual-only').style.display = kind === 'manual' ? '' : 'none';
+    $('#dialog-form button.primary').textContent = kind === 'manual' ? 'Record dispatch' : 'Send to carrier';
+  };
+  form.carrierId.onchange = syncKind;
+  syncKind();
 }
 
 // 6. Products & Stock
 function products() {
   return title(
-    'Stock you can count on.',
-    'Manage product pricing, available units and true landed costs. Storefront and Supabase adapt immediately.',
+    'Products & stock',
+    'Manage product pricing, available units and landed costs. The storefront updates immediately.',
     `<button class="primary" data-action="new-product">+ Add product</button>`
   ) + `
     <div class="panel">
@@ -1206,7 +1776,6 @@ function renderImageDropzone(label, fieldName, currentSrc, hintText) {
 
       <div class="image-upload-zone" data-target="${fieldName}">
         <input type="file" id="file-input-${fieldName}" accept="image/*" class="cms-file-input" data-target="${fieldName}">
-        <div class="upload-icon-circle">📷</div>
         <p class="upload-text-main">${t('upload_image')}: ${label}</p>
         <p class="upload-text-sub">${hintText || t('upload_hint')} · JPG, PNG, WebP</p>
       </div>
@@ -1215,9 +1784,9 @@ function renderImageDropzone(label, fieldName, currentSrc, hintText) {
 
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;color:#789096;margin-top:6px;">
         <span>Presets:</span>
-        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/collection.png" style="font-size:11px;padding:4px 8px;">Collection 🖼️</button>
-        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/pattern.png" style="font-size:11px;padding:4px 8px;">Pattern 🖼️</button>
-        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/ribbon.png" style="font-size:11px;padding:4px 8px;">Ribbon 🖼️</button>
+        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/collection.png" style="font-size:11px;padding:4px 8px;">Collection</button>
+        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/pattern.png" style="font-size:11px;padding:4px 8px;">Pattern</button>
+        <button type="button" data-action="pick-image-field" data-field="${fieldName}" data-src="/assets/ribbon.png" style="font-size:11px;padding:4px 8px;">Ribbon</button>
       </div>
     </div>
   `;
@@ -1278,7 +1847,7 @@ function cms() {
           ${pList.map(item => `<option value="${item.id}" ${item.id === p.id ? 'selected' : ''}>${esc(item.name)} (${esc(item.sku)})</option>`).join('')}
         </select>
         <button type="button" class="primary" data-action="save-cms-trigger" style="display:inline-flex;align-items:center;gap:6px;">
-          💾 ${t('save_cms')}
+          ${t('save_cms')}
         </button>
         <a href="/product?id=${p.id}&lang=${targetLang}" target="_blank" style="padding:10px 14px;border:1px solid #147d86;border-radius:8px;font-size:12px;color:#147d86;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
           ${t('preview_landing')}
@@ -1290,7 +1859,7 @@ function cms() {
     <div class="cms-lang-bar">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <span style="font-size:13px;font-weight:700;color:#183243;display:inline-flex;align-items:center;gap:6px;">
-          🌐 ${t('target_language')}
+          ${t('target_language')}
         </span>
         <div class="cms-lang-pill-group">
           <button type="button" class="btn-cms-lang ${targetLang === 'fr' ? 'active' : ''}" data-action="set-cms-lang" data-lang="fr">
@@ -1308,16 +1877,16 @@ function cms() {
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:12px;color:#557077;">${t('presets')}:</span>
         <button type="button" class="btn-cms-lang" data-action="apply-preset" data-preset="flash_cod" title="High-converting urgency layout with countdown and COD form at top">
-          ⚡ Flash COD
+          Flash COD
         </button>
         <button type="button" class="btn-cms-lang" data-action="apply-preset" data-preset="minimal" title="Clean minimalist luxury layout">
-          ✨ Minimal Luxury
+          Minimal Luxury
         </button>
         <button type="button" class="btn-cms-lang" data-action="apply-preset" data-preset="bundles" title="Quantity bundles layout to boost average order value">
-          📦 Bundle Booster
+          Bundle Booster
         </button>
         <button type="button" class="btn-cms-lang" data-action="apply-lang-template" data-lang="${targetLang}" title="Load idiomatic high-converting copy in ${targetLang.toUpperCase()}">
-          ✨ ${t('auto_translate')} ${targetLang.toUpperCase()}
+          ${t('auto_translate')} ${targetLang.toUpperCase()}
         </button>
       </div>
     </div>
@@ -1326,7 +1895,7 @@ function cms() {
     <details class="panel" style="border: 2px solid #147d86;background:#fcfefe;margin-bottom:20px;">
       <summary style="cursor:pointer;padding:8px 0;font-weight:700;color:#147d86;display:flex;justify-content:space-between;align-items:center;">
         <span style="display:inline-flex;align-items:center;gap:8px;">
-          <span>🎯</span> Ad Manager Boost Link & UTM Attribution (Meta, TikTok, Snapchat)
+          Ad Manager Boost Link & UTM Attribution (Meta, TikTok, Snapchat)
         </span>
         <span style="font-size:12px;text-decoration:underline;">Click to expand / collapse ▾</span>
       </summary>
@@ -1357,7 +1926,7 @@ function cms() {
           <code style="font-size:12px;color:#147d86;word-break:break-all;flex:1;">${esc(boostLink)}</code>
           <div style="display:flex;gap:8px;">
             <button type="button" data-action="copy-boost-url" data-url="${esc(boostLink)}" style="font-size:12px;font-weight:700;">
-              Copy Link 📋
+              Copy Link
             </button>
             <a href="${esc(boostLink)}" target="_blank" style="padding:6px 12px;border:1px solid #147d86;border-radius:6px;font-size:12px;color:#147d86;font-weight:600;">
               Test Link ↗
@@ -1400,7 +1969,6 @@ function cms() {
                 <div class="section-block ${isExpanded ? 'expanded' : ''} ${!isEnabled ? 'disabled-section' : ''}" data-section-id="${secId}" draggable="true">
                   <div class="section-head">
                     <span class="drag-handle" title="Drag to reorder section">⠿</span>
-                    <span class="section-icon">${def.icon}</span>
                     <div class="section-meta">
                       <h3>
                         ${esc(titleText)}
@@ -1410,7 +1978,7 @@ function cms() {
                     </div>
                     <div class="section-actions">
                       <button type="button" class="btn-icon-action ${isEnabled ? 'toggle-active' : 'toggle-inactive'}" data-action="toggle-section" data-id="${secId}" title="${isEnabled ? 'Click to hide section' : 'Click to show section'}">
-                        ${isEnabled ? '👁️' : '👁️‍🗨️'}
+                        ${isEnabled ? 'Hide' : 'Show'}
                       </button>
                       <button type="button" class="btn-icon-action" data-action="move-section-up" data-id="${secId}" title="Move section up" ${index === 0 ? 'disabled' : ''}>
                         ▲
@@ -1435,7 +2003,7 @@ function cms() {
           <!-- Bottom Actions Card -->
           <div class="panel" style="margin-top:20px;background:#f0f8f7;border:1.5px solid #147d86;text-align:center;">
             <button type="submit" class="primary" style="width:100%;padding:14px;font-size:15px;justify-content:center;margin-bottom:10px;">
-              💾 ${t('save_cms')}
+              ${t('save_cms')}
             </button>
             <div style="display:flex;gap:10px;justify-content:center;">
               <a href="/product?id=${p.id}&lang=${targetLang}" target="_blank" style="padding:8px 14px;border:1px solid #147d86;border-radius:6px;font-size:12px;color:#147d86;font-weight:700;">
@@ -1452,11 +2020,11 @@ function cms() {
         <div class="cms-preview-column">
           <div class="device-toolbar">
             <span style="font-size:12px;font-weight:700;color:#183243;display:inline-flex;align-items:center;gap:6px;">
-              <span>👁️</span> ${t('live_preview')}
+              ${t('live_preview')}
             </span>
             <div style="display:flex;align-items:center;gap:8px;">
               <button type="button" class="btn-visual-mode ${visualEditMode ? 'active' : ''}" data-action="toggle-visual-edit-mode" title="Toggle interactive in-preview editing">
-                <span>✏️</span> ${visualEditMode ? 'Visual Edit ON' : 'Visual Edit Mode'}
+                ${visualEditMode ? 'Visual Edit ON' : 'Visual Edit Mode'}
               </button>
               <div class="device-toggles">
                 <button type="button" class="btn-device ${previewDevice === 'desktop' ? 'active' : ''}" data-device="desktop">
@@ -1474,7 +2042,6 @@ function cms() {
 
           ${visualEditMode ? `
             <div class="visual-edit-tip">
-              <span style="font-size:15px;">💡</span>
               <div style="flex:1;">
                 <strong>In-Preview Direct Editing Active:</strong>
                 <span>Click any text, button or COD field in the preview below to focus & edit it, or use the <b>▲/▼</b> section bars directly in the preview to reorder!</span>
@@ -1487,7 +2054,7 @@ function cms() {
           </div>
 
           <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#789096;">
-            <span>⚡ Updates in real-time as you drag or edit</span>
+            <span>Updates in real-time as you drag or edit</span>
             <a href="/product?id=${p.id}&lang=${targetLang}" target="_blank" style="color:#147d86;font-weight:600;">
               ${t('open_public')}
             </a>
@@ -1657,7 +2224,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
           <div>
             <h4 style="margin:0 0 4px;font-size:13.5px;color:#147d86;display:flex;align-items:center;gap:6px;">
-              <span>📝</span> Moroccan Express COD Form Fields Builder
+              Moroccan Express COD Form Fields Builder
               <span class="badge" style="background:#147d86;color:#fff;font-size:10.5px;font-weight:700;">${activeCount} / ${fields.length} Active</span>
             </h4>
             <p style="margin:0;font-size:11.5px;color:#64748b;">
@@ -1678,14 +2245,11 @@ function renderSectionBody(secId, cms, p, targetLang) {
           ${fields.map((f, idx) => {
             const isEnabled = f.enabled !== false;
             const isExpanded = expandedCodFields.has(f.id);
-            const typeIcons = { text: '🔤', tel: '📞', select: '📍', textarea: '📝', checkbox: '☑️', number: '🔢' };
-            const icon = typeIcons[f.type] || '🏷️';
 
             return `
               <div class="cod-field-item ${!isEnabled ? 'disabled-field' : ''} ${isExpanded ? 'expanded' : ''}" data-field-id="${esc(f.id)}" draggable="true">
                 <div class="cod-field-head">
                   <span class="drag-handle cod-drag-handle" title="Drag to reorder field">⠿</span>
-                  <span style="font-size:13px;">${icon}</span>
                   <div class="cod-field-meta">
                     <strong>${esc(f.label || f.key)}</strong>
                     <span class="cod-field-tag">key: ${esc(f.key)}</span>
@@ -1696,7 +2260,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
                   </div>
                   <div class="cod-field-actions" style="display:flex;align-items:center;gap:4px;">
                     <button type="button" class="btn-icon-action ${isEnabled ? 'toggle-active' : 'toggle-inactive'}" data-action="toggle-cod-field" data-id="${esc(f.id)}" title="${isEnabled ? 'Disable field' : 'Enable field'}" style="font-size:12px;padding:4px 6px;">
-                      ${isEnabled ? '👁️' : '👁️‍🗨️'}
+                      ${isEnabled ? 'Hide' : 'Show'}
                     </button>
                     <button type="button" class="btn-icon-action" data-action="move-cod-field-up" data-id="${esc(f.id)}" title="Move field up" ${idx === 0 ? 'disabled' : ''} style="font-size:10px;padding:4px 6px;">
                       ▲
@@ -1708,7 +2272,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
                       ${isExpanded ? '▴' : '▾'}
                     </button>
                     <button type="button" class="btn-icon-action" data-action="delete-cod-field" data-id="${esc(f.id)}" title="Delete field" style="color:#b91c1c;font-size:11px;padding:4px 6px;">
-                      🗑️
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -1782,7 +2346,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
           <div style="background:#f8fafb;border:1px solid #e3e9eb;border-radius:8px;padding:12px;position:relative;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <strong style="font-size:12px;color:#147d86;">Benefit Card #${i + 1}</strong>
-              <button type="button" class="btn-icon-action" data-action="delete-feature" data-id="${i}" title="Delete feature" style="color:#b91c1c;font-size:11px;padding:2px 6px;">🗑️</button>
+              <button type="button" class="btn-icon-action" data-action="delete-feature" data-id="${i}" title="Delete feature" style="color:#b91c1c;font-size:11px;padding:2px 6px;">Delete</button>
             </div>
             <label style="margin-top:6px;">Title<input name="feat_${i}_title" value="${esc(f.title)}" required></label>
             <label style="margin-top:6px;">Description<input name="feat_${i}_desc" value="${esc(f.desc)}" required></label>
@@ -1810,7 +2374,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
           <div style="background:#f8fafb;border:1px solid #e3e9eb;border-radius:8px;padding:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <strong style="font-size:11.5px;color:#147d86;">Reviewer #${i + 1}</strong>
-              <button type="button" class="btn-icon-action" data-action="delete-review" data-id="${i}" title="Delete testimonial" style="color:#b91c1c;font-size:11px;padding:2px 6px;">🗑️</button>
+              <button type="button" class="btn-icon-action" data-action="delete-review" data-id="${i}" title="Delete testimonial" style="color:#b91c1c;font-size:11px;padding:2px 6px;">Delete</button>
             </div>
             <div class="form-grid" style="margin-top:6px;">
               <label>Name<input name="rev_${i}_name" value="${esc(r.name)}" required></label>
@@ -1842,7 +2406,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
           <div style="background:#f8fafb;border:1px solid #e3e9eb;border-radius:8px;padding:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <strong style="font-size:11.5px;color:#147d86;">FAQ #${i + 1}</strong>
-              <button type="button" class="btn-icon-action" data-action="delete-faq" data-id="${i}" title="Delete FAQ" style="color:#b91c1c;font-size:11px;padding:2px 6px;">🗑️</button>
+              <button type="button" class="btn-icon-action" data-action="delete-faq" data-id="${i}" title="Delete FAQ" style="color:#b91c1c;font-size:11px;padding:2px 6px;">Delete</button>
             </div>
             <label style="margin-top:6px;">Question<input name="faq_${i}_q" value="${esc(faq.q)}" required></label>
             <label style="margin-top:8px;">Answer<textarea name="faq_${i}_a" style="min-height:60px;" required>${esc(faq.a)}</textarea></label>
@@ -1859,7 +2423,7 @@ function renderSectionBody(secId, cms, p, targetLang) {
 function suppliers() {
   const poList = db.purchaseOrders || [];
   return title(
-    'Sourcing & Supply Chain.',
+    'Suppliers & purchase orders',
     'Track Purchase Orders from factory to warehouse. True Landed Cost engine factoring freight, customs and port handling.',
     `<button class="primary" data-action="new-po">＋ Create Purchase Order (PO)</button><button data-action="new-supplier">Add supplier</button>`
   ) + `
@@ -1936,7 +2500,7 @@ function finance() {
   const expenses = sum(db.expenses, 'amount');
 
   return title(
-    'Know what comes back.',
+    'COD accounting',
     'A transparent view of COD collections, true landed costs and courier remittance.',
     `<button class="primary" data-action="expense">＋ Record expense</button>`
   ) + `
@@ -1985,9 +2549,9 @@ function reconciliation() {
   else if (remittanceFilter === 'discrepancies') displayList = discrepancies;
 
   return title(
-    'Courier Cash Remittance Audit',
+    'Courier remittance audit',
     'Track collected COD cash in courier accounts, audit bank transfers, and eliminate courier payment leakage.',
-    `<button class="primary" data-action="reconcile-modal">💵 Batch Mark as Remitted</button><button data-action="dispute-statement">📄 Courier Claim Statement</button>`
+    `<button class="primary" data-action="reconcile-modal">Batch Mark as Remitted</button><button data-action="dispute-statement">Courier Claim Statement</button>`
   ) + `
     <div class="metrics">
       ${metric('Collected at Doorstep', money(totalCollected), `${delivered.length} parcels paid cash on delivery`)}
@@ -2007,7 +2571,6 @@ function reconciliation() {
         return `
           <div class="panel">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <div class="mini-icon" style="background:#eaf4f7;color:#147d86;">🚚</div>
               ${cOverdue ? '<span class="badge returned">Overdue Cash</span>' : '<span class="badge active">On Schedule</span>'}
             </div>
             <h2>${esc(c)}</h2>
@@ -2060,7 +2623,7 @@ function reconciliation() {
               <td><b style="font-size:14px;color:#147d86;">${money(o.amount)}</b></td>
               <td>
                 <b>${money(fee)}</b>
-                ${isOvercharged ? `<small style="color:#dc2626;font-weight:700;">⚠️ +${fee - 35} MAD Overcharge</small>` : '<small style="color:#16a34a;">Standard Tariff</small>'}
+                ${isOvercharged ? `<small style="color:#dc2626;font-weight:700;">+${fee - 35} MAD Overcharge</small>` : '<small style="color:#16a34a;">Standard Tariff</small>'}
               </td>
               <td><b>${money(netDue)}</b></td>
               <td>
@@ -2068,7 +2631,7 @@ function reconciliation() {
                   <span class="badge delivered">✓ Settled in Bank</span>
                   <small style="color:#16a34a;">${esc(o.remittanceRef || 'Wire Received')}</small>
                 ` : isOverdue ? `
-                  <span class="badge returned">⛔ Overdue (>7d)</span>
+                  <span class="badge returned">Overdue (>7d)</span>
                   <small style="color:#dc2626;">Cash with Courier</small>
                 ` : `
                   <span class="badge in-transit">⏳ Pending Payout</span>
@@ -2078,7 +2641,7 @@ function reconciliation() {
               <td>
                 ${!isRemitted ? `
                   <button data-action="single-remit" data-id="${o.id}" class="primary" style="font-size:11px;padding:6px 10px;">
-                    Mark Settled 💵
+                    Mark Settled
                   </button>
                 ` : `<span style="color:#16a34a;font-size:11px;font-weight:600;">Settled · ${esc(o.remittedDate || '2026-09-25')}</span>`}
               </td>
@@ -2100,8 +2663,8 @@ function reports() {
   ];
 
   return title(
-    'Turn activity into understanding.',
-    'Live unit economics, campaign attribution, and Delivered ROAS truth.',
+    'Reports',
+    'Unit economics, campaign attribution and delivered ROAS.',
     `<button data-action="export">Export order data</button>`
   ) + `
     <!-- Delivered ROAS Attribution Table -->
@@ -2173,9 +2736,50 @@ function reports() {
 }
 
 // 10. Stores
+let contactInbox = null;
+
+function contactInboxPanel() {
+  if (!contactInbox) {
+    fetch('/api/contact').then(r => r.ok ? r.json() : []).then(list => {
+      contactInbox = list;
+      if (page === 'stores') render();
+    }).catch(() => {});
+  }
+  const list = contactInbox || [];
+  const open = list.filter(m => m.status === 'New').length;
+  return `
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Contact inbox</h2>
+          <p>${contactInbox ? `${list.length} message(s) from the storefront contact form · ${open} new` : 'Loading messages…'}</p>
+        </div>
+        <button data-action="refresh-inbox">Refresh</button>
+      </div>
+      ${list.length ? table(
+        ['Received', 'From', 'Topic', 'Order', 'Message', 'Status', 'Actions'],
+        list.map(m => `
+          <tr>
+            <td><small>${esc(new Date(m.date).toLocaleString())}</small></td>
+            <td><b>${esc(m.name)}</b><small>${esc(m.email)}${m.phone ? ' · ' + esc(m.phone) : ''}</small></td>
+            <td>${esc(m.topic)}</td>
+            <td>${esc(m.orderId || '—')}</td>
+            <td style="white-space:pre-wrap;min-width:260px;max-width:420px;">${esc(m.message)}</td>
+            <td>${badge(m.status)}</td>
+            <td><div style="display:flex;gap:6px;">
+              <a href="mailto:${esc(m.email)}?subject=${encodeURIComponent('Re: ' + m.topic + (m.orderId ? ' (' + m.orderId + ')' : ''))}"><button type="button" data-action="contact-status" data-id="${esc(m.id)}:Replied">Reply</button></a>
+              ${m.status !== 'Closed' ? `<button data-action="contact-status" data-id="${esc(m.id)}:Closed">Close</button>` : ''}
+            </div></td>
+          </tr>
+        `)
+      ) : `<div class="empty">${contactInbox ? 'No messages yet.' : ''}</div>`}
+    </div>
+  `;
+}
+
 function stores() {
   return title(
-    'Your storefront ecosystem.',
+    'Storefronts & assets',
     'Organize storefronts, customer tracking links, and creative assets.',
     `<button class="primary" data-action="new-page">+ Add page</button>`
   ) + `
@@ -2183,9 +2787,11 @@ function stores() {
       ${table(['Page / Route', 'Channel', 'Status', 'Attributed orders'], [
         { name: 'Storefront Home (/)', channel: 'Direct / Storefront', status: 'Active', count: db.orders.filter(o => o.source === 'Storefront').length },
         { name: 'Customer Tracking Portal (/track)', channel: 'Self-Service Tracking', status: 'Active', count: db.orders.length },
+        { name: 'Policies (/policy)', channel: 'Shipping, returns, privacy & terms', status: 'Active', count: 0 },
         ...db.pages.map(p => ({ name: p.name, channel: p.channel, status: p.status, count: db.orders.filter(o => o.source === p.channel).length }))
       ].map(p => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.channel)}</td><td>${badge(p.status)}</td><td>${p.count} <small>Orders</small></td></tr>`))}
     </div>
+    ${contactInboxPanel()}
     <div class="cards">
       ${[['logo.png', 'Brand wordmark'], ['ribbon.png', 'Flowing ribbon'], ['pattern.png', 'Modular pattern']].map(([file, label]) => `
         <div class="panel">
@@ -2201,32 +2807,34 @@ function stores() {
 // 11. Integrations & Supabase Database Setup
 function integrations() {
   return title(
-    'Bring your tools together.',
-    'Supabase Cloud Database & external delivery/ad connectors.'
+    'Integrations',
+    'Database, email, carriers and ad platform connections.'
   ) + `
     <div class="panel" style="border: 2px solid #147d86;background:#f9fdfc;">
       <div class="panel-head">
         <div>
-          <span class="badge active" style="margin-bottom:6px;">PRIMARY DATABASE</span>
+          <span class="badge ${setupStatus?.database ? 'active' : 'pending'}" style="margin-bottom:6px;">${setupStatus?.database ? 'CONNECTED' : setupStatus?.databaseConfigured ? 'NOT WORKING' : 'NOT CONNECTED'}</span>
           <h2>Supabase PostgreSQL Database</h2>
-          <p>Project URL: <code>https://kwqbghlwarkibhlgbgft.supabase.co</code></p>
+          <p>${setupStatus?.databaseError ? esc(setupStatus.databaseError) : 'Orders, products, landing pages, accounts, carriers and calls are saved here.'}</p>
         </div>
         <div style="display:flex;gap:10px;">
-          <button class="primary" data-action="view-schema">View SQL Schema ↗</button>
-          <button data-action="test-supabase">Test Live Sync ↺</button>
+          <button class="primary" data-action="test-supabase">Test connection</button>
+          <button data-action="view-schema">Security script</button>
         </div>
       </div>
       <p class="info" style="line-height:1.7;">
-        Your Rosaino app is configured with Supabase publishable credentials. To populate tables in your Supabase project, execute the bundled SQL schema in your Supabase SQL editor.
+        Connected through <code>DATABASE_URL</code> in Vercel. Tables are created automatically, with no public access.
+        Anyone can check the connection at <a href="/api/health" target="_blank" rel="noopener">/api/health</a>.
       </p>
     </div>
 
+    <div class="panel notice">
+      <div><b>Delivery carriers</b> (Digylog, OzoneExpress, AMEEX, Sendit…) are connected on their own page, with their API key and update link.</div>
+      <a href="#carriers" class="btn-link-primary">Open Carriers</a>
+    </div>
     <div class="cards">
       ${[
         ['Supabase', 'Cloud PostgreSQL database with live products and orders sync.'],
-        ['Digylog Express', 'Dispatch parcels and receive tracking updates'],
-        ['OzoneExpress', 'Manage deliveries and COD status'],
-        ['AMEEX', 'Create shipments and monitor returns'],
         ['Meta Ads', 'Track acquisition, creative assets, and campaign spend'],
         ['Google Sheets', 'Import and synchronize lead rows']
       ].map(([name, desc]) => `
@@ -2244,20 +2852,26 @@ function integrations() {
 
 // 12. Team & RBAC Management (Super Admin Control)
 function team() {
-  const isSuperAdmin = db.currentUser.role === 'Super Admin' || hasPermission('rbac_manage');
+  const canManage = isRealSuperAdmin() && !previewRole;
   const roleList = Object.keys(db.roles);
+  const members = db.agents;
+  if (!serverUsers) loadUsers().then(() => page === 'team' && render());
 
   let rbacMatrix = '';
-  if (isSuperAdmin) {
+  if (canManage) {
     rbacMatrix = `
       <div class="panel" style="border: 2px solid #147d86;background: #fcfefe;">
         <div class="panel-head">
           <div>
             <span class="badge active" style="margin-bottom:6px;">SUPER ADMIN ACCESS CONTROL</span>
-            <h2>Role-Based Access Control (RBAC) Permissions Matrix</h2>
-            <p>Super Admin can configure specific permissions and module access for every admin role. Changes apply immediately.</p>
+            <h2>Role permissions</h2>
+            <p>Enforced by the server on every request. Changes apply immediately to everyone with the role.</p>
           </div>
-          <button data-action="reset-rbac" style="font-size:12px;">Reset to Defaults ↺</button>
+          <div class="actions">
+            <button data-action="new-role" style="font-size:12px;">+ New role</button>
+            <button data-action="preview-role" style="font-size:12px;">Preview as role</button>
+            <button data-action="reset-rbac" style="font-size:12px;">Reset to defaults ↺</button>
+          </div>
         </div>
 
         <div class="table-wrap">
@@ -2265,31 +2879,36 @@ function team() {
             <thead>
               <tr>
                 <th style="min-width:180px;">Role</th>
+                <th style="text-align:center;font-size:10px;">Users</th>
                 ${ALL_PERMISSIONS.map(p => `<th style="text-align:center;font-size:10px;" title="${esc(p.desc)}">${esc(p.name)}</th>`).join('')}
+                <th></th>
               </tr>
             </thead>
             <tbody>
               ${roleList.map(r => {
                 const isSuper = r === 'Super Admin';
+                const count = members.filter(m => m.role === r).length;
                 return `
                   <tr>
                     <td>
                       <strong>${esc(r)}</strong>
-                      ${isSuper ? '<br><small style="color:#147d86;">★ Master Administrator</small>' : ''}
+                      ${isSuper ? '<br><small style="color:#147d86;">Always has every permission</small>' : ''}
                     </td>
+                    <td style="text-align:center;">${count}</td>
                     ${ALL_PERMISSIONS.map(p => {
                       const has = isSuper || (db.roles[r] && db.roles[r].includes(p.id));
                       return `
                         <td style="text-align:center;">
-                          <input type="checkbox" 
-                            data-rbac-role="${esc(r)}" 
-                            data-rbac-perm="${esc(p.id)}" 
-                            ${has ? 'checked' : ''} 
+                          <input type="checkbox"
+                            data-rbac-role="${esc(r)}"
+                            data-rbac-perm="${esc(p.id)}"
+                            ${has ? 'checked' : ''}
                             ${isSuper ? 'disabled title="Super Admin always has full permissions"' : ''}
                             aria-label="Toggle ${esc(p.name)} for ${esc(r)}">
                         </td>
                       `;
                     }).join('')}
+                    <td>${isSuper || DEFAULT_ROLES[r] ? '' : `<button class="danger" data-action="delete-role" data-id="${esc(r)}" ${count ? 'disabled title="Reassign its users first"' : ''}>Delete</button>`}</td>
                   </tr>
                 `;
               }).join('')}
@@ -2300,44 +2919,52 @@ function team() {
     `;
   }
 
+  const fmtDate = d => d ? new Date(d).toLocaleString() : '—';
+
   return title(
-    'A team in sync.',
-    'Role-Based Access Control (RBAC), team roster and fraud blacklist.',
-    `<button class="primary" data-action="new-agent">+ Add team member</button><button data-action="manage-blacklist">Blacklist Management</button>`
+    'Team & roles',
+    'Team accounts, role-based access control and fraud blacklist.',
+    `${canManage ? '<button class="primary" data-action="new-agent">+ Add team member</button>' : ''}<button data-action="manage-blacklist">Blacklist Management</button>`
   ) + `
     ${rbacMatrix}
 
     <div class="panel">
       <div class="panel-head">
         <div>
-          <h2>Team roster</h2>
-          <p>Administrators and confirmation agents</p>
+          <h2>Team accounts</h2>
+          <p>${serverUsers ? `${members.length} account(s) · ${members.filter(m => m.active === false).length} disabled` : 'Loading accounts…'}</p>
         </div>
       </div>
       ${table(
-        ['Member', 'Email', 'Role', 'Status', 'Assigned orders', 'Actions'],
-        db.agents.map(a => {
+        ['Member', 'Email', 'Role', 'Account', 'Availability', 'Last sign-in', 'Assigned orders', 'Actions'],
+        members.map(a => {
+          const isMe = a.id === db.currentUser.id;
           return `
             <tr>
               <td>
                 <b>${esc(a.name)}</b>
-                ${a.id === db.currentUser.id ? '<span class="badge active" style="margin-left:6px;">Current User</span>' : ''}
+                ${isMe ? '<span class="badge active" style="margin-left:6px;">You</span>' : ''}
               </td>
-              <td>${esc(a.email || a.id + '@rosaino.com')}</td>
+              <td>${esc(a.email || '')}</td>
               <td>
-                ${isSuperAdmin ? `
-                  <select data-role="${a.id}" aria-label="Role for ${esc(a.name)}">
-                    ${roleList.map(r => `<option ${r === a.role ? 'selected' : ''}>${r}</option>`).join('')}
+                ${canManage && !isMe ? `
+                  <select data-role="${esc(a.id)}" aria-label="Role for ${esc(a.name)}">
+                    ${roleList.map(r => `<option ${r === a.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}
                   </select>
                 ` : `<b>${esc(a.role)}</b>`}
               </td>
-              <td>${badge(a.status)}</td>
+              <td>${a.active === false ? badge('Disabled') : badge('Active')}</td>
+              <td>${badge(a.status || 'Available')}</td>
+              <td><small>${fmtDate(a.lastLoginAt)}</small></td>
               <td>${db.orders.filter(o => o.agent === a.id).length}</td>
-              <td>
-                <button data-action="switch-user" data-id="${a.id}" ${a.id === db.currentUser.id ? 'disabled' : ''}>
-                  ${a.id === db.currentUser.id ? 'Active' : 'Switch role'}
-                </button>
-              </td>
+              <td><div style="display:flex;gap:6px;">
+                ${canManage ? `
+                  <button data-action="edit-user" data-id="${esc(a.id)}">Edit</button>
+                  <button data-action="reset-user-password" data-id="${esc(a.id)}">Reset password</button>
+                  ${isMe ? '' : `<button data-action="toggle-user" data-id="${esc(a.id)}">${a.active === false ? 'Enable' : 'Disable'}</button>
+                  <button class="danger" data-action="delete-user" data-id="${esc(a.id)}">Delete</button>`}
+                ` : (isMe ? '<button data-action="my-account">My account</button>' : '')}
+              </div></td>
             </tr>
           `;
         })
@@ -2346,32 +2973,81 @@ function team() {
   `;
 }
 
-// 13. Settings
-function settings() {
-  return title('System & workspace settings.', 'Workspace preferences, Supabase database connection and access management.') + `
+// 13. Security & audit trail
+function security() {
+  if (!auditEntries) {
+    fetch('/api/audit').then(r => r.ok ? r.json() : []).then(list => {
+      auditEntries = list;
+      if (page === 'security') render();
+    }).catch(() => {});
+  }
+  const list = auditEntries || [];
+  const failed = list.filter(e => e.action === 'login.failed');
+  const logins = list.filter(e => e.action === 'login');
+  const label = a => ({
+    'login': 'Signed in', 'login.failed': 'Failed sign-in', 'logout': 'Signed out', 'logout.all': 'Signed out everywhere',
+    'password.changed': 'Password changed', 'user.created': 'User created', 'user.updated': 'User updated', 'user.deleted': 'User deleted',
+    'roles.updated': 'Permissions changed', 'roles.reset': 'Permissions reset', 'order.status': 'Order status',
+    'blacklist.added': 'Blacklisted phone', 'blacklist.removed': 'Unblacklisted phone', 'remittance.reconciled': 'Remittance reconciled',
+    'purchase_order.received': 'PO received', 'product.saved': 'Product saved', 'cms.saved': 'Landing page saved'
+  }[a] || a);
+  return title('Security & audit', 'Who signed in, and who changed what. Recorded on the server.', '<button data-action="refresh-audit">Refresh</button>') + `
+    <div class="metrics">
+      ${metric('Events recorded', list.length, 'Most recent 200')}
+      ${metric('Successful sign-ins', logins.length, logins[0] ? `Last: ${esc(logins[0].actor)}` : '—')}
+      ${metric('Failed sign-ins', failed.length, failed.length ? 'Accounts lock for 15 min after 5 failures' : 'No failed attempts')}
+      ${metric('Team accounts', db.agents.length, `${db.agents.filter(a => a.active === false).length} disabled`)}
+    </div>
     <div class="panel">
-      <h2>Administrator Accounts</h2>
-      <div style="background:#f0f8f7;padding:16px;border-radius:8px;font-size:13px;line-height:1.7;margin-bottom:18px;">
-        <strong>Super Admin:</strong> <code>superadmin@rosaino.com</code><br>
-        <strong>Standard Admin:</strong> <code>admin@rosaino.com</code><br>
-        <strong>Operations Manager:</strong> <code>operations@rosaino.com</code><br>
-        <strong>Confirmation Agent:</strong> <code>agent@rosaino.com</code>
-      </div>
-
-      <form id="settings-form">
-        <div class="form-grid">
-          <label>Workspace name<input name="company" value="${esc(db.settings.company)}" required maxlength="80"></label>
-          <label>Operating region<input name="region" value="${esc(db.settings.region)}" required maxlength="80"></label>
-          <label>Supabase URL<input value="https://kwqbghlwarkibhlgbgft.supabase.co" disabled></label>
-          <label>Active User<input value="${esc(db.currentUser.name)} (${esc(db.currentUser.role)})" disabled></label>
-        </div>
-        <p><button class="primary">Save preferences</button></p>
-      </form>
+      <div class="panel-head"><div><h2>Audit trail</h2><p>${auditEntries ? 'Newest first' : 'Loading…'}</p></div></div>
+      ${list.length ? table(
+        ['When', 'Who', 'Event', 'Details', 'IP'],
+        list.map(e => `
+          <tr>
+            <td><small>${esc(new Date(e.at).toLocaleString())}</small></td>
+            <td>${esc(e.actor)}</td>
+            <td>${e.action === 'login.failed' ? `<span class="badge cancelled">${esc(label(e.action))}</span>` : esc(label(e.action))}</td>
+            <td style="white-space:normal;max-width:420px;">${esc(e.detail || '')}</td>
+            <td><small>${esc(e.ip || '')}</small></td>
+          </tr>
+        `)
+      ) : '<div class="empty">No events yet.</div>'}
     </div>
   `;
 }
 
-const views = { overview, orders, calls, routing, shipping, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, settings };
+// 14. Settings
+function settings() {
+  const me = db.currentUser;
+  return title('Settings', 'Your account, workspace preferences and database connection.') + `
+    <div class="grid">
+      <div class="panel">
+        <h2>Workspace preferences</h2>
+        <form id="settings-form">
+          <div class="form-grid">
+            <label>Workspace name<input name="company" value="${esc(db.settings.company)}" required maxlength="80"></label>
+            <label>Operating region<input name="region" value="${esc(db.settings.region)}" required maxlength="80"></label>
+            <label class="full">Supabase URL<input value="https://kwqbghlwarkibhlgbgft.supabase.co" disabled></label>
+          </div>
+          <p><button class="primary">Save preferences</button></p>
+        </form>
+      </div>
+      <div class="panel">
+        <h2>My account</h2>
+        <div class="stat-line"><span>Name</span><b>${esc(me.name)}</b></div>
+        <div class="stat-line"><span>Email</span><b>${esc(me.email)}</b></div>
+        <div class="stat-line"><span>Role</span><b>${esc(me.role)}</b></div>
+        <div class="stat-line"><span>Session expires</span><b>${esc(getSession()?.expiresAt ? new Date(getSession().expiresAt).toLocaleString() : '—')}</b></div>
+        <div class="actions" style="margin-top:18px;">
+          <button class="primary" data-action="change-password">Change password</button>
+          <button data-action="sign-out-all">Sign out everywhere</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+const views = { overview, orders, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
 
 function updateLivePreview() {
   const pId = activeCmsProductId;
@@ -3071,36 +3747,40 @@ function render() {
   // Header and user profile updates
   $('#breadcrumb').textContent = t(page) || (pageDef ? pageDef[2] : 'Overview');
   const roleNameEl = $('#header-role-name');
-  if (roleNameEl) roleNameEl.textContent = db.currentUser.role;
-  const sideNameEl = $('#sidebar-user-name');
-  if (sideNameEl) sideNameEl.textContent = db.currentUser.name;
-  const sideRoleEl = $('#sidebar-user-role');
-  if (sideRoleEl) sideRoleEl.textContent = db.currentUser.role;
+  if (roleNameEl) roleNameEl.textContent = previewRole ? `${effectiveRole()} (preview)` : db.currentUser.role;
 
   // Render navigation with permission locks and translated labels
-  $('#nav').innerHTML = pages.map(([id, icon, name, perm], i) => {
-    const allowed = hasPermission(perm);
+  // Only list the pages this role can open, so the menu stays short and clear.
+  const groupStarts = {
+    orders: { fr: 'VENTES', en: 'SALES', ar: 'المبيعات' },
+    shipping: { fr: 'LIVRAISON', en: 'DELIVERY', ar: 'التوصيل' },
+    products: { fr: 'CATALOGUE', en: 'CATALOGUE', ar: 'المنتجات' },
+    finance: { fr: 'FINANCE', en: 'FINANCE', ar: 'المالية' },
+    stores: { fr: 'ESPACE', en: 'WORKSPACE', ar: 'المساحة' }
+  };
+  let pendingGroup = '';
+  $('#nav').innerHTML = pages.map(([id, icon, name, perm]) => {
+    if (groupStarts[id]) pendingGroup = groupStarts[id][currentLang] || groupStarts[id].en;
+    if (!hasPermission(perm)) return '';
     const isAct = page === id;
-    const groupLabel = (i === 5 ? (currentLang === 'ar' ? 'العمليات' : currentLang === 'en' ? 'OPERATIONS' : 'OPÉRATIONS') : i === 11 ? (currentLang === 'ar' ? 'المساحة' : currentLang === 'en' ? 'WORKSPACE' : 'ESPACE') : '');
-    const group = groupLabel ? `<div class="nav-group">${groupLabel}</div>` : '';
-    const localizedName = t(id) || name;
+    const group = pendingGroup ? `<div class="nav-group">${pendingGroup}</div>` : '';
+    pendingGroup = '';
     return group + `
-      <a href="#${id}" class="${isAct ? 'active' : ''} ${!allowed ? 'muted' : ''}" ${isAct ? 'aria-current="page"' : ''} style="${!allowed ? 'opacity:0.55;' : ''}">
+      <a href="#${id}" class="${isAct ? 'active' : ''}" ${isAct ? 'aria-current="page"' : ''}>
         <span class="nav-icon" aria-hidden="true">${getNavIcon(id)}</span>
-        ${localizedName}
-        ${!allowed ? '<span style="margin-left:auto;font-size:10px;opacity:0.6;font-weight:600;" title="Permission restricted">LOCKED</span>' : ''}
+        ${t(id) || name}
       </a>
     `;
   }).join('');
 
   // Check RBAC permission for this view
   if (!hasPermission(reqPerm)) {
-    $('#content').innerHTML = accessDeniedView(pageDef ? pageDef[2] : page, reqPerm);
+    $('#content').innerHTML = previewBanner() + accessDeniedView(pageDef ? pageDef[2] : page, reqPerm);
     return;
   }
 
   // Render authorized view
-  $('#content').innerHTML = views[page]();
+  $('#content').innerHTML = previewBanner() + views[page]();
 
   // Attach view-specific listeners
   if (page === 'orders') {
@@ -3113,7 +3793,7 @@ function render() {
       $('#order-results').innerHTML = orderResults();
     };
   }
-  if (page === 'calls') {
+  if (page === 'calls' && $('#agent-select')) {
     $('#agent-select').onchange = e => {
       selectedAgent = e.target.value;
       render();
@@ -3221,7 +3901,7 @@ function modal(name, body, submit, callback) {
       </div>
     </form>
   `;
-  $('#modal').showModal();
+  if (!$('#modal').open) $('#modal').showModal();
   $('#dialog-form').onsubmit = e => {
     e.preventDefault();
     try {
@@ -3300,7 +3980,6 @@ function orderDialog(id) {
   const trust = getTrustInfo(o.phone, o.id);
   const isDup = checkDuplicateOrder(o);
   const p = product(o.product);
-  const cleanP = cleanPhone(o.phone);
   const waMsg = encodeURIComponent(`Hello ${o.customer}, this is Rosaino Confirmation regarding your order ${o.id} for ${p?.name || 'your items'} (${money(o.amount)} COD). Please reply YES to confirm your delivery address in ${o.city}.`);
 
   const choices = {
@@ -3327,24 +4006,23 @@ function orderDialog(id) {
         </p>
         ${isDup ? `
           <div style="margin-top:10px;padding:8px 12px;background:#fef3c7;border-radius:6px;font-size:12px;color:#92400e;display:flex;justify-content:space-between;align-items:center;">
-            <span>⚠️ Duplicate Order: Same customer has another active order for this item.</span>
+            <span>Duplicate Order: Same customer has another active order for this item.</span>
             <button type="button" data-action="cancel-duplicate" data-id="${o.id}" style="font-size:11px;background:#fff;border:1px solid #d97706;color:#b45309;padding:4px 8px;">Cancel Duplicate</button>
           </div>
         ` : ''}
       </div>
 
       <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
-        <a href="https://wa.me/212${cleanP.replace(/^0/, '')}?text=${waMsg}" target="_blank" rel="noopener" class="btn-wa">
-          💬 Send WhatsApp Confirmation
-        </a>
+        ${callButtons(o)}
+        <a href="https://wa.me/${intlPhone(o.phone)}?text=${waMsg}" target="_blank" rel="noopener" class="btn-link">WhatsApp message</a>
         <button type="button" data-action="awb" data-id="${o.id}">
-          🏷️ Thermal 4x6 Label
+          Thermal 4x6 Label
         </button>
         <a href="/track?id=${encodeURIComponent(o.id)}" target="_blank" style="padding:7px 12px;border:1px solid #dce4e6;border-radius:6px;font-size:12px;display:inline-flex;align-items:center;font-weight:600;">
-          🚚 Public Tracking Portal ↗
+          Public Tracking Portal ↗
         </a>
         <button type="button" data-action="toggle-blacklist" data-phone="${esc(o.phone)}" style="font-size:12px;color:#ac3838;margin-left:auto;">
-          ⛔ ${trust.type === 'risk' ? 'Unblacklist Phone' : 'Blacklist Customer'}
+          ${trust.type === 'risk' ? 'Unblacklist Phone' : 'Blacklist Customer'}
         </button>
       </div>
 
@@ -3355,6 +4033,8 @@ function orderDialog(id) {
         <label class="full">Add note<textarea name="note" maxlength="1000"></textarea></label>
       </div>
       <div class="history">${o.notes.map(n => esc(n)).join('<br>') || 'No notes recorded.'}</div>
+      <h3 class="sub">Calls</h3>
+      <div id="order-calls" class="info">Loading calls…</div>
     `,
     'Save changes',
     f => {
@@ -3374,6 +4054,18 @@ function orderDialog(id) {
       }).catch(() => {});
     }
   );
+
+  // Calls for this order, from the server
+  api(`/api/calls?orderId=${encodeURIComponent(o.id)}`).then(list => {
+    const box = $('#order-calls');
+    if (!box) return;
+    callLogs = [...list, ...(callLogs || []).filter(c => c.orderId !== o.id)];
+    box.innerHTML = list.length ? list.map(c => `
+      <div class="stat-line">
+        <span>${esc(new Date(c.startedAt).toLocaleString())} · ${c.channel === 'whatsapp' ? 'WhatsApp' : 'Phone'} · ${esc(c.agentName || '')}</span>
+        <span>${fmtDuration(c.durationSec)} · ${badge(c.outcome)} ${c.transcript || c.notes ? `<button type="button" data-action="view-call" data-id="${esc(c.id)}">View</button>` : ''}</span>
+      </div>`).join('') : 'No calls yet.';
+  }).catch(() => { const box = $('#order-calls'); if (box) box.textContent = 'Calls could not be loaded.'; });
 }
 
 // Thermal Airway Bill (AWB) Label Modal
@@ -3415,7 +4107,7 @@ function showThermalLabel(id) {
           COD TO COLLECT: ${money(o.amount)}
         </div>
       </div>
-      <p style="text-align:center;"><button type="button" class="primary" onclick="window.print()">🖨️ Print Label on Thermal Printer</button></p>
+      <p style="text-align:center;"><button type="button" class="primary" onclick="window.print()">Print Label on Thermal Printer</button></p>
     `,
     null
   );
@@ -3494,7 +4186,7 @@ function createPurchaseOrderModal() {
         <label class="full">Procurement Notes<input name="notes" placeholder="e.g. Sea freight shipment from Ningbo to Casablanca port"></label>
       </div>
       <div style="background:#f0f8f7;padding:12px 16px;border-radius:8px;margin-top:14px;font-size:12px;line-height:1.6;">
-        💡 <strong>Automatic Landed Cost Formula:</strong><br>
+        <strong>Automatic Landed Cost Formula:</strong><br>
         <code>Landed Unit Cost = (Units × Factory Price + Freight + Customs + Handling) ÷ Units</code><br>
         This gives you the exact true cost per unit before calculating gross profit.
       </div>
@@ -3689,51 +4381,188 @@ function editProduct(id) {
   );
 }
 
-function call(id) {
-  if (!checkAction('calls', 'Simulated call')) return;
-  const o = db.orders.find(o => o.id === id);
-  activeCall = { id, start: Date.now() };
+// Live call panel: timer, optional transcription, outcome. Saved to the server.
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null;
+let transcribing = false;
+
+function stopTranscription() {
+  transcribing = false;
+  try { recognizer?.stop(); } catch {}
+  recognizer = null;
+  const btn = $('#transcribe-btn');
+  if (btn) { btn.textContent = 'Start transcription'; btn.classList.remove('recording'); }
+  const st = $('#transcribe-state');
+  if (st) st.textContent = '';
+}
+
+function startTranscription() {
+  const consent = $('#transcribe-consent');
+  const box = $('#call-transcript');
+  const st = $('#transcribe-state');
+  if (!consent?.checked) { st.textContent = 'Tick the box once the customer has been told.'; return; }
+  recognizer = new SpeechRec();
+  recognizer.lang = $('#transcribe-lang').value;
+  recognizer.continuous = true;
+  recognizer.interimResults = true;
+  let finalText = box.value.trim();
+  box.oninput = () => { finalText = box.value.trim(); };
+  recognizer.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) finalText += (finalText ? ' ' : '') + r[0].transcript.trim();
+      else interim += r[0].transcript;
+    }
+    box.value = finalText + (interim ? ' ' + interim : '');
+    box.scrollTop = box.scrollHeight;
+  };
+  recognizer.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      stopTranscription();
+      $('#transcribe-state').textContent = 'Microphone access was blocked. Allow it in the browser address bar, or type notes instead.';
+    }
+  };
+  // Browsers stop listening after a pause; keep going until the agent stops it.
+  recognizer.onend = () => { if (transcribing) { try { recognizer.start(); } catch {} } };
+  transcribing = true;
+  recognizer.start();
+  const btn = $('#transcribe-btn');
+  btn.textContent = 'Stop transcription';
+  btn.classList.add('recording');
+  st.textContent = 'Listening through your microphone…';
+}
+
+function startCall(value) {
+  const [id, channel] = String(value).split(':');
+  if (!checkAction('calls', 'Call lead')) return;
+  const o = db.orders.find(x => x.id === id);
+  if (!o) return;
+  stopTranscription();
+  clearInterval(timer);
+  activeCall = { id, channel, start: Date.now() };
+  const p = product(o.product);
+  const n = intlPhone(o.phone);
+  const reopen = channel === 'whatsapp'
+    ? `<a href="https://wa.me/${n}" target="_blank" rel="noopener">Open WhatsApp again</a> and tap the call icon.`
+    : `<a href="tel:+${n}">Dial again</a> if your phone did not open.`;
+
   modal(
-    'Simulated confirmation call',
+    `${channel === 'whatsapp' ? 'WhatsApp call' : 'Phone call'} · ${esc(o.customer)}`,
     `
-      <div class="call-card">
-        <h2>${esc(o.customer)}</h2>
-        <p>${esc(product(o.product)?.name)} · ${money(o.amount)} · ${esc(o.city)}</p>
-        <div id="call-time" class="big">00:00</div>
-        <small>No phone call is placed.</small>
+      <div class="call-live">
+        <div>
+          <span class="live-dot" aria-hidden="true"></span>
+          <b id="call-time" class="call-timer">00:00</b>
+          <small>Started ${new Date(activeCall.start).toLocaleTimeString()}</small>
+        </div>
+        <div class="call-who">
+          <b>${esc(o.phone)}</b>
+          <small>${esc(o.id)} · ${o.quantity} × ${esc(p?.name || o.product)} · ${money(o.amount)} · ${esc(o.city)}</small>
+        </div>
       </div>
+      <p class="info">${reopen}</p>
+
+      <div class="transcribe-box">
+        <div class="panel-head" style="margin-bottom:10px;">
+          <div><b>Transcript</b><p>${SpeechRec ? 'Optional. Uses your microphone, so put the call on speaker for both voices.' : 'Live transcription works in Chrome or Edge. You can type a summary here instead.'}</p></div>
+          ${SpeechRec ? `<div class="actions">
+            <select id="transcribe-lang" aria-label="Transcription language">
+              <option value="fr-FR">Français</option>
+              <option value="ar-MA">العربية (المغرب)</option>
+              <option value="en-US">English</option>
+            </select>
+            <button type="button" id="transcribe-btn" data-action="toggle-transcription">Start transcription</button>
+          </div>` : ''}
+        </div>
+        ${SpeechRec ? `<label class="checkline"><input type="checkbox" id="transcribe-consent"> The customer has been told this call is transcribed</label>` : ''}
+        <small id="transcribe-state" class="transcribe-state"></small>
+        <textarea id="call-transcript" name="transcript" rows="5" maxlength="20000" placeholder="${SpeechRec ? 'The transcript appears here. You can correct it before saving.' : 'Summary of the conversation'}"></textarea>
+      </div>
+
+      <fieldset class="outcomes">
+        <legend>Outcome</legend>
+        ${['Confirmed', 'Callback', 'No answer', 'Cancelled', 'Spam'].map((x, i) => `
+          <label class="outcome"><input type="radio" name="outcome" value="${x}" ${i === 0 ? 'checked' : ''}><span>${x}</span></label>`).join('')}
+      </fieldset>
       <div class="form-grid">
-        ${select('outcome', 'Call outcome', ['Confirmed', 'Callback', 'Cancelled', 'Spam'])}
         <label>Callback time<input type="datetime-local" name="callback"></label>
-        <label class="full">Call notes<textarea name="note" maxlength="1000"></textarea></label>
+        <label>Notes<input name="note" maxlength="1000" placeholder="e.g. Deliver after 6pm"></label>
       </div>
+      <div id="call-error" role="alert" class="form-error"></div>
     `,
     'End call & save',
     f => {
-      if (f.get('outcome') === 'Callback' && !f.get('callback')) throw Error('Choose a callback time.');
-      changeStatus(o, f.get('outcome'));
-      o.callback = f.get('callback');
-      if (f.get('note').trim()) o.notes.push(f.get('note').trim());
-      db.calls.unshift({
-        order: id,
-        agent: o.agent,
-        outcome: f.get('outcome'),
-        seconds: Math.max(1, Math.round((Date.now() - activeCall.start) / 1000)),
-        date: new Date().toISOString()
+      const outcome = f.get('outcome');
+      const err = $('#call-error');
+      if (outcome === 'Callback' && !f.get('callback')) { err.textContent = 'Choose when to call back.'; return false; }
+      stopTranscription();
+      const endedAt = new Date();
+      const btn = $('#dialog-form button.primary');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      const transcript = ($('#call-transcript')?.value || '').trim();
+      api('/api/calls', 'POST', {
+        orderId: o.id,
+        channel,
+        phone: o.phone,
+        startedAt: new Date(activeCall.start).toISOString(),
+        endedAt: endedAt.toISOString(),
+        outcome,
+        notes: f.get('note').trim(),
+        transcript,
+        transcriptLang: $('#transcribe-lang')?.value || ''
+      }).then(({ call: saved }) => {
+        clearInterval(timer);
+        activeCall = null;
+        $('#modal').close();
+        callLogs = [saved, ...(callLogs || [])];
+        db.calls.unshift({ order: o.id, agent: o.agent, outcome, seconds: saved.durationSec, date: saved.startedAt });
+        if (f.get('note').trim()) o.notes.push(f.get('note').trim());
+        if (outcome === 'No answer') {
+          o.notes.push(`No answer (${channel === 'whatsapp' ? 'WhatsApp' : 'phone'}, ${new Date().toLocaleString()})`);
+        } else {
+          try {
+            changeStatus(o, outcome);
+            if (outcome === 'Callback') o.callback = f.get('callback');
+          } catch (e) {
+            toast(`Call saved, but the order could not be updated: ${e.message}`);
+          }
+        }
+        persist();
+        render();
+        toast(`Call saved · ${fmtDuration(saved.durationSec)} · ${outcome}`);
+      }).catch(e => {
+        err.textContent = e.message;
+        btn.disabled = false;
+        btn.textContent = 'End call & save';
       });
-      clearInterval(timer);
-      activeCall = null;
-      toast('Call outcome saved');
+      return false;
     }
   );
 
   timer = setInterval(() => {
     const el = $('#call-time');
     if (el && activeCall) {
-      const n = Math.floor((Date.now() - activeCall.start) / 1000);
-      el.textContent = String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+      const sec = Math.floor((Date.now() - activeCall.start) / 1000);
+      el.textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
     }
   }, 1000);
+}
+
+function viewCall(id) {
+  const c = (callLogs || []).find(x => x.id === id);
+  if (!c) return;
+  const o = db.orders.find(x => x.id === c.orderId);
+  modal(`Call with ${esc(o?.customer || c.orderId)}`, `
+    <div class="stat-line"><span>When</span><b>${esc(new Date(c.startedAt).toLocaleString())}</b></div>
+    <div class="stat-line"><span>Channel</span><b>${c.channel === 'whatsapp' ? 'WhatsApp' : 'Phone'} · ${esc(c.phone || '')}</b></div>
+    <div class="stat-line"><span>Duration</span><b>${fmtDuration(c.durationSec)}</b></div>
+    <div class="stat-line"><span>Outcome</span><b>${esc(c.outcome)}</b></div>
+    <div class="stat-line"><span>Agent</span><b>${esc(c.agentName || '')}</b></div>
+    ${c.notes ? `<h3 class="sub">Notes</h3><p>${esc(c.notes)}</p>` : ''}
+    ${c.transcript ? `<h3 class="sub">Transcript</h3><div class="transcript">${esc(c.transcript)}</div>` : ''}
+  `, '', () => {});
 }
 
 function csvRows(text) {
@@ -3863,50 +4692,17 @@ function runRouting() {
   toast(`${leads.length} leads assigned`);
 }
 
-// User Switcher Modal for RBAC testing
-function openUserSwitcherModal() {
-  const options = db.agents.map(a => [a.id, `${a.name} — [${a.role}]`]);
-  modal(
-    'Switch Active Admin Persona (RBAC)',
-    `
-      <p class="info">Select an administrator or role to test permissions and view the operations workspace under different access tiers.</p>
-      <div class="form-grid">
-        ${select('userId', 'Select Administrator Persona', options, db.currentUser.id)}
-      </div>
-      <div style="background:#f0f8f7;padding:14px;border-radius:8px;margin-top:14px;font-size:12px;">
-        <strong>Role Capabilities:</strong><br>
-        • <strong>Super Admin:</strong> Full access to all modules + RBAC permissions matrix.<br>
-        • <strong>Admin:</strong> Operations and team management.<br>
-        • <strong>Operations manager:</strong> Orders, calls, routing, shipping, stock.<br>
-        • <strong>Confirmation agent:</strong> Dedicated Call Center queue only.<br>
-        • <strong>Finance viewer:</strong> Executive overview, ledger, and reports.
-      </div>
-    `,
-    'Switch Persona',
-    f => {
-      const u = db.agents.find(a => a.id === f.get('userId'));
-      if (u) {
-        db.currentUser = { id: u.id, name: u.name, email: u.email, role: u.role };
-        setSession({ user: db.currentUser, token: 'demo_' + u.id });
-        persist();
-        toast(`Active persona switched to ${u.name} (${u.role})`);
-        render();
-      }
-    }
-  );
-}
-
 // View Supabase SQL Schema Modal
 async function viewSupabaseSchema() {
   try {
     const res = await fetch('/api/schema');
     const sql = await res.text();
     modal(
-      'Supabase Database SQL Schema',
+      'Database security script',
       `
-        <p class="info">Copy and paste this script into your Supabase SQL Editor (<a href="https://supabase.com/dashboard/project/kwqbghlwarkibhlgbgft/sql/new" target="_blank" rel="noopener">Open Supabase SQL Editor ↗</a>) to create the schema:</p>
+        <p class="info">No setup script is needed: tables are created automatically. If an older version of this script was run in Supabase, run this one once in the <a href="https://supabase.com/dashboard/project/kwqbghlwarkibhlgbgft/sql/new" target="_blank" rel="noopener">Supabase SQL Editor ↗</a> to remove public access to the old tables. It does not delete data.</p>
         <textarea id="sql-schema-area" style="width:100%;height:320px;font-family:monospace;font-size:11px;background:#183243;color:#a3e635;padding:12px;border-radius:8px;" readonly>${esc(sql)}</textarea>
-        <p><button type="button" id="copy-sql-btn" class="primary">📋 Copy SQL to Clipboard</button></p>
+        <p><button type="button" id="copy-sql-btn" class="primary">Copy SQL to Clipboard</button></p>
       `,
       null
     );
@@ -3927,19 +4723,107 @@ async function viewSupabaseSchema() {
 }
 
 async function testSupabaseSync() {
-  toast('Testing Supabase Cloud connection...');
+  toast('Testing the database connection…');
   try {
-    const res = await fetch('/api/database/status');
-    const data = await res.json();
+    const data = await api('/api/database/status');
     supabaseStatus = data;
     const pill = $('#supabase-pill-text');
-    if (pill) {
-      pill.textContent = data.mode === 'supabase_live' ? 'Supabase Live' : 'Supabase (Schema Pending)';
-    }
-    toast(`Supabase Status: ${data.connected ? 'Connected' : 'Offline'} · Tables: ${data.tables.products ? 'Ready' : 'Pending schema'}`);
+    if (pill) pill.textContent = data.connected ? 'Database connected' : data.configured ? 'Database error' : 'Database not connected';
+    const r = data.records || {};
+    toast(data.connected
+      ? `Database connected · ${r.orders || 0} orders · ${r.products || 0} products saved`
+      : data.error || 'No database: set DATABASE_URL in Vercel so data is saved.');
   } catch (e) {
-    toast('Failed to test Supabase connection: ' + e.message);
+    toast('Could not test the database: ' + e.message);
   }
+}
+
+function generatePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+
+async function updateUser(id, body, message) {
+  try {
+    await api(`/api/users/${encodeURIComponent(id)}`, 'PATCH', body);
+    await loadUsers();
+    render();
+    toast(message);
+    return true;
+  } catch (err) {
+    toast(err.message);
+    await loadUsers();
+    render();
+    return false;
+  }
+}
+
+async function saveRoles(roles, message) {
+  try {
+    const data = await api('/api/roles', 'PUT', { roles });
+    db.roles = data.roles;
+    persist();
+    render();
+    toast(message);
+    return true;
+  } catch (err) {
+    toast(err.message);
+    render();
+    return false;
+  }
+}
+
+function openMyAccount() {
+  const me = db.currentUser;
+  modal(
+    'My account',
+    `
+      <div class="stat-line"><span>Name</span><b>${esc(me.name)}</b></div>
+      <div class="stat-line"><span>Email</span><b>${esc(me.email)}</b></div>
+      <div class="stat-line"><span>Role</span><b>${esc(me.role)}</b></div>
+      ${previewRole ? `<div class="stat-line"><span>Previewing as</span><b>${esc(previewRole)}</b></div>` : ''}
+      <div class="actions" style="margin-top:18px;">
+        <button type="button" data-action="change-password">Change password</button>
+        ${previewRole ? '<button type="button" data-action="exit-preview">Exit role preview</button>' : ''}
+        <button type="button" data-action="sign-out-all">Sign out everywhere</button>
+        <button type="button" class="danger" data-action="sign-out">Sign out</button>
+      </div>
+    `,
+    '',
+    () => {}
+  );
+}
+
+function openChangePassword() {
+  modal(
+    'Change password',
+    `
+      <p class="info">Changing your password signs you out on other devices.</p>
+      <div class="form-grid">
+        <label class="full">Current password<input name="current" type="password" required autocomplete="current-password"></label>
+        <label>New password<input name="next" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label>Confirm new password<input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label>
+      </div>
+      <div id="password-error" role="alert" style="color:#ac3838;margin-top:8px;"></div>
+    `,
+    'Update password',
+    f => {
+      const err = $('#password-error');
+      if (f.get('next') !== f.get('confirm')) {
+        err.textContent = 'The new passwords do not match.';
+        return false;
+      }
+      api('/api/auth/change-password', 'POST', { currentPassword: f.get('current'), newPassword: f.get('next') })
+        .then(data => {
+          applySession(data);
+          $('#modal').close();
+          toast('Password updated.');
+        })
+        .catch(e => { err.textContent = e.message; });
+      return false;
+    }
+  );
 }
 
 const actions = {
@@ -3954,10 +4838,14 @@ const actions = {
   template: () => download('rosaino-lead-template.csv', 'customer,phone,city,sku,quantity\r\nDemo Customer,06 12 34 56 78,Casablanca,ROS-TECH-01,1', 'text/csv'),
   'new-product': () => editProduct(),
   'edit-product': id => editProduct(id),
-  call,
+  call: id => startCall(`${id}:phone`),
+  'start-call': startCall,
+  'toggle-transcription': () => (transcribing ? stopTranscription() : startTranscription()),
+  'view-call': viewCall,
+  'refresh-calls': () => { callLogs = null; render(); },
   route: runRouting,
   pause: () => {
-    const a = agent(selectedAgent);
+    const a = agent(selectedAgent) || db.agents[0];
     if (!a) return;
     a.status = a.status === 'Paused' ? 'Available' : 'Paused';
     log(`${a.name} ${a.status.toLowerCase()}`);
@@ -4028,7 +4916,7 @@ const actions = {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).catch(() => {});
     }
-    toast('📋 Ad Boost tracking link copied! Ready to paste into Meta/TikTok Ads Manager.');
+    toast('Ad Boost tracking link copied! Ready to paste into Meta/TikTok Ads Manager.');
   },
   'pick-image': src => {
     const input = $('#cms-input-heroImage');
@@ -4302,32 +5190,32 @@ const actions = {
   'view-schema': viewSupabaseSchema,
   'test-supabase': testSupabaseSync,
   'new-agent': () => {
-    if (!checkAction('team', 'Add team member')) return;
-    const roleList = Object.keys(db.roles);
+    if (!checkAction('rbac_manage', 'Add team member')) return;
     modal(
       'Add team member',
       `
+        <p class="info">The member signs in with this email and temporary password, and can change it from Settings.</p>
         <div class="form-grid">
-          ${input('name', 'Full name')}
+          ${input('name', 'Full name', '', 'text', 'maxlength="80"')}
           ${input('email', 'Email address', '', 'email')}
-          ${select('role', 'Role', roleList)}
+          ${select('role', 'Role', Object.keys(db.roles), 'Confirmation agent')}
+          ${input('password', 'Temporary password', generatePassword(), 'text', 'minlength="8" autocomplete="off"')}
         </div>
       `,
-      'Add member',
+      'Create account',
       f => {
-        const newA = {
-          id: 'a' + uid(),
-          name: f.get('name').trim(),
-          email: f.get('email').trim(),
-          role: f.get('role'),
-          status: 'Available'
-        };
-        db.agents.push(newA);
-        log(`Team member ${newA.name} (${newA.role}) added`);
-        toast(`Added ${newA.name}`);
+        const body = { name: f.get('name').trim(), email: f.get('email').trim(), role: f.get('role'), password: f.get('password') };
+        api('/api/users', 'POST', body).then(async ({ user }) => {
+          $('#modal').close();
+          await loadUsers();
+          render();
+          toast(`Account created for ${user.name}. Share the temporary password securely.`);
+        }).catch(err => toast(err.message));
+        return false;
       }
     );
   },
+
   'toggle-blacklist': phone => {
     const cPhone = cleanPhone(phone);
     if (!cPhone) return;
@@ -4338,7 +5226,7 @@ const actions = {
       toast(`Phone ${cPhone} removed from blacklist.`);
     } else {
       db.blacklistedPhones.push(cPhone);
-      toast(`Phone ${cPhone} added to Serial Refuser Blacklist ⛔.`);
+      toast(`Phone ${cPhone} added to Serial Refuser Blacklist.`);
     }
     persist();
     render();
@@ -4365,23 +5253,144 @@ const actions = {
     $('#order-results').innerHTML = orderTable(dups);
     toast(`Showing ${dups.length} duplicate leads.`);
   },
-  'switch-user-modal': openUserSwitcherModal,
-  'switch-user': id => {
-    const u = db.agents.find(a => a.id === id);
-    if (u) {
-      db.currentUser = { id: u.id, name: u.name, email: u.email, role: u.role };
-      setSession({ user: db.currentUser, token: 'demo_' + u.id });
-      persist();
-      toast(`Switched active user to ${u.name} (${u.role})`);
-      render();
-    }
-  },
   'reset-rbac': () => {
-    db.roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
-    persist();
-    toast('RBAC permissions reset to security presets.');
+    if (!checkAction('rbac_manage', 'Reset permissions')) return;
+    if (!confirm('Reset every role to its default permissions? Custom roles will be removed.')) return;
+    api('/api/roles', 'PUT', { reset: true }).then(({ roles }) => {
+      db.roles = roles;
+      persist();
+      render();
+      toast('Role permissions reset to defaults.');
+    }).catch(err => toast(err.message));
+  },
+  'new-role': () => {
+    if (!checkAction('rbac_manage', 'Create role')) return;
+    modal(
+      'Create role',
+      `
+        <div class="form-grid">
+          ${input('name', 'Role name', '', 'text', 'maxlength="40"')}
+          ${select('copy', 'Start with permissions from', [['', 'No permissions'], ...Object.keys(db.roles).map(r => [r, r])], '')}
+        </div>
+      `,
+      'Create role',
+      f => {
+        const name = f.get('name').trim();
+        if (db.roles[name]) throw Error('A role with this name already exists.');
+        const perms = f.get('copy') ? [...(db.roles[f.get('copy')] || [])].filter(p => p !== 'rbac_manage') : [];
+        saveRoles({ ...db.roles, [name]: perms }, `Role "${name}" created`).then(ok => ok && $('#modal').close());
+        return false;
+      }
+    );
+  },
+  'delete-role': role => {
+    if (!checkAction('rbac_manage', 'Delete role')) return;
+    if (!confirm(`Delete the role "${role}"?`)) return;
+    const next = { ...db.roles };
+    delete next[role];
+    saveRoles(next, `Role "${role}" deleted`);
+  },
+  'preview-role': () => {
+    modal(
+      'Preview workspace as a role',
+      `
+        <p class="info">See exactly which modules a role can open. This only changes your view; your account keeps its own permissions.</p>
+        <div class="form-grid">${select('role', 'Role', Object.keys(db.roles).filter(r => r !== 'Super Admin'), 'Confirmation agent')}</div>
+      `,
+      'Start preview',
+      f => {
+        previewRole = f.get('role');
+        checkAuth();
+        location.hash = (pages.find(p => hasPermission(p[3])) || pages[0])[0];
+        toast(`Previewing as ${previewRole}`);
+      }
+    );
+  },
+  'exit-preview': () => {
+    previewRole = null;
+    checkAuth();
+    location.hash = 'team';
+    render();
+    toast('Role preview ended');
+  },
+  'edit-user': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Edit user')) return;
+    const isMe = u.id === db.currentUser.id;
+    modal(
+      `Edit ${esc(u.name)}`,
+      `
+        <div class="form-grid">
+          ${input('name', 'Full name', u.name, 'text', 'maxlength="80"')}
+          ${input('email', 'Email address', u.email, 'email')}
+          ${isMe ? `<label>Role<input value="${esc(u.role)}" disabled></label>` : select('role', 'Role', Object.keys(db.roles), u.role)}
+        </div>
+      `,
+      'Save changes',
+      f => {
+        const body = { name: f.get('name').trim(), email: f.get('email').trim() };
+        if (!isMe) body.role = f.get('role');
+        updateUser(u.id, body, `${body.name} updated`).then(ok => ok && $('#modal').close());
+        return false;
+      }
+    );
+  },
+  'reset-user-password': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Reset password')) return;
+    modal(
+      `Reset password for ${esc(u.name)}`,
+      `
+        <p class="info">Signs ${esc(u.name)} out of every device. Share the new password with them securely.</p>
+        <div class="form-grid">${input('password', 'New password', generatePassword(), 'text', 'minlength="8" autocomplete="off"')}</div>
+      `,
+      'Reset password',
+      f => {
+        updateUser(u.id, { password: f.get('password') }, `Password reset for ${u.name}`).then(ok => ok && $('#modal').close());
+        return false;
+      }
+    );
+  },
+  'toggle-user': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Enable/disable user')) return;
+    const enable = u.active === false;
+    if (!enable && !confirm(`Disable ${u.name}? They will be signed out immediately.`)) return;
+    updateUser(u.id, { active: enable }, `${u.name} ${enable ? 'enabled' : 'disabled'}`);
+  },
+  'delete-user': id => {
+    const u = agent(id);
+    if (!u || !checkAction('rbac_manage', 'Delete user')) return;
+    if (!confirm(`Permanently delete the account for ${u.name}? Consider disabling it instead.`)) return;
+    api(`/api/users/${encodeURIComponent(u.id)}`, 'DELETE').then(async () => {
+      await loadUsers();
+      render();
+      toast(`${u.name} deleted`);
+    }).catch(err => toast(err.message));
+  },
+  'my-account': openMyAccount,
+  'change-password': openChangePassword,
+  'sign-out': () => signOut(false),
+  'sign-out-all': () => {
+    if (confirm('Sign out of every device, including this one?')) signOut(true);
+  },
+  'refresh-inbox': () => {
+    contactInbox = null;
     render();
   },
+  'contact-status': value => {
+    const [id, status] = value.split(':');
+    api(`/api/contact/${encodeURIComponent(id)}`, 'PATCH', { status }).then(({ message }) => {
+      const m = contactInbox?.find(x => x.id === id);
+      if (m) Object.assign(m, message);
+      render();
+    }).catch(err => toast(err.message));
+  },
+  'refresh-audit': () => {
+    auditEntries = null;
+    render();
+  },
+
   'remittance-filter': val => {
     remittanceFilter = val || 'all';
     render();
@@ -4432,7 +5441,7 @@ const actions = {
           <strong>Pending Parcels Eligible for Reconciliation:</strong> ${pendingOrders.length} parcels (${money(sum(pendingOrders, 'amount'))})
         </div>
       `,
-      'Confirm Bank Reconciliation 💵',
+      'Confirm Bank Reconciliation',
       f => {
         const selCarrier = f.get('carrier');
         const wireRef = f.get('wireRef').trim() || `VIR-${Date.now().toString(36).toUpperCase()}`;
@@ -4512,18 +5521,50 @@ const actions = {
           </p>
         </div>
         <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
-          <button type="button" class="primary" onclick="window.print()">🖨️ Print Claim Statement</button>
+          <button type="button" class="primary" onclick="window.print()">Print Claim Statement</button>
           <a class="btn-wa" href="https://wa.me/212600000000?text=${encodeURIComponent(`Hello Courier Accounts Manager, this is Rosaino Finance. Please find our Remittance Audit Statement for ${overdue.length} overdue parcels (${money(totalOverdueCash)} unremitted). Please process the bank wire today.`)}" target="_blank" rel="noopener">
-            💬 Send to Courier Manager on WhatsApp
+            Send to Courier Manager on WhatsApp
           </a>
         </div>
       `,
       null
     );
   },
-  dispatch: id => shipment(id, 'In transit'),
-  deliver: id => shipment(id, 'Delivered'),
-  return: id => shipment(id, 'Returned'),
+  dispatch: id => openDispatchDialog(id),
+  deliver: id => recordOutcome(id, 'Delivered'),
+  return: id => recordOutcome(id, 'Returned'),
+  'sync-shipments': async () => {
+    toast('Checking carriers for updates…');
+    let polled = null;
+    try { polled = await api('/api/shipments/sync', 'POST', {}); } catch (err) { toast(err.message); }
+    const n = await loadShipments();
+    lastShipmentSync = new Date();
+    render();
+    toast(n ? `${n} order(s) updated by carriers` : polled?.errors?.length ? `No changes · ${polled.errors.length} carrier error(s): ${polled.errors[0]}` : 'Everything is up to date');
+  },
+  'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
+  'edit-carrier': id => { const c = (carrierList || []).find(x => x.id === id); if (c && checkAction('integrations', 'Edit carrier')) openCarrierDialog(c); },
+  'toggle-carrier': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    if (!c || !checkAction('integrations', 'Pause carrier')) return;
+    api(`/api/carriers/${encodeURIComponent(id)}`, 'PATCH', { active: !c.active }).then(async () => { await loadCarriers(); render(); toast(`${c.name} ${c.active ? 'paused' : 'activated'}`); }).catch(err => toast(err.message));
+  },
+  'delete-carrier': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    if (!c || !checkAction('integrations', 'Remove carrier')) return;
+    if (!confirm(`Remove ${c.name}? Parcels already dispatched keep their tracking, but ${c.name} will no longer be able to send updates.`)) return;
+    api(`/api/carriers/${encodeURIComponent(id)}`, 'DELETE').then(async () => { await loadCarriers(); render(); toast(`${c.name} removed`); }).catch(err => toast(err.message));
+  },
+  'test-carrier': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    toast(`Testing ${c?.name || 'carrier'}…`);
+    api(`/api/carriers/${encodeURIComponent(id)}/test`, 'POST', {}).then(r => toast(r.message)).catch(err => toast(err.message));
+  },
+  'copy-webhook': id => {
+    const c = (carrierList || []).find(x => x.id === id);
+    if (!c) return;
+    (navigator.clipboard?.writeText(c.webhookUrl) || Promise.reject()).then(() => toast('Update link copied')).catch(() => toast('Select the link and copy it'));
+  },
   label: showThermalLabel
 };
 
@@ -4533,7 +5574,23 @@ function shipment(id, status) {
   changeStatus(o, status);
   persist();
   render();
-  toast('Demo shipment updated');
+  toast(`${o.id} marked ${status.toLowerCase()}`);
+}
+
+// Record a delivery outcome yourself (also saved on the carrier shipment, so tracking matches).
+async function recordOutcome(id, status) {
+  if (!checkAction('shipping', 'Update shipment')) return;
+  if (shipmentFor(id)) {
+    try {
+      await api(`/api/shipments/${encodeURIComponent(id)}/status`, 'POST', { status });
+      await loadShipments();
+    } catch (err) {
+      return toast(err.message);
+    }
+  }
+  const o = db.orders.find(o => o.id === id);
+  if (o && o.status === 'In transit') shipment(id, status);
+  else render();
 }
 
 // Global click delegation
@@ -4596,29 +5653,14 @@ document.addEventListener('click', e => {
     return;
   }
 
-  // Profile click opens role switcher
+  // Profile click opens the account menu
   if (e.target.closest('#user-profile-badge') && !e.target.closest('#sidebar-logout-btn')) {
-    openUserSwitcherModal();
+    openMyAccount();
   }
 
   // Logout triggers
   if (e.target.closest('#sidebar-logout-btn') || e.target.closest('#header-logout-btn')) {
-    clearSession();
-    toast('Signed out successfully.');
-    checkAuth();
-  }
-
-  // Autofill Super Admin credentials on login screen
-  if (e.target.closest('#btn-autofill-superadmin')) {
-    const em = $('#login-email');
-    const pw = $('#login-password');
-    if (em) em.value = 'superadmin@rosaino.com';
-    if (pw) pw.value = 'RosainoSuperAdmin2026!';
-    toast('Filled Super Admin credentials');
-  }
-
-  if (e.target.closest('#switch-role-btn')) {
-    openUserSwitcherModal();
+    signOut(false);
   }
 });
 
@@ -4641,38 +5683,22 @@ document.addEventListener('change', e => {
     }
   }
 
-  // Team member role change
+  // Team member role change (server-side)
   if (target.dataset.role) {
     const a = agent(target.dataset.role);
-    if (a) {
-      a.role = target.value;
-      if (a.id === db.currentUser.id) {
-        db.currentUser.role = a.role;
-      }
-      persist();
-      toast(`Role for ${a.name} updated to ${a.role}`);
-      render();
+    if (a && a.role !== target.value) {
+      updateUser(a.id, { role: target.value }, `Role for ${a.name} updated to ${target.value}`);
     }
   }
 
-  // RBAC permissions matrix checkbox toggle
+  // RBAC permissions matrix checkbox toggle (server-side)
   if (target.dataset.rbacRole && target.dataset.rbacPerm) {
     const role = target.dataset.rbacRole;
     const perm = target.dataset.rbacPerm;
     if (role === 'Super Admin') return;
-
-    if (!db.roles[role]) db.roles[role] = [];
-
-    if (target.checked) {
-      if (!db.roles[role].includes(perm)) db.roles[role].push(perm);
-      toast(`Granted "${perm}" to ${role}`);
-    } else {
-      db.roles[role] = db.roles[role].filter(p => p !== perm);
-      toast(`Revoked "${perm}" from ${role}`);
-    }
-
-    persist();
-    render();
+    const current = db.roles[role] || [];
+    const nextPerms = target.checked ? [...new Set([...current, perm])] : current.filter(p => p !== perm);
+    saveRoles({ ...db.roles, [role]: nextPerms }, `${target.checked ? 'Granted' : 'Revoked'} "${perm}" ${target.checked ? 'to' : 'from'} ${role}`);
   }
 });
 
@@ -4686,6 +5712,7 @@ document.querySelectorAll('.back, .logo').forEach(el => {
 
 $('#modal').addEventListener('close', () => {
   clearInterval(timer);
+  stopTranscription();
   activeCall = null;
 });
 
@@ -4697,37 +5724,57 @@ if (loginForm) {
   loginForm.onsubmit = async e => {
     e.preventDefault();
     const errorMsg = $('#login-error-msg');
+    const submitBtn = loginForm.querySelector('button[type="submit"]');
     if (errorMsg) errorMsg.style.display = 'none';
 
     const formData = new FormData(loginForm);
     const email = formData.get('email')?.toString().trim();
-    const password = formData.get('password')?.toString().trim();
+    const password = formData.get('password')?.toString();
 
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in…';
+    }
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data = {};
+      try { data = JSON.parse(raw); } catch {}
 
       if (!res.ok || !data.success) {
         if (errorMsg) {
-          errorMsg.textContent = data.error || 'Authentication failed. Please verify email and password.';
+          // Show what actually happened so problems can be diagnosed instead of guessed.
+          errorMsg.textContent = data.error
+            || `The sign-in service did not respond correctly (HTTP ${res.status}${raw ? ': ' + raw.replace(/\s+/g, ' ').slice(0, 120) : ''}).`;
           errorMsg.style.display = 'block';
         }
         return;
       }
 
-      setSession(data);
-      db.currentUser = data.user;
+      applySession(data);
+      previewRole = null;
+      loginForm.reset();
       toast(`Welcome, ${data.user.name} (${data.user.role})!`);
       checkAuth();
+      // Land on the first module this role can open
+      const target = location.hash.slice(1);
+      const def = pages.find(p => p[0] === target);
+      if (!def || !hasPermission(def[3])) location.hash = (pages.find(p => hasPermission(p[3])) || pages[0])[0];
       render();
+      bootSync();
     } catch (err) {
       if (errorMsg) {
-        errorMsg.textContent = 'Server authentication error. Please try again.';
+        errorMsg.textContent = 'Could not reach the server. Please try again.';
         errorMsg.style.display = 'block';
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
       }
     }
   };
@@ -4735,12 +5782,24 @@ if (loginForm) {
 
 window.addEventListener('hashchange', () => {
   document.body.classList.remove('nav-open');
+  if (location.hash === '#security') auditEntries = null; // always show the latest audit trail
+  if (location.hash === '#overview' || location.hash === '') setupStatus = null;
+  if (location.hash === '#calls') callLogs = null;
+  if (location.hash === '#team') serverUsers = null; // and the latest team accounts
+  if (location.hash === '#stores') contactInbox = null; // and new contact messages
+  if (location.hash === '#shipping' || location.hash === '#carriers') { shipmentList = null; carrierList = null; } // and fresh carrier updates
   render();
   window.scrollTo(0, 0);
 });
 
 // Cross-tab synchronization
 window.addEventListener('storage', e => {
+  if (e.key === SESSION_KEY) {
+    // Signed in or out in another tab
+    if (!getSession()) handleSessionExpired();
+    else { checkAuth(); render(); }
+    return;
+  }
   if (!e.key || e.key === KEY) {
     try {
       const raw = localStorage.getItem(KEY);
@@ -4766,6 +5825,10 @@ window.addEventListener('message', event => {
 
 // Initial boot check: check server for latest products & orders
 async function bootSync() {
+  if (!getSession()) return;
+  if (!(await refreshSession()) && !getSession()) return;
+  checkAuth();
+  render();
   try {
     const [pRes, oRes, poRes] = await Promise.all([
       fetch('/api/products').catch(() => null),
@@ -4778,22 +5841,37 @@ async function bootSync() {
         db.products = prods;
       }
     }
+    // The server is the source of truth, even when a list is empty.
+    let serverOrders = db.orders;
     if (oRes && oRes.ok) {
       const ords = await oRes.json();
-      if (Array.isArray(ords) && ords.length > 0) {
-        db.orders = ords;
-      }
+      if (Array.isArray(ords)) serverOrders = db.orders = ords.map(o => ({ notes: [], ...o }));
     }
     if (poRes && poRes.ok) {
       const pos = await poRes.json();
-      if (Array.isArray(pos) && pos.length > 0) {
-        db.purchaseOrders = pos;
-      }
+      if (Array.isArray(pos)) db.purchaseOrders = pos;
     }
+    // Pages edited only in this browser so far are sent up by the next sync.
+    const pages = (hasPermission('cms') || hasPermission('products')) ? await api('/api/cms').catch(() => ({})) : {};
+    db.cmsPages = { ...(db.cmsPages || {}), ...pages };
+    markSynced(serverOrders, pages);
     persist();
+    render();
   } catch {}
 
-  testSupabaseSync();
+  refreshDbPill();
+}
+
+// Header pill: is the portal saving to the Postgres database or running in memory?
+function refreshDbPill() {
+  api('/api/setup-status').then(st => {
+    setupStatus = st;
+    const pill = $('#supabase-status-pill');
+    if (!pill) return;
+    pill.classList.toggle('warn', !st.database);
+    $('#supabase-pill-text').textContent = st.database ? 'Database connected' : st.databaseConfigured ? 'Database error' : 'Database not connected';
+    pill.title = st.database ? 'Saving to Supabase Postgres' : st.databaseError || 'Set DATABASE_URL so data survives restarts';
+  }).catch(() => {});
 }
 
 checkAuth();

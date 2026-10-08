@@ -1,8 +1,13 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
-import { createClient } from '@supabase/supabase-js';
+import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, getStore } from './auth.js';
+import { emailConfigured, sendContactNotification } from './mailer.js';
+import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers } from './carriers.js';
+import { registerCallRoutes } from './calls.js';
+import { loadCollections, saveRecords, getRecord, updateRecord, dataDb, seedIfEmpty, databaseHealth, describeDbError } from './data-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,66 +19,34 @@ const HOST = '0.0.0.0';
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'assets', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
+// Uploaded images. Serverless hosts (Vercel) have a read-only code folder, so
+// uploads go to the system temp folder there; never crash on startup over it.
+const uploadsDir = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'rosaino-uploads')
+  : path.join(__dirname, 'assets', 'uploads');
+try {
   fs.mkdirSync(uploadsDir, { recursive: true });
+} catch (err) {
+  console.warn('Uploads folder unavailable:', err.message);
 }
 app.use('/assets/uploads', express.static(uploadsDir));
-
-// Supabase Configuration
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://kwqbghlwarkibhlgbgft.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_-Uik0W47t9fLoE8_JETPZg_U0xY-je7';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// Simple Auth Users Database
-const ADMIN_USERS = [
-  {
-    id: 'usr_superadmin',
-    name: 'Rosaino Super Admin',
-    email: 'superadmin@rosaino.com',
-    password: 'RosainoSuperAdmin2026!',
-    role: 'Super Admin',
-    avatar: 'SA'
-  },
-  {
-    id: 'usr_admin',
-    name: 'Operations Admin',
-    email: 'admin@rosaino.com',
-    password: 'RosainoAdmin2026!',
-    role: 'Admin',
-    avatar: 'AD'
-  },
-  {
-    id: 'usr_ops',
-    name: 'Lina Benali',
-    email: 'operations@rosaino.com',
-    password: 'OpsManager2026!',
-    role: 'Operations manager',
-    avatar: 'LB'
-  },
-  {
-    id: 'usr_agent',
-    name: 'Sara Amrani',
-    email: 'agent@rosaino.com',
-    password: 'Agent2026!',
-    role: 'Confirmation agent',
-    avatar: 'SA'
-  },
-  {
-    id: 'usr_finance',
-    name: 'Tariq Mansouri',
-    email: 'finance@rosaino.com',
-    password: 'Finance2026!',
-    role: 'Finance viewer',
-    avatar: 'TM'
+// Uploaded images not on this server's disk are served from the database.
+app.get('/assets/uploads/:name', async (req, res, next) => {
+  try {
+    const file = await getRecord('uploads', req.params.name);
+    if (!file) return next();
+    res.setHeader('Content-Type', /^image\/[a-z0-9.+-]+$/i.test(file.mime) ? file.mime : 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+    res.send(Buffer.from(file.data, 'base64'));
+  } catch {
+    next();
   }
-];
+});
 
-// Active sessions in memory
-const activeSessions = new Map();
-
-// In-Memory Fallback State (synchronizes with Supabase when tables are created)
+// In-memory data, used as-is when DATABASE_URL is not set (local demo).
+// With a database, these mirror the app_records table on every request.
 let memoryProducts = [
   { id: 'p1', name: 'Wireless Headphones', sku: 'ROS-TECH-01', category: 'Electronics', price: 490, cost: 200, stock: 90, supplier: 'Atlas Trading', desc: 'A softer soundtrack for your day. A clean, over-ear silhouette in a warm neutral finish.', x: 7.05, y: 96.2, type: 'product' },
   { id: 'p2', name: 'Everyday Tote', sku: 'ROS-FASH-02', category: 'Fashion', price: 240, cost: 72, stock: 145, supplier: 'Casablanca Textiles', desc: 'Your daily carry, with a little Rosaino colour. A roomy tote featuring our signature flowing ribbon.', x: 31.8, y: 96.2, type: 'product' },
@@ -196,127 +169,157 @@ let memoryPurchaseOrders = [
   }
 ];
 
+const DEFAULT_PRODUCTS = memoryProducts.map(p => ({ ...p }));
+if (process.env.DATABASE_URL?.trim()) {
+  // Real shop: never show or mix in the demo orders.
+  memoryOrders = [];
+  memoryPurchaseOrders = [];
+  blacklistedPhones = new Set();
+}
+let seeded = false;
+
+// Load business data from Postgres into the working arrays. Returns false
+// when the server runs without a database (in-memory demo data).
+async function syncFromDb() {
+  if (!seeded) {
+    await seedIfEmpty(DEFAULT_PRODUCTS);
+    seeded = true;
+  }
+  const d = await loadCollections(['products', 'orders', 'purchase_orders', 'cms', 'contact', 'settings']);
+  if (!d) return false;
+  memoryProducts = d.products;
+  memoryOrders = d.orders.reverse();
+  memoryPurchaseOrders = d.purchase_orders.reverse();
+  memoryCms.clear();
+  d.cms.forEach(c => memoryCms.set(String(c.id), c));
+  contactMessages.length = 0;
+  contactMessages.push(...d.contact.reverse());
+  blacklistedPhones = new Set(d.settings.find(x => x.id === 'blacklist')?.phones || []);
+  return true;
+}
+
+// Save a changed record when a database is connected (no-op in memory mode).
+const persist = (collection, ...records) => saveRecords(collection, records.filter(Boolean));
+
+// Stock follows the order: taken when it ships, put back when it returns.
+// Returns the change to apply to the product's stock.
+function stockChange(order) {
+  const qty = Number(order.quantity) || 1;
+  if (order.status === 'In transit' && !order.stockDeducted) {
+    order.stockDeducted = true;
+    return -qty;
+  }
+  if (order.status === 'Returned' && order.stockDeducted) {
+    order.stockDeducted = false;
+    return qty;
+  }
+  return 0;
+}
+
+const replaceIn = (list, item) => {
+  const i = list.findIndex(x => String(x.id) === String(item.id));
+  if (i >= 0) list[i] = item;
+};
+
+// Apply a change to one order (and its product stock). With a database this
+// runs as a transaction on the stored order, so teammates editing the same
+// order at the same moment never overwrite each other.
+async function changeOrder(id, mutate) {
+  let product = null;
+  const run = async (order, adjustStock) => {
+    const before = order.status;
+    mutate(order);
+    if (order.status !== before) {
+      const delta = stockChange(order);
+      if (delta) product = await adjustStock(order.product, delta);
+    }
+    return order;
+  };
+  if (await dataDb()) {
+    const order = await updateRecord('orders', id, (data, tx) => run(data, (pid, d) => tx.adjust('products', pid, 'stock', d)));
+    if (!order) return null;
+    replaceIn(memoryOrders, order);
+    if (product) replaceIn(memoryProducts, product);
+    return { order, product };
+  }
+  const order = memoryOrders.find(o => String(o.id) === String(id));
+  if (!order) return null;
+  await run(order, async (pid, d) => {
+    const p = memoryProducts.find(x => String(x.id) === String(pid));
+    if (p) p.stock = (Number(p.stock) || 0) + d;
+    return p || null;
+  });
+  return { order, product };
+}
+
+// Order fields the browser may not set directly.
+const SERVER_ORDER_FIELDS = ['id', 'stockDeducted', 'stock_deducted'];
+const clientOrderFields = body => Object.fromEntries(Object.entries(body || {}).filter(([k]) => !SERVER_ORDER_FIELDS.includes(k)));
+
 // Helper: Normalize phone numbers
 function cleanPhone(p) {
   return String(p || '').replace(/[^0-9]/g, '');
 }
 
-// Simple Auth Endpoints
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
+// Strip fields only staff may set from anonymous storefront orders.
+const STAFF_ONLY_ORDER_FIELDS = ['status', 'agent', 'stockDeducted', 'remittanceStatus', 'remittanceRef', 'remittedDate', 'courierFeeCharged', 'discrepancyNote', 'isDuplicate', 'trustScore', 'cost'];
+function sanitizePublicOrder(body) {
+  if (!body || typeof body !== 'object') return body;
+  const order = { ...body };
+  STAFF_ONLY_ORDER_FIELDS.forEach(k => delete order[k]);
+  order.status = 'New';
+  while (!order.id || memoryOrders.some(o => String(o.id) === String(order.id))) {
+    order.id = 'RS-' + Math.floor(100000 + Math.random() * 900000);
   }
+  return order;
+}
 
-  const user = ADMIN_USERS.find(
-    u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
-  );
+// Authentication, user management, roles and audit trail
+registerAuthRoutes(app);
 
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid administrator credentials' });
-  }
-
-  const token = 'tok_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
-  const session = {
-    token,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar
-    },
-    createdAt: new Date().toISOString()
-  };
-
-  activeSessions.set(token, session);
-  return res.json({ success: true, ...session });
-});
-
-app.get('/api/auth/me', (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.query.token;
-
-  if (!token || !activeSessions.has(token)) {
-    return res.status(401).json({ authenticated: false });
-  }
-
-  const session = activeSessions.get(token);
-  return res.json({ authenticated: true, user: session.user });
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.body?.token;
-  if (token) activeSessions.delete(token);
-  return res.json({ success: true });
-});
-
-app.get('/api/auth/credentials', (req, res) => {
-  res.json({
-    superAdmin: {
-      email: 'superadmin@rosaino.com',
-      password: 'RosainoSuperAdmin2026!',
-      role: 'Super Admin',
-      description: 'Master Administrator with full RBAC permission matrix and user management.'
-    },
-    admin: {
-      email: 'admin@rosaino.com',
-      password: 'RosainoAdmin2026!',
-      role: 'Admin',
-      description: 'Standard Operations administrator.'
-    },
-    operationsManager: {
-      email: 'operations@rosaino.com',
-      password: 'OpsManager2026!',
-      role: 'Operations manager',
-      description: 'Leads, calls, routing, shipping, and inventory.'
-    }
+// Public health check: is the database reachable? (no secrets returned)
+app.get('/api/health', async (req, res) => {
+  const db = await databaseHealth();
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(db.configured && !db.connected ? 503 : 200).json({
+    status: db.configured && !db.connected ? 'database_error' : 'ok',
+    database: db.connected ? 'connected' : db.configured ? 'unreachable' : 'not_configured',
+    ...(db.error ? { error: db.error } : {}),
+    time: new Date().toISOString()
   });
 });
 
-// Database & Supabase Status Endpoint
-app.get('/api/database/status', async (req, res) => {
-  let supabaseConnected = false;
-  let productsTableExists = false;
-  let ordersTableExists = false;
-  let errorDetails = null;
-
+// Business data routes read fresh data from the database first, so every
+// server instance (Vercel runs several) sees the same orders and products.
+const NO_DATA_SYNC = /^\/(auth|users|roles|audit|calls|carriers|shipments|health|setup-status|schema|upload)(\/|$)/;
+app.use('/api', async (req, res, next) => {
+  if (NO_DATA_SYNC.test(req.path)) return next();
   try {
-    const { data: pData, error: pErr } = await supabase.from('products').select('id').limit(1);
-    if (!pErr) {
-      supabaseConnected = true;
-      productsTableExists = true;
-    } else if (pErr.code === 'PGRST205') {
-      supabaseConnected = true;
-      errorDetails = pErr.message;
-    } else {
-      errorDetails = pErr.message;
-    }
-
-    const { data: oData, error: oErr } = await supabase.from('orders').select('id').limit(1);
-    if (!oErr) {
-      ordersTableExists = true;
-    }
+    await syncFromDb();
+    next();
   } catch (err) {
-    errorDetails = err.message;
+    console.error('[data] database unavailable:', err.message);
+    // The catalogue and landing pages stay browsable; nothing else pretends to work.
+    if (req.method === 'GET' && /^\/(products|cms\/)/.test(req.path)) return next();
+    res.status(503).json({ error: `The database is unavailable: ${describeDbError(err)}` });
   }
+});
 
+// Database status for the Integrations page.
+app.get('/api/database/status', requireAuth(), async (req, res) => {
+  const db = await databaseHealth();
   res.json({
-    supabaseUrl: SUPABASE_URL,
-    connected: supabaseConnected,
-    tables: {
-      products: productsTableExists,
-      orders: ordersTableExists
-    },
-    mode: (productsTableExists && ordersTableExists) ? 'supabase_live' : 'supabase_connected_pending_schema',
-    error: errorDetails,
-    schemaFileAvailable: fs.existsSync(path.join(__dirname, 'supabase-schema.sql'))
+    connected: db.connected,
+    configured: db.configured,
+    tables: { products: db.connected, orders: db.connected },
+    mode: db.connected ? 'database' : db.configured ? 'database_error' : 'memory',
+    records: db.records || {},
+    error: db.error || null
   });
 });
 
 // SQL Schema Endpoint
-app.get('/api/schema', (req, res) => {
+app.get('/api/schema', requireAuth('integrations'), (req, res) => {
   try {
     const sql = fs.readFileSync(path.join(__dirname, 'supabase-schema.sql'), 'utf-8');
     res.setHeader('Content-Type', 'text/plain');
@@ -327,55 +330,48 @@ app.get('/api/schema', (req, res) => {
 });
 
 // Products API
-app.get('/api/products', async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('products').select('*');
-    if (!error && data && data.length > 0) {
-      memoryProducts = data;
-      return res.json(data);
-    }
-  } catch {}
-  return res.json(memoryProducts);
+app.get('/api/products', (req, res) => {
+  res.json(memoryProducts);
 });
 
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', requireAuth('products', 'cms'), async (req, res) => {
   const productData = req.body;
   if (!productData || !productData.name) {
     return res.status(400).json({ error: 'Product name is required' });
   }
 
+  if (!productData.id) productData.id = 'p' + Date.now().toString(36);
   const existingIdx = memoryProducts.findIndex(p => String(p.id) === String(productData.id));
+  let saved;
   if (existingIdx >= 0) {
-    memoryProducts[existingIdx] = { ...memoryProducts[existingIdx], ...productData };
+    saved = memoryProducts[existingIdx] = { ...memoryProducts[existingIdx], ...productData };
   } else {
+    saved = productData;
     memoryProducts.push(productData);
   }
+  await persist('products', saved);
 
-  try {
-    await supabase.from('products').upsert(productData);
-  } catch (e) {
-    console.warn('Supabase upsert product notice:', e.message);
-  }
-
+  await audit(req.user, 'product.saved', `${productData.id || ''} ${productData.name}`.trim(), req);
   return res.json({ success: true, product: productData });
 });
 
 // Orders API
-app.get('/api/orders', async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('orders').select('*').order('date', { ascending: false });
-    if (!error && data && data.length > 0) {
-      memoryOrders = data;
-      return res.json(data);
-    }
-  } catch {}
-  return res.json(memoryOrders);
+app.get('/api/orders', requireAuth(), (req, res) => {
+  res.json(memoryOrders);
 });
 
-app.post('/api/orders', async (req, res) => {
-  const orderData = req.body;
+app.post('/api/orders', optionalAuth, async (req, res) => {
+  // Public storefront checkouts may only create new, unassigned orders.
+  const staff = can(req.user, 'orders');
+  const orderData = staff ? req.body : sanitizePublicOrder(req.body);
   if (!orderData || !orderData.customer || !orderData.phone) {
     return res.status(400).json({ error: 'Customer and phone are required' });
+  }
+  if (!orderData.id) orderData.id = 'RS-' + Date.now().toString(36).toUpperCase();
+  if (staff && memoryOrders.some(o => String(o.id) === String(orderData.id))) {
+    // Re-sent from the portal: update instead of duplicating.
+    const changed = await changeOrder(orderData.id, o => Object.assign(o, clientOrderFields(orderData)));
+    return res.json({ success: true, ...changed });
   }
 
   // Check duplicate: same phone + same product within 1 hour
@@ -394,51 +390,59 @@ app.post('/api/orders', async (req, res) => {
     creative: orderData.creative || 'organic_browse'
   };
 
+  if (!enrichedOrder.date) enrichedOrder.date = new Date().toISOString().slice(0, 10);
+  if (!enrichedOrder.status) enrichedOrder.status = 'New';
+  if (!Array.isArray(enrichedOrder.notes)) enrichedOrder.notes = [];
+  await persist('orders', enrichedOrder);
   memoryOrders.unshift(enrichedOrder);
-
-  try {
-    await supabase.from('orders').insert({
-      id: enrichedOrder.id,
-      customer: enrichedOrder.customer,
-      phone: enrichedOrder.phone,
-      city: enrichedOrder.city,
-      address: enrichedOrder.address || '',
-      product: enrichedOrder.product,
-      quantity: enrichedOrder.quantity || 1,
-      amount: enrichedOrder.amount || 0,
-      cost: enrichedOrder.cost || 0,
-      status: enrichedOrder.status || 'New',
-      agent: enrichedOrder.agent || '',
-      source: enrichedOrder.source || 'Storefront',
-      carrier: enrichedOrder.carrier || 'Digylog',
-      date: enrichedOrder.date || new Date().toISOString().slice(0, 10),
-      notes: enrichedOrder.notes || [],
-      callback: enrichedOrder.callback || '',
-      shipping: enrichedOrder.shipping || 35,
-      stock_deducted: !!enrichedOrder.stockDeducted
-    });
-  } catch (e) {
-    console.warn('Supabase insert order notice:', e.message);
-  }
 
   return res.json({ success: true, order: enrichedOrder });
 });
 
-app.patch('/api/orders/:id', async (req, res) => {
+app.patch('/api/orders/:id', requireAuth('orders', 'calls', 'shipping'), async (req, res) => {
   const { id } = req.params;
-  const updates = req.body;
-  const order = memoryOrders.find(o => String(o.id) === String(id));
-  if (order) {
-    Object.assign(order, updates);
+  // Stock is managed here from the status, never taken from the browser.
+  const updates = clientOrderFields(req.body);
+  let from = null;
+  const changed = await changeOrder(id, o => {
+    from = o.status;
+    Object.assign(o, updates);
+  });
+  if (!changed) return res.status(404).json({ error: 'Order not found' });
+  if (from !== changed.order.status) {
+    await audit(req.user, 'order.status', `${id}: ${from} → ${changed.order.status}`, req);
   }
+  return res.json({ success: true, ...changed });
+});
 
+// What is connected, for the portal's setup checklist (no secrets returned).
+app.get('/api/setup-status', requireAuth(), async (req, res) => {
+  const status = { database: false, email: emailConfigured(), carriers: 0, team: 1, authSecret: !!process.env.AUTH_SECRET };
+  const db = await databaseHealth();
+  status.database = db.connected;
+  status.databaseConfigured = db.configured;
+  status.databaseError = db.error || null;
+  status.records = db.records || {};
   try {
-    await supabase.from('orders').update(updates).eq('id', id);
-  } catch (e) {
-    console.warn('Supabase update order notice:', e.message);
-  }
+    const store = await getStore();
+    status.team = (await store.listUsers()).filter(u => u.active !== false).length;
+    status.carriers = await countActiveCarriers();
+  } catch {}
+  res.json(status);
+});
 
-  return res.json({ success: true, order });
+// Confirmation call log (phone & WhatsApp calls, duration, transcript)
+registerCallRoutes(app);
+
+// Carriers (transporteurs): dispatch orders to carrier APIs and receive status updates.
+registerCarrierRoutes(app, {
+  async onStatus(shipment) {
+    await changeOrder(shipment.orderId, o => {
+      o.status = shipment.status;
+      o.carrier = shipment.carrierName;
+      o.trackingNumber = shipment.trackingNumber;
+    });
+  }
 });
 
 // Customer Risk & Trust Intelligence Function
@@ -492,7 +496,7 @@ function evaluateTrustScore(phone) {
 }
 
 // Customer Trust API
-app.get('/api/customer-trust/:phone', (req, res) => {
+app.get('/api/customer-trust/:phone', requireAuth(), (req, res) => {
   const { phone } = req.params;
   const trust = evaluateTrustScore(phone);
   const pastOrders = memoryOrders.filter(o => cleanPhone(o.phone) === cleanPhone(phone));
@@ -505,11 +509,11 @@ app.get('/api/customer-trust/:phone', (req, res) => {
 });
 
 // Blacklist API
-app.get('/api/blacklist', (req, res) => {
+app.get('/api/blacklist', requireAuth(), (req, res) => {
   res.json({ blacklistedPhones: Array.from(blacklistedPhones) });
 });
 
-app.post('/api/blacklist', (req, res) => {
+app.post('/api/blacklist', requireAuth('orders', 'calls', 'team'), async (req, res) => {
   const { phone, action } = req.body || {};
   const cPhone = cleanPhone(phone);
   if (!cPhone) return res.status(400).json({ error: 'Valid phone is required' });
@@ -519,68 +523,98 @@ app.post('/api/blacklist', (req, res) => {
   } else {
     blacklistedPhones.add(cPhone);
   }
+  await persist('settings', { id: 'blacklist', phones: [...blacklistedPhones] });
+  await audit(req.user, action === 'remove' ? 'blacklist.removed' : 'blacklist.added', cPhone, req);
   res.json({ success: true, count: blacklistedPhones.size });
 });
 
 // Public Customer Order Tracking API
-app.get('/api/track/:query', (req, res) => {
+app.get('/api/track/:query', async (req, res) => {
   const query = req.params.query.trim().toUpperCase();
   const cPhone = cleanPhone(query);
 
   const order = memoryOrders.find(o =>
     o.id.toUpperCase() === query ||
+    String(o.trackingNumber || '').toUpperCase() === query ||
     (cPhone.length >= 8 && cleanPhone(o.phone) === cPhone)
   );
+  // Carrier shipments are stored in the database, so they can be found by
+  // order number or tracking number even when the order isn't in memory.
+  const shipment = await findShipmentForTracking(order ? order.id : query);
 
-  if (!order) {
+  if (!order && !shipment) {
     return res.status(404).json({ error: 'Order not found' });
   }
 
-  const p = memoryProducts.find(x => String(x.id) === String(order.product));
+  const p = order && memoryProducts.find(x => String(x.id) === String(order.product));
+  const snap = shipment?.snapshot || {};
+  const tracking = shipment ? {
+    trackingNumber: shipment.trackingNumber,
+    carrierStatus: shipment.carrierStatus,
+    trackingUrl: snap.trackingUrl || '',
+    events: (shipment.events || []).map(e => ({ at: e.at, text: e.raw, status: e.status }))
+  } : {};
+
+  if (!order) {
+    return res.json({
+      id: shipment.orderId,
+      customer: snap.customer || '',
+      city: snap.city || '',
+      address: '',
+      status: shipment.status,
+      amount: snap.amount || 0,
+      quantity: snap.quantity || 1,
+      date: snap.date || '',
+      carrier: shipment.carrierName,
+      productName: snap.productName || 'Rosaino Discovery',
+      phone: '',
+      ...tracking
+    });
+  }
 
   return res.json({
     id: order.id,
     customer: order.customer.split(' ')[0] + ' ' + (order.customer.split(' ')[1] ? order.customer.split(' ')[1][0] + '***' : ''),
     city: order.city,
     address: order.address,
-    status: order.status,
+    status: shipment && (shipment.status === 'Delivered' || shipment.status === 'Returned') ? shipment.status : order.status,
     amount: order.amount,
     quantity: order.quantity,
     date: order.date,
-    carrier: order.carrier,
+    carrier: shipment?.carrierName || order.carrier,
     productName: p?.name || 'Rosaino Discovery',
-    phone: order.phone ? order.phone.slice(0, 4) + '***' + order.phone.slice(-2) : ''
+    phone: order.phone ? order.phone.slice(0, 4) + '***' + order.phone.slice(-2) : '',
+    ...tracking
   });
 });
 
-app.patch('/api/track/:id', (req, res) => {
-  const { id } = req.params;
+app.patch('/api/track/:id', async (req, res) => {
   const { action, preferredDate, city, address, note } = req.body || {};
+  const found = memoryOrders.find(o => o.id.toUpperCase() === String(req.params.id).toUpperCase());
+  if (!found) return res.status(404).json({ error: 'Order not found' });
 
-  const order = memoryOrders.find(o => o.id.toUpperCase() === id.toUpperCase());
-  if (!order) return res.status(404).json({ error: 'Order not found' });
-
-  if (action === 'reschedule') {
-    order.callback = preferredDate;
+  const changed = await changeOrder(found.id, order => {
     order.notes = order.notes || [];
-    order.notes.push(`[Customer Rescheduled] Date: ${preferredDate}${note ? ' · Note: ' + note : ''}`);
-    if (order.status === 'New') order.status = 'Callback';
-  } else if (action === 'update_address') {
-    if (city) order.city = city;
-    if (address) order.address = address;
-    order.notes = order.notes || [];
-    order.notes.push(`[Customer Address Update] New destination: ${city} - ${address}`);
-  }
+    if (action === 'reschedule') {
+      order.callback = preferredDate;
+      order.notes.push(`[Customer Rescheduled] Date: ${preferredDate}${note ? ' · Note: ' + note : ''}`);
+      if (order.status === 'New') order.status = 'Callback';
+    } else if (action === 'update_address') {
+      if (city) order.city = city;
+      if (address) order.address = address;
+      order.notes.push(`[Customer Address Update] New destination: ${city} - ${address}`);
+    }
+  });
 
-  return res.json({ success: true, order });
+  return res.json({ success: true, order: changed?.order });
 });
 
 // Supplier Purchase Orders (PO) & Landed Cost Engine API
-app.get('/api/purchase-orders', (req, res) => {
+app.get('/api/purchase-orders', requireAuth(), (req, res) => {
   res.json(memoryPurchaseOrders);
 });
 
-app.post('/api/purchase-orders', (req, res) => {
+app.post('/api/purchase-orders', requireAuth('suppliers'), async (req, res) => {
   const po = req.body;
   if (!po || !po.productId || !po.quantity) {
     return res.status(400).json({ error: 'Product and quantity required' });
@@ -620,31 +654,55 @@ app.post('/api/purchase-orders', (req, res) => {
     notes: po.notes || ''
   };
 
+  while (memoryPurchaseOrders.some(p => p.id === newPO.id)) {
+    newPO.id = newPO.poNumber = 'PO-2026-' + Date.now().toString(36).toUpperCase();
+  }
+  await persist('purchase_orders', newPO);
   memoryPurchaseOrders.unshift(newPO);
   res.json({ success: true, purchaseOrder: newPO });
 });
 
 // Receive PO: Automatically increments product inventory and updates unit cost
-app.post('/api/purchase-orders/:id/receive', (req, res) => {
+app.post('/api/purchase-orders/:id/receive', requireAuth('suppliers', 'products'), async (req, res) => {
   const { id } = req.params;
-  const po = memoryPurchaseOrders.find(p => p.id === id);
-  if (!po) return res.status(404).json({ error: 'Purchase Order not found' });
+  const today = new Date().toISOString().slice(0, 10);
+  let prod = null;
+  let alreadyReceived = false;
+  // Receiving adds the units to stock and sets the product's true landed cost, once.
+  const receive = async (po, addStock, setCost) => {
+    if (po.status === 'Received') { alreadyReceived = true; return po; }
+    po.status = 'Received';
+    po.receivedDate = today;
+    prod = await addStock(po.productId, Number(po.quantity) || 0);
+    if (prod) prod = await setCost(po.productId, po.landedCostPerUnit);
+    return po;
+  };
 
-  po.status = 'Received';
-  po.receivedDate = new Date().toISOString().slice(0, 10);
-
-  // Update product stock and true cost
-  const prod = memoryProducts.find(p => p.id === po.productId);
-  if (prod) {
-    prod.stock += po.quantity;
-    prod.cost = po.landedCostPerUnit; // update true landed cost!
+  let po;
+  if (await dataDb()) {
+    po = await updateRecord('purchase_orders', id, (data, tx) => receive(data,
+      (pid, qty) => tx.adjust('products', pid, 'stock', qty),
+      (pid, cost) => tx.set('products', pid, 'cost', cost)));
+    if (po) replaceIn(memoryPurchaseOrders, po);
+    if (prod) replaceIn(memoryProducts, prod);
+  } else {
+    po = memoryPurchaseOrders.find(p => p.id === id);
+    if (po) {
+      const find = pid => memoryProducts.find(p => p.id === pid);
+      await receive(po,
+        (pid, qty) => { const p = find(pid); if (p) p.stock += qty; return p; },
+        (pid, cost) => { const p = find(pid); if (p) p.cost = cost; return p; });
+    }
   }
+  if (!po) return res.status(404).json({ error: 'Purchase Order not found' });
+  if (alreadyReceived) return res.status(409).json({ error: 'This purchase order was already received.' });
 
+  await audit(req.user, 'purchase_order.received', `${po.id} · +${po.quantity} ${po.productName}`, req);
   res.json({ success: true, purchaseOrder: po, updatedStock: prod?.stock, landedCost: po.landedCostPerUnit });
 });
 
 // Ad Campaign & Delivered ROAS Attribution API
-app.get('/api/attribution', (req, res) => {
+app.get('/api/attribution', requireAuth('reports', 'overview'), (req, res) => {
   // Aggregate real orders by acquisition campaign
   const campaignsMap = {
     'Meta_WarmNeutral_Headphones': { name: 'Meta · Warm Neutral Headphones V1', platform: 'Meta Ads', spend: 3200, creative: 'vid_neutral_aesthetic_v1' },
@@ -690,7 +748,7 @@ app.get('/api/attribution', (req, res) => {
 });
 
 // Courier COD Cash Reconciliation & Audit API
-app.get('/api/reconciliation', (req, res) => {
+app.get('/api/reconciliation', requireAuth('reconciliation', 'finance'), (req, res) => {
   const deliveredOrders = memoryOrders.filter(o => o.status === 'Delivered');
 
   const carriers = ['Digylog', 'OzoneExpress', 'AMEEX'];
@@ -731,7 +789,7 @@ app.get('/api/reconciliation', (req, res) => {
   });
 });
 
-app.post('/api/reconciliation/batch-remit', (req, res) => {
+app.post('/api/reconciliation/batch-remit', requireAuth('reconciliation'), async (req, res) => {
   const { orderIds, remittanceRef, carrier } = req.body || {};
   if (!orderIds || !Array.isArray(orderIds) || !orderIds.length) {
     return res.status(400).json({ error: 'Order IDs are required' });
@@ -741,20 +799,21 @@ app.post('/api/reconciliation/batch-remit', (req, res) => {
   const now = new Date().toISOString().slice(0, 10);
   let reconciledCount = 0;
 
-  memoryOrders.forEach(o => {
-    if (orderIds.includes(o.id) && o.status === 'Delivered') {
-      o.remittanceStatus = 'Remitted';
-      o.remittanceRef = ref;
-      o.remittedDate = now;
-      reconciledCount++;
-    }
-  });
+  for (const o of memoryOrders.filter(x => orderIds.includes(x.id) && x.status === 'Delivered')) {
+    await changeOrder(o.id, order => {
+      order.remittanceStatus = 'Remitted';
+      order.remittanceRef = ref;
+      order.remittedDate = now;
+    });
+    reconciledCount++;
+  }
 
+  await audit(req.user, 'remittance.reconciled', `${reconciledCount} order(s) · ${ref}`, req);
   res.json({ success: true, reconciledCount, remittanceRef: ref });
 });
 
 // File / Image Upload API (Supports Base64 Data URL or direct file upload)
-app.post('/api/upload', (req, res) => {
+app.post('/api/upload', requireAuth('products', 'cms', 'stores'), async (req, res) => {
   const { data, filename } = req.body || {};
   if (!data) return res.status(400).json({ error: 'No image data provided' });
 
@@ -768,6 +827,8 @@ app.post('/api/upload', (req, res) => {
       const filePath = path.join(uploadsDir, safeName);
       const buffer = Buffer.from(matches[2], 'base64');
       fs.writeFileSync(filePath, buffer);
+      // The server's disk is temporary on Vercel; keep a copy in the database.
+      await persist('uploads', { id: safeName, mime, data: matches[2] });
       const publicUrl = `/assets/uploads/${safeName}`;
       return res.json({ success: true, url: publicUrl, size: buffer.length });
     } else if (typeof data === 'string' && data.startsWith('/')) {
@@ -779,6 +840,68 @@ app.post('/api/upload', (req, res) => {
     console.error('Upload processing error:', err);
     return res.status(500).json({ error: 'Failed to process image upload: ' + err.message });
   }
+});
+
+// Contact form messages (public submit, staff inbox)
+const contactMessages = [];
+const contactRate = new Map();
+
+app.post('/api/contact', async (req, res) => {
+  const b = req.body || {};
+  if (b.website) return res.json({ success: true }); // honeypot: silently drop bots
+  const clip = (v, n) => String(v || '').trim().slice(0, n);
+  const msg = {
+    id: 'MSG-' + Date.now().toString(36).toUpperCase(),
+    name: clip(b.name, 80),
+    email: clip(b.email, 120).toLowerCase(),
+    phone: clip(b.phone, 30),
+    orderId: clip(b.orderId, 30).toUpperCase(),
+    topic: clip(b.topic, 40) || 'Other',
+    message: clip(b.message, 2000),
+    status: 'New',
+    date: new Date().toISOString()
+  };
+  if (!msg.name || !msg.message) return res.status(400).json({ error: 'Name and message are required.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(msg.email)) return res.status(400).json({ error: 'A valid email is required.' });
+
+  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+  const recent = (contactRate.get(ip) || []).filter(t => Date.now() - t < 60 * 60 * 1000);
+  if (recent.length >= 5) return res.status(429).json({ error: 'Too many messages. Please try again later.' });
+  contactRate.set(ip, [...recent, Date.now()]);
+
+  try {
+    await persist('contact', msg);
+  } catch (err) {
+    console.error('Contact message not saved:', err.message);
+    return res.status(503).json({ error: 'Your message could not be sent right now. Please try again.' });
+  }
+  contactMessages.unshift(msg);
+  contactMessages.length = Math.min(contactMessages.length, 500);
+
+  // Email the shop owner (Resend). Only confirm to the customer once it is accepted.
+  if (emailConfigured()) {
+    try {
+      msg.emailId = await sendContactNotification(msg);
+    } catch (err) {
+      console.error('Contact email failed:', err.message);
+      msg.emailError = err.message;
+      await persist('contact', msg).catch(() => {});
+      return res.status(502).json({ error: 'Your message could not be delivered right now.' });
+    }
+  }
+  res.json({ success: true, id: msg.id });
+});
+
+app.get('/api/contact', requireAuth('orders', 'stores'), (req, res) => {
+  res.json(contactMessages);
+});
+
+app.patch('/api/contact/:id', requireAuth('orders', 'stores'), async (req, res) => {
+  const msg = contactMessages.find(m => m.id === req.params.id);
+  if (!msg) return res.status(404).json({ error: 'Message not found' });
+  if (['New', 'Replied', 'Closed'].includes(req.body?.status)) msg.status = req.body.status;
+  await persist('contact', msg);
+  res.json({ success: true, message: msg });
 });
 
 // Product Landing Page CMS Data Engine
@@ -793,8 +916,8 @@ function getDefaultCms(p) {
     pageTitle: `${p.name} — Boutique Officielle Rosaino`,
     headline: `Découvrez l'élégance et la qualité de ${p.name}`,
     subtitle: p.desc || 'Matériaux nobles, finitions artisanales et confort tactile livrés directement à votre porte partout au Maroc.',
-    announcement: '⚡ Offre Spéciale Ramadan & Aïd · Livraison Express Gratuite Partout au Maroc · Paiement 100% à la Livraison (COD)',
-    badgeText: `🔥 OFFRE LIMITÉE - ÉCONOMISEZ ${regularPrice - price} MAD`,
+    announcement: 'Offre Spéciale Ramadan & Aïd · Livraison Express Gratuite Partout au Maroc · Paiement 100% à la Livraison (COD)',
+    badgeText: `OFFRE LIMITÉE - ÉCONOMISEZ ${regularPrice - price} MAD`,
     heroImage: p.image || '/assets/collection.png',
     secondaryImage: '/assets/pattern.png',
     galleryImage3: '/assets/ribbon.png',
@@ -815,7 +938,7 @@ function getDefaultCms(p) {
     pricingTableEnabled: true,
     checkoutHeadline: 'Finalisez Votre Commande ci-dessous',
     checkoutSubtitle: 'Payez en espèces au livreur à votre porte dès réception.',
-    submitButtonText: 'CONFIRMER LA COMMANDE (PAIEMENT À LA LIVRAISON) ➔',
+    submitButtonText: 'CONFIRMER LA COMMANDE (PAIEMENT À LA LIVRAISON) ↗',
     supportPhone: '212600000000',
     tiers: [
       {
@@ -831,7 +954,7 @@ function getDefaultCms(p) {
         title: '2 Pièces (Pack Duo)',
         price: Math.round(price * 1.75 / 10) * 10,
         originalPrice: regularPrice * 2,
-        badge: 'LE PLUS POPULAIRE 🔥',
+        badge: 'LE PLUS POPULAIRE',
         savings: `Économisez ${regularPrice * 2 - Math.round(price * 1.75 / 10) * 10} MAD`
       },
       {
@@ -839,7 +962,7 @@ function getDefaultCms(p) {
         title: '3 Pièces (Pack Famille + Cadeau)',
         price: Math.round(price * 2.35 / 10) * 10,
         originalPrice: regularPrice * 3,
-        badge: 'MEILLEURE VALEUR 🏆 + Cadeau Offert',
+        badge: 'MEILLEURE VALEUR + Cadeau Offert',
         savings: `Économisez ${regularPrice * 3 - Math.round(price * 2.35 / 10) * 10} MAD`
       }
     ],
@@ -876,22 +999,24 @@ function getDefaultCms(p) {
   };
 }
 
+// Saved landing pages, for the portal's editor.
+app.get('/api/cms', requireAuth('cms', 'products'), (req, res) => {
+  res.json(Object.fromEntries(memoryCms));
+});
+
 app.get('/api/cms/:id', (req, res) => {
   const p = memoryProducts.find(x => String(x.id) === String(req.params.id));
   if (!p) return res.status(404).json({ error: 'Product not found' });
-  if (memoryCms.has(p.id)) {
-    return res.json(memoryCms.get(p.id));
-  }
-  const def = getDefaultCms(p);
-  memoryCms.set(p.id, def);
-  return res.json(def);
+  return res.json(memoryCms.get(String(p.id)) || getDefaultCms(p));
 });
 
-app.post('/api/cms/:id', (req, res) => {
+app.post('/api/cms/:id', requireAuth('cms'), async (req, res) => {
   const p = memoryProducts.find(x => String(x.id) === String(req.params.id));
   if (!p) return res.status(404).json({ error: 'Product not found' });
-  const updated = { ...(memoryCms.get(p.id) || getDefaultCms(p)), ...req.body, productId: p.id };
-  memoryCms.set(p.id, updated);
+  const updated = { ...(memoryCms.get(String(p.id)) || getDefaultCms(p)), ...req.body, id: String(p.id), productId: p.id };
+  await persist('cms', updated);
+  memoryCms.set(String(p.id), updated);
+  await audit(req.user, 'cms.saved', p.name, req);
   return res.json({ success: true, cms: updated });
 });
 
@@ -902,6 +1027,16 @@ app.get('/product', (req, res) => {
 
 app.get('/p/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'product.html'));
+});
+
+// Shop page: all categories and products
+app.get('/shop', (req, res) => {
+  res.sendFile(path.join(__dirname, 'shop.html'));
+});
+
+// Policies page
+app.get('/policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'policy.html'));
 });
 
 // Serve Public Tracking Portal
@@ -918,8 +1053,13 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'index.html'));
 });
 
-// Storefront static assets and root
-app.use(express.static(__dirname));
+// Storefront static assets and root. Only public files are served so server
+// source (server.js, auth.js, .env, schema) is never exposed.
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'demo.css', 'demo.js', 'product.html', 'track.html', 'policy.html', 'shop.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
+app.get('/:file', (req, res, next) => {
+  if (!PUBLIC_ROOT_FILES.has(req.params.file)) return next();
+  res.sendFile(path.join(__dirname, req.params.file));
+});
 
 // Fallback for root
 app.get('/', (req, res) => {
@@ -931,9 +1071,9 @@ if (!process.env.VERCEL) {
     console.log(`Rosaino server running at http://${HOST}:${PORT}`);
     console.log(`Storefront: http://${HOST}:${PORT}/`);
     console.log(`Customer Tracking: http://${HOST}:${PORT}/track`);
+    console.log(`Shop: http://${HOST}:${PORT}/shop`);
+    console.log(`Policies: http://${HOST}:${PORT}/policy`);
     console.log(`Operations Demo: http://${HOST}:${PORT}/admin/`);
-    console.log(`Supabase URL: ${SUPABASE_URL}`);
-    console.log(`Super Admin Credentials: superadmin@rosaino.com / RosainoSuperAdmin2026!`);
   });
 }
 
