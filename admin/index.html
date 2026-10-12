@@ -9,35 +9,60 @@
   <link rel="stylesheet" href="demo.css">
 </head>
 <body>
-  <!-- Simple Auth Login Overlay (shown if not logged in) -->
+  <!-- Sign-in screen (shown when signed out) -->
   <div id="login-screen" style="display: none;">
-    <div class="login-card">
-      <div class="login-header">
-        <a href="/" title="Back to storefront"><img src="/assets/logo.png" alt="Rosaino"></a>
-        <h1>Operations Portal</h1>
-        <p>Sign in with your administrator account to access the workspace.</p>
+    <div class="login-shell">
+      <div class="login-brand" aria-hidden="true">
+        <div class="login-brand-top">
+          <span class="login-mark"><img src="/assets/icon.png" alt=""></span>
+          <span>Rosaino Operations</span>
+        </div>
+        <div class="login-brand-copy">
+          <h2>Every order, from the first call to the doorstep.</h2>
+          <ul>
+            <li><b>Call center</b><span>Confirm leads by phone or WhatsApp, with every call timed and logged.</span></li>
+            <li><b>Delivery</b><span>Confirmed orders go to your carrier and come back with live tracking.</span></li>
+            <li><b>Cash &amp; stock</b><span>Follow collections, returns and stock in one place.</span></li>
+          </ul>
+        </div>
+        <img class="login-art" src="/assets/pattern.png" alt="">
       </div>
 
-      <div id="login-error-msg" class="login-error"></div>
+      <div class="login-panel">
+        <div class="login-card">
+          <a class="login-logo" href="/" title="Back to storefront"><img src="/assets/logo.png" alt="Rosaino"></a>
+          <div class="login-header">
+            <h1>Sign in</h1>
+            <p>Welcome back. Use your Rosaino team account.</p>
+          </div>
 
-      <form id="admin-login-form" class="login-form">
-        <div class="login-field">
-          <label for="login-email">Email Address</label>
-          <input id="login-email" type="email" name="email" required autocomplete="email" placeholder="you@rosaino.com">
+          <div id="login-error-msg" class="login-error" role="alert"></div>
+
+          <form id="admin-login-form" class="login-form" novalidate>
+            <div class="login-field">
+              <label for="login-email">Email</label>
+              <input id="login-email" type="email" name="email" required autocomplete="username" inputmode="email" placeholder="you@rosaino.com">
+            </div>
+
+            <div class="login-field">
+              <label for="login-password">Password</label>
+              <div class="login-password">
+                <input id="login-password" type="password" name="password" required autocomplete="current-password" placeholder="Your password">
+                <button type="button" id="login-toggle-password" aria-label="Show password" aria-pressed="false">Show</button>
+              </div>
+              <small id="login-caps" class="login-caps" hidden>Caps Lock is on</small>
+            </div>
+
+            <button type="submit" class="login-submit">Sign in</button>
+          </form>
+
+          <p class="login-help">Forgot your password? Ask your administrator to reset it from <b>Team &amp; roles</b>.</p>
+
+          <div class="login-footer">
+            <a href="/" target="_self">← Back to the storefront</a>
+            <span>Encrypted session</span>
+          </div>
         </div>
-
-        <div class="login-field">
-          <label for="login-password">Password</label>
-          <input id="login-password" type="password" name="password" required autocomplete="current-password" placeholder="Enter password">
-        </div>
-
-        <button type="submit" class="primary" style="margin-top: 10px; justify-content: center; width: 100%;">
-          Sign In
-        </button>
-      </form>
-
-      <div class="login-footer" style="display:flex;justify-content:center;margin-top:16px;">
-        <a href="/" target="_self" style="color:#64748b;font-size:12.5px;text-decoration:none;">← Return to Storefront</a>
       </div>
     </div>
   </div>

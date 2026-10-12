@@ -5981,6 +5981,22 @@ $('#menu').onclick = () => document.body.classList.toggle('nav-open');
 
 // Login form submission handler
 const loginForm = $('#admin-login-form');
+// Show / hide the password, and warn when Caps Lock is on.
+const passwordInput = $('#login-password');
+const passwordToggle = $('#login-toggle-password');
+if (passwordInput && passwordToggle) {
+  passwordToggle.onclick = () => {
+    const show = passwordInput.type === 'password';
+    passwordInput.type = show ? 'text' : 'password';
+    passwordToggle.textContent = show ? 'Hide' : 'Show';
+    passwordToggle.setAttribute('aria-pressed', String(show));
+    passwordToggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    passwordInput.focus();
+  };
+  const caps = e => { const el = $('#login-caps'); if (el && e.getModifierState) el.hidden = !e.getModifierState('CapsLock'); };
+  passwordInput.addEventListener('keydown', caps);
+  passwordInput.addEventListener('keyup', caps);
+}
 if (loginForm) {
   loginForm.onsubmit = async e => {
     e.preventDefault();
@@ -5991,6 +6007,14 @@ if (loginForm) {
     const formData = new FormData(loginForm);
     const email = formData.get('email')?.toString().trim();
     const password = formData.get('password')?.toString();
+    if (!email || !password) {
+      if (errorMsg) {
+        errorMsg.textContent = !email ? 'Enter your email address.' : 'Enter your password.';
+        errorMsg.style.display = 'block';
+      }
+      (!email ? $('#login-email') : $('#login-password'))?.focus();
+      return;
+    }
 
     if (submitBtn) {
       submitBtn.disabled = true;
@@ -6019,6 +6043,8 @@ if (loginForm) {
       applySession(data);
       previewRole = null;
       loginForm.reset();
+      if (passwordInput) passwordInput.type = 'password';
+      if (passwordToggle) passwordToggle.textContent = 'Show';
       toast(`Welcome, ${data.user.name} (${data.user.role})!`);
       checkAuth();
       // Land on the first module this role can open
@@ -6035,7 +6061,7 @@ if (loginForm) {
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Sign In';
+        submitBtn.textContent = 'Sign in';
       }
     }
   };
