@@ -696,6 +696,19 @@ function scheduleServerSync() {
   syncTimer = setTimeout(pushChanges, 400);
 }
 
+// The server sent a confirmed order to the carrier on its own.
+function receivedAutoDispatch(o, r) {
+  const s = r.shipment;
+  Object.assign(o, { status: r.order?.status || 'In transit', stockDeducted: !!r.order?.stockDeducted, carrier: s.carrierName, trackingNumber: s.trackingNumber });
+  const p = db.products.find(x => String(x.id) === String(o.product));
+  if (p && o.stockDeducted) p.stock -= Number(o.quantity) || 1;
+  shipmentList = [s, ...(shipmentList || []).filter(x => x.orderId !== s.orderId)];
+  synced.orders.set(String(o.id), JSON.stringify(o));
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+  render();
+  toast(`${o.id} sent to ${s.carrierName} · tracking ${s.trackingNumber}`);
+}
+
 // Only the fields this browser changed, so a teammate's edits to other
 // fields of the same order are kept.
 function changedFields(before, after) {
@@ -724,6 +737,12 @@ async function pushChanges() {
         // The server keeps stock; take its figure.
         const p = r.product && db.products.find(x => String(x.id) === String(r.product.id));
         if (p) p.stock = r.product.stock;
+        if (r.shipment) receivedAutoDispatch(o, r);
+        if (r.dispatchError) {
+          o.notes = r.order?.notes || o.notes;
+          synced.orders.set(id, JSON.stringify(o));
+          toast(`${o.id} confirmed, but not sent to the carrier: ${r.dispatchError}`);
+        }
       }));
   });
   if (hasPermission('cms')) {
@@ -1419,6 +1438,15 @@ async function loadShipments() {
     try {
       if (o.status === 'Confirmed' && s.status !== 'Confirmed') { changeStatus(o, 'In transit'); changed++; }
       if (o.status === 'In transit' && (s.status === 'Delivered' || s.status === 'Returned')) { changeStatus(o, s.status); changed++; }
+      if (o.status === 'Returned' && s.status === 'In transit') {
+        // Relaunched or sent to a new customer: the server already moved the order and its stock.
+        o.status = 'In transit';
+        o.stockDeducted = true;
+        const p = product(o.product);
+        if (p) p.stock -= Number(o.quantity) || 1;
+        synced?.orders.set(String(o.id), JSON.stringify(o));
+        changed++;
+      }
     } catch {}
   }
   persist();
@@ -1438,7 +1466,7 @@ function shipping() {
 
   const actionsFor = o => {
     const s = shipmentFor(o.id);
-    const label = `<button data-action="awb" data-id="${esc(o.id)}">Label</button>`;
+    const label = `<button data-action="awb" data-id="${esc(o.id)}">Label</button>${s ? ` <button data-action="parcel" data-id="${esc(o.id)}">Parcel</button>` : ''}`;
     if (o.status === 'Confirmed') return `<button class="primary" data-action="dispatch" data-id="${esc(o.id)}">Dispatch</button> ${label}`;
     if (o.status === 'In transit') {
       return `${label} <button data-action="deliver" data-id="${esc(o.id)}" title="${s ? 'Record it yourself if the carrier has not updated it yet' : ''}">Mark delivered</button> <button data-action="return" data-id="${esc(o.id)}">Mark returned</button>`;
@@ -1490,7 +1518,8 @@ function shipping() {
 }
 
 // 5b. Carriers (transporteurs)
-const CARRIER_PRESETS = ['Digylog', 'OzoneExpress', 'AMEEX', 'Sendit', 'Cathedis', 'Amana', 'Other'];
+const CARRIER_PRESETS = ['Nearya Express', 'Digylog', 'OzoneExpress', 'AMEEX', 'Sendit', 'Cathedis', 'Amana', 'Other'];
+const isNearya = c => c?.kind === 'nearya';
 
 function carriers() {
   if (!carrierList) loadCarriers().then(() => page === 'carriers' && render());
@@ -1520,19 +1549,29 @@ function carriers() {
             <div class="panel-head">
               <div>
                 <h2>${esc(c.name)}</h2>
-                <p>${c.kind === 'api' ? 'Connected by API' : 'Manual (no API)'} · ${c.active ? badge('Active') : badge('Paused')}</p>
+                <p>${isNearya(c) ? 'Nearya Express API' : c.kind === 'api' ? 'Connected by API' : 'Manual (no API)'} · ${c.active ? badge('Active') : badge('Paused')}</p>
               </div>
             </div>
             <div class="stat-line"><span>In transit</span><b>${count(c, 'In transit')}</b></div>
             <div class="stat-line"><span>Delivered</span><b>${count(c, 'Delivered')}</b></div>
             <div class="stat-line"><span>Returned</span><b>${count(c, 'Returned')}</b></div>
-            ${c.kind === 'api' ? `<div class="stat-line"><span>API key</span><b>${esc(c.keyHint || 'not set')}</b></div>` : ''}
+            ${c.kind !== 'manual' ? `<div class="stat-line"><span>API key</span><b>${esc(c.keyHint || 'not set')}</b></div>` : ''}
+            ${isNearya(c) ? `
+              <div class="stat-line"><span>Client ID</span><b>${esc(c.config.clientId || '—')}</b></div>
+              <div class="stat-line"><span>Business ID</span><b>${esc(c.config.businessId || '—')}</b></div>
+              <div class="stat-line"><span>Parcels</span><b>${c.config.parcelType === 'store' ? 'From Nearya stock' : 'Simple (from your place)'}</b></div>
+              <div class="stat-line"><span>Confirmed orders</span><b>${c.config.autoDispatch ? 'Sent automatically' : 'Sent from Shipping'}</b></div>
+              <div class="actions nearya-tools">
+                <button data-action="nearya-regions" data-id="${esc(c.id)}">Cities &amp; regions</button>
+                <button data-action="nearya-pickup" data-id="${esc(c.id)}">Request pickup</button>
+                ${c.config.parcelType === 'store' ? `<button data-action="nearya-stock" data-id="${esc(c.id)}">Stock at Nearya</button>` : ''}
+              </div>` : `
             <label class="copy-field">Status update link (give this to ${esc(c.name)})
               <span><input readonly value="${esc(c.webhookUrl)}" aria-label="Webhook link for ${esc(c.name)}"><button type="button" data-action="copy-webhook" data-id="${esc(c.id)}">Copy</button></span>
-            </label>
+            </label>`}
             ${manage ? `
               <div class="actions" style="margin-top:14px;">
-                ${c.kind === 'api' ? `<button data-action="test-carrier" data-id="${esc(c.id)}">Test connection</button>` : ''}
+                ${c.kind !== 'manual' ? `<button data-action="test-carrier" data-id="${esc(c.id)}">Test connection</button>` : ''}
                 <button data-action="edit-carrier" data-id="${esc(c.id)}">Edit</button>
                 <button data-action="toggle-carrier" data-id="${esc(c.id)}">${c.active ? 'Pause' : 'Activate'}</button>
                 <button class="danger" data-action="delete-carrier" data-id="${esc(c.id)}">Remove</button>
@@ -1556,16 +1595,31 @@ function carrierForm(c) {
         <select name="preset" data-preset-select>${CARRIER_PRESETS.map(p => `<option>${p}</option>`).join('')}</select>
       </label>`}
       <label>Name shown in Rosaino<input name="name" required maxlength="60" value="${esc(c?.name || '')}" placeholder="e.g. OzoneExpress"></label>
-      <label class="full">How do you work with this carrier?
+      <label class="full generic-only">How do you work with this carrier?
         <select name="kind">
-          <option value="api" ${c?.kind !== 'manual' ? 'selected' : ''}>They have an API: send orders automatically</option>
+          <option value="nearya" ${isNearya(c) ? 'selected' : ''} hidden>Nearya Express</option>
+          <option value="api" ${c?.kind === 'api' ? 'selected' : ''}>They have an API: send orders automatically</option>
           <option value="manual" ${c?.kind === 'manual' ? 'selected' : ''}>No API: I'll type tracking numbers myself</option>
         </select>
       </label>
-      <label class="full api-only">API URL (from the carrier's developer documentation)<input name="baseUrl" value="${esc(cfg.baseUrl || '')}" placeholder="https://api.carrier.ma/v1"></label>
-      <label class="full api-only">API key<input name="apiKey" type="password" autocomplete="off" placeholder="${c?.hasKey ? `Leave empty to keep the saved key (${esc(c.keyHint)})` : 'Paste the key from your carrier account'}"></label>
+      <p class="full info nearya-only">Find these in your Nearya account under API settings. Rosaino sends parcels, reads their status and requests pickups with them.</p>
+      <label class="nearya-only">Client ID (x-api-id)<input name="clientId" autocomplete="off" value="${esc(cfg.clientId || '')}" placeholder="Your Nearya Client ID"></label>
+      <label class="nearya-only">Business ID<input name="businessId" autocomplete="off" value="${esc(cfg.businessId || '')}" placeholder="Your Nearya Business ID"></label>
+      <label class="full nearya-only">API key (x-api-key)<input name="nearyaKey" type="password" autocomplete="off" placeholder="${c?.hasKey ? `Leave empty to keep the saved key (${esc(c.keyHint)})` : 'Paste your Nearya API key'}"></label>
+      <label class="nearya-only">Parcels
+        <select name="parcelType">
+          <option value="simple" ${cfg.parcelType !== 'store' ? 'selected' : ''}>Simple: Nearya picks up from you</option>
+          <option value="store" ${cfg.parcelType === 'store' ? 'selected' : ''}>Stock: shipped from your stock at Nearya</option>
+        </select>
+      </label>
+      <label class="nearya-only">Stock region (for stock levels)<input name="stockRegion" value="${esc(cfg.stockRegion || '')}" placeholder="Region ID of your Nearya warehouse"></label>
+      <label class="nearya-only">Pickup address<input name="pickupAddress" value="${esc(cfg.pickupAddress || '')}" placeholder="Where Nearya collects parcels"></label>
+      <label class="nearya-only">Pickup phone<input name="pickupPhone" value="${esc(cfg.pickupPhone || '')}" placeholder="06 …"></label>
+      <label class="full checkline nearya-only"><input type="checkbox" name="autoDispatch" ${cfg.autoDispatch ? 'checked' : ''}> Send orders to Nearya as soon as an agent confirms them</label>
+      <label class="full api-only generic-only">API URL (from the carrier's developer documentation)<input name="baseUrl" value="${esc(cfg.baseUrl || '')}" placeholder="https://api.carrier.ma/v1"></label>
+      <label class="full api-only generic-only">API key<input name="apiKey" type="password" autocomplete="off" placeholder="${c?.hasKey ? `Leave empty to keep the saved key (${esc(c.keyHint)})` : 'Paste the key from your carrier account'}"></label>
     </div>
-    <details class="api-only advanced">
+    <details class="api-only generic-only advanced">
       <summary>Connection details (only if your carrier's documentation differs)</summary>
       <div class="form-grid">
         <label>Create parcel path<input name="createPath" value="${esc(cfg.createPath ?? '/shipments')}" placeholder="/shipments"></label>
@@ -1598,16 +1652,43 @@ function carrierForm(c) {
 
 function wireCarrierForm() {
   const form = $('#dialog-form');
-  const sync = () => form.querySelectorAll('.api-only').forEach(el => { el.style.display = form.kind.value === 'api' ? '' : 'none'; });
+  const show = (sel, on) => form.querySelectorAll(sel).forEach(el => { el.style.display = on ? '' : 'none'; });
+  const sync = () => {
+    const kind = form.kind.value;
+    show('.generic-only', kind !== 'nearya');
+    show('.nearya-only', kind === 'nearya');
+    if (kind !== 'nearya') show('.api-only', kind === 'api');
+  };
   form.kind.onchange = sync;
   const preset = form.querySelector('[data-preset-select]');
   const nameInput = form.elements.namedItem('name'); // form.name is the form's own attribute
-  if (preset) preset.onchange = () => { nameInput.value = preset.value === 'Other' ? '' : preset.value; nameInput.focus(); };
+  const applyPreset = () => {
+    if (preset.value === 'Nearya Express') form.kind.value = 'nearya';
+    else if (form.kind.value === 'nearya') form.kind.value = 'api';
+    sync();
+  };
+  if (preset) preset.onchange = () => { nameInput.value = preset.value === 'Other' ? '' : preset.value; applyPreset(); nameInput.focus(); };
   if (preset && !nameInput.value) nameInput.value = preset.value;
-  sync();
+  if (preset) applyPreset(); else sync();
 }
 
 function carrierPayload(f) {
+  if (f.get('kind') === 'nearya') {
+    return {
+      name: f.get('name').trim(),
+      kind: 'nearya',
+      apiKey: (f.get('nearyaKey') || '').trim(),
+      config: {
+        clientId: (f.get('clientId') || '').trim(),
+        businessId: (f.get('businessId') || '').trim(),
+        parcelType: f.get('parcelType') || 'simple',
+        stockRegion: (f.get('stockRegion') || '').trim(),
+        pickupAddress: (f.get('pickupAddress') || '').trim(),
+        pickupPhone: (f.get('pickupPhone') || '').trim(),
+        autoDispatch: f.get('autoDispatch') === 'on'
+      }
+    };
+  }
   return {
     name: f.get('name').trim(),
     kind: f.get('kind'),
@@ -1645,6 +1726,165 @@ function openCarrierDialog(c) {
   wireCarrierForm();
 }
 
+// Fill a <select> with Nearya regions, choosing the one that matches the city.
+async function fillRegionSelect(select, carrierId, city) {
+  select.innerHTML = '<option value="">Loading regions…</option>';
+  try {
+    const { regions, match } = await api(`/api/carriers/${encodeURIComponent(carrierId)}/regions?city=${encodeURIComponent(city || '')}`);
+    select.innerHTML = `<option value="">Choose a region…</option>` + regions.map(r => `<option value="${esc(r.id)}" ${r.id === match ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+  } catch (err) {
+    select.innerHTML = '<option value="">Regions unavailable</option>';
+    const box = $('#dispatch-error') || $('#nearya-error');
+    if (box) box.textContent = err.message;
+  }
+}
+
+const nearyaCarriers = () => (carrierList || []).filter(isNearya);
+const carrierById = id => (carrierList || []).find(c => c.id === id);
+
+// Cities in your orders and the Nearya region each one is sent to.
+async function openNearyaRegions(id) {
+  const c = carrierById(id);
+  if (!c) return;
+  modal(`${esc(c.name)} · cities &amp; regions`, '<p class="info">Loading Nearya regions…</p>', null);
+  let data;
+  try {
+    data = await api(`/api/carriers/${encodeURIComponent(id)}/regions?fresh=1`);
+  } catch (err) {
+    modal(`${esc(c.name)} · cities &amp; regions`, `<p class="form-error">${esc(err.message)}</p>`, null);
+    return;
+  }
+  const cities = [...new Set(db.orders.map(o => (o.city || '').trim()).filter(Boolean))].sort();
+  const norm = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const guess = city => data.regionMap[city] || data.regions.find(r => norm(r.name) === norm(city))?.id || '';
+  const options = sel => `<option value="">Not set</option>` + data.regions.map(r => `<option value="${esc(r.id)}" ${r.id === sel ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
+  modal(`${esc(c.name)} · cities &amp; regions`, `
+    <p class="info">Nearya delivers by region. Each city in your orders is matched to a region by name; choose one where the match is missing or wrong. ${data.regions.length} regions available.</p>
+    <div class="region-map">
+      ${cities.map(city => `<label><span>${esc(city)}</span><select name="city:${esc(city)}">${options(guess(city))}</select></label>`).join('') || '<p class="info">No orders yet.</p>'}
+    </div>
+    <div id="nearya-error" role="alert" class="form-error"></div>
+  `, canManageCarriers() ? 'Save regions' : null, f => {
+    const regionMap = {};
+    for (const [k, v] of f.entries()) if (k.startsWith('city:') && v) regionMap[k.slice(5)] = v;
+    api(`/api/carriers/${encodeURIComponent(id)}`, 'PATCH', { config: { ...c.config, regionMap } })
+      .then(async () => { $('#modal').close(); await loadCarriers(); render(); toast('Regions saved'); })
+      .catch(err => { $('#nearya-error').textContent = err.message; });
+    return false;
+  });
+}
+
+function openNearyaPickup(id) {
+  const c = carrierById(id);
+  if (!c) return;
+  const ready = db.orders.filter(o => o.status === 'In transit' && shipmentFor(o.id)?.carrierId === id).length;
+  modal(`Request a ${esc(c.name)} pickup`, `
+    <p class="info">${ready} parcel(s) currently with ${esc(c.name)}. Nearya sends a courier to collect your parcels at this address.</p>
+    <div class="form-grid">
+      <label class="full">Pickup address<input name="clientAddress" required value="${esc(c.config.pickupAddress || '')}"></label>
+      <label>Phone<input name="clientPhone" required value="${esc(c.config.pickupPhone || '')}"></label>
+      <label>Parcel type
+        <select name="type">
+          <option value="simple" ${c.config.parcelType !== 'store' ? 'selected' : ''}>Simple parcels</option>
+          <option value="store" ${c.config.parcelType === 'store' ? 'selected' : ''}>Stock parcels</option>
+        </select>
+      </label>
+      <label class="checkline"><input type="checkbox" name="ticket"> Print delivery tickets</label>
+    </div>
+    <div id="nearya-error" role="alert" class="form-error"></div>
+  `, 'Request pickup', f => {
+    const btn = $('#dialog-form button.primary');
+    btn.disabled = true;
+    api(`/api/carriers/${encodeURIComponent(id)}/pickup`, 'POST', {
+      clientAddress: f.get('clientAddress'), clientPhone: f.get('clientPhone'), type: f.get('type'), ticket: f.get('ticket') === 'on', pickup: true
+    }).then(() => { $('#modal').close(); toast(`Pickup requested from ${c.name}`); })
+      .catch(err => { $('#nearya-error').textContent = err.message; btn.disabled = false; });
+    return false;
+  });
+}
+
+// Units Nearya holds for each product (by SKU).
+async function openNearyaStock(id) {
+  const c = carrierById(id);
+  if (!c) return;
+  const rows = db.products.filter(p => p.sku);
+  modal(`Stock at ${esc(c.name)}`, `
+    <p class="info">Units held in your Nearya stock${c.config.stockRegion ? ` (region ${esc(c.config.stockRegion)})` : ''}, next to the stock counted in Rosaino.</p>
+    ${table(['Product', 'SKU', 'In Rosaino', 'At Nearya'], rows.map(p => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.sku)}</td><td>${p.stock}</td><td data-nearya-sku="${esc(p.sku)}">…</td></tr>`))}
+  `, null);
+  for (const p of rows) {
+    const cell = document.querySelector(`[data-nearya-sku="${CSS.escape(p.sku)}"]`);
+    api(`/api/carriers/${encodeURIComponent(id)}/inventory?sku=${encodeURIComponent(p.sku)}`)
+      .then(r => { if (cell) cell.innerHTML = r.quantity == null ? '<small>see Nearya</small>' : `<b>${r.quantity}</b>`; })
+      .catch(err => { if (cell) cell.innerHTML = `<small class="form-error">${esc(err.message)}</small>`; });
+  }
+}
+
+// One Nearya parcel: status history and what can be done with it.
+function openParcel(orderId) {
+  const o = db.orders.find(x => x.id === orderId);
+  const s = shipmentFor(orderId);
+  if (!o || !s) return;
+  const c = carrierById(s.carrierId);
+  const nearyaParcel = isNearya(c);
+  const events = [...(s.events || [])].reverse();
+  modal(`Parcel ${esc(s.trackingNumber || o.id)}`, `
+    <div class="stat-line"><span>Order</span><b>${esc(o.id)} · ${esc(o.customer)} · ${esc(o.city)}</b></div>
+    <div class="stat-line"><span>Carrier</span><b>${esc(s.carrierName)}${s.snapshot?.region ? ' · ' + esc(s.snapshot.region) : ''}</b></div>
+    <div class="stat-line"><span>Status</span><b>${badge(s.status)} ${esc(s.carrierStatus || '')}</b></div>
+    ${(s.snapshot?.replacements || []).map(r => `<div class="stat-line"><span>Exchange parcel</span><b>${esc(r.trackingCode)}</b></div>`).join('')}
+    <h3 class="sub">History</h3>
+    <ul class="timeline">${events.map(e => `<li><b>${esc(e.raw)}</b><small>${new Date(e.at).toLocaleString()} · ${esc(e.source || '')}</small></li>`).join('')}</ul>
+    ${nearyaParcel && hasPermission('shipping') ? `
+      <div class="actions parcel-actions">
+        <button type="button" data-action="parcel-refresh" data-id="${esc(o.id)}">Check status now</button>
+        <button type="button" data-action="parcel-relaunch" data-id="${esc(o.id)}">Relaunch delivery</button>
+        <button type="button" data-action="parcel-new-recipient" data-id="${esc(o.id)}">Send to a new customer</button>
+        <button type="button" data-action="parcel-replace" data-id="${esc(o.id)}">Exchange</button>
+      </div>` : ''}
+    <div id="nearya-error" role="alert" class="form-error"></div>
+  `, null);
+}
+
+async function parcelAction(orderId, path, body, done) {
+  try {
+    const r = await api(`/api/shipments/${encodeURIComponent(orderId)}/${path}`, 'POST', body || {});
+    if (r.shipment) shipmentList = [r.shipment, ...(shipmentList || []).filter(x => x.orderId !== orderId)];
+    await loadShipments();
+    done(r);
+  } catch (err) {
+    const box = $('#nearya-error');
+    if (box) box.textContent = err.message; else toast(err.message);
+  }
+}
+
+function openNewRecipient(orderId) {
+  const o = db.orders.find(x => x.id === orderId);
+  const s = shipmentFor(orderId);
+  if (!o || !s) return;
+  modal(`Send ${esc(s.trackingNumber)} to a new customer`, `
+    <p class="info">The parcel goes to another customer instead (for example after a refusal). Nearya relaunches it with the new details.</p>
+    <div class="form-grid">
+      <label>Customer name<input name="recipient" required></label>
+      <label>Phone<input name="phone" required></label>
+      <label>City<input name="city" required></label>
+      <label>Nearya region<select name="regionId" required><option value="">Enter the city first</option></select></label>
+      <label class="full">Address<input name="address" required></label>
+      <label>Cash to collect (MAD)<input name="price" type="number" min="0" value="${Number(o.amount) || 0}"></label>
+      <label>Comment<input name="comment" maxlength="200"></label>
+    </div>
+    <div id="nearya-error" role="alert" class="form-error"></div>
+  `, 'Send to new customer', f => {
+    parcelAction(orderId, 'new-recipient', {
+      recipient: f.get('recipient'), phone: f.get('phone'), address: f.get('address'), regionId: f.get('regionId'),
+      price: f.get('price'), comment: f.get('comment')
+    }, () => { $('#modal').close(); render(); toast(`${o.id} sent to ${f.get('recipient')}`); });
+    return false;
+  });
+  const form = $('#dialog-form');
+  form.city.onchange = () => fillRegionSelect(form.regionId, s.carrierId, form.city.value);
+}
+
 function openDispatchDialog(id) {
   const o = db.orders.find(x => x.id === id);
   if (!o || !checkAction('shipping', 'Dispatch order')) return;
@@ -1667,6 +1907,10 @@ function openDispatchDialog(id) {
         <select name="carrierId">${options.map(c => `<option value="${esc(c.id)}" data-kind="${c.kind}" ${c.name === o.carrier ? 'selected' : ''}>${esc(c.name)}${c.kind === 'manual' ? ' (manual)' : ''}</option>`).join('')}</select>
       </label>
       <label class="full manual-only">Tracking number from the carrier<input name="trackingNumber" maxlength="80" placeholder="e.g. AMX-2026-00123"></label>
+      <label class="full nearya-only">Nearya delivery region for ${esc(o.city || 'this city')}
+        <select name="regionId"><option value="">Loading regions…</option></select>
+      </label>
+      <label class="full checkline nearya-only"><input type="checkbox" name="rememberRegion" checked> Use this region for every order to ${esc(o.city || 'this city')}</label>
     </div>
     <div id="dispatch-error" role="alert" class="form-error"></div>
   `, 'Send to carrier', f => {
@@ -1677,7 +1921,9 @@ function openDispatchDialog(id) {
       orderId: o.id,
       carrierId: f.get('carrierId'),
       trackingNumber: f.get('trackingNumber') || '',
-      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, quantity: o.quantity, productName: p?.name || '', date: o.date, note: (o.notes || []).slice(-1)[0]?.text || '' }
+      regionId: f.get('regionId') || '',
+      rememberRegion: f.get('rememberRegion') === 'on',
+      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, quantity: o.quantity, product: o.product, productName: p?.name || '', sku: p?.sku || '', date: o.date }
     }).then(({ shipment: s }) => {
       $('#modal').close();
       o.carrier = s.carrierName;
@@ -1698,7 +1944,9 @@ function openDispatchDialog(id) {
   const syncKind = () => {
     const kind = form.carrierId.selectedOptions[0]?.dataset.kind;
     form.querySelector('.manual-only').style.display = kind === 'manual' ? '' : 'none';
+    form.querySelectorAll('.nearya-only').forEach(el => { el.style.display = kind === 'nearya' ? '' : 'none'; });
     $('#dialog-form button.primary').textContent = kind === 'manual' ? 'Record dispatch' : 'Send to carrier';
+    if (kind === 'nearya') fillRegionSelect(form.regionId, form.carrierId.value, o.city);
   };
   form.carrierId.onchange = syncKind;
   syncKind();
@@ -3963,14 +4211,7 @@ function changeStatus(o, next) {
     }
   }
   o.status = next;
-  log(`${o.id} moved to ${next}`);
-
-  // Sync with backend API (Supabase)
-  fetch(`/api/orders/${o.id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: next, stock_deducted: o.stockDeducted })
-  }).catch(() => {});
+  log(`${o.id} moved to ${next}`); // log() saves; the server sync sends the change
 }
 
 // Upgraded Order Dialog with Customer Trust, Duplicate Merge, WhatsApp, and Waybill
@@ -5543,6 +5784,26 @@ const actions = {
     toast(n ? `${n} order(s) updated by carriers` : polled?.errors?.length ? `No changes · ${polled.errors.length} carrier error(s): ${polled.errors[0]}` : 'Everything is up to date');
   },
   'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
+  'nearya-regions': openNearyaRegions,
+  'nearya-pickup': id => { if (checkAction('shipping', 'Request pickup')) openNearyaPickup(id); },
+  'nearya-stock': openNearyaStock,
+  parcel: openParcel,
+  'parcel-refresh': id => parcelAction(id, 'refresh', {}, r => {
+    openParcel(id);
+    render();
+    toast(r.changed ? `${id} is now ${r.shipment.status}` : `Nearya: ${r.shipment.carrierStatus || 'no change'}`);
+  }),
+  'parcel-relaunch': id => {
+    if (!confirm('Ask Nearya to deliver this parcel again?')) return;
+    parcelAction(id, 'relaunch', {}, () => { $('#modal').close(); render(); toast(`${id} relaunched`); });
+  },
+  'parcel-new-recipient': openNewRecipient,
+  'parcel-replace': id => {
+    const o = db.orders.find(x => x.id === id);
+    if (!o || !confirm(`Create an exchange parcel for ${o.customer}? The courier delivers the new item and collects the old one.`)) return;
+    parcelAction(id, 'replace', { order: { customer: o.customer, phone: o.phone, city: o.city, address: o.address }, price: 0, comment: 'Échange' },
+      r => { openParcel(id); toast(`Exchange parcel ${r.replacement.trackingCode} created`); });
+  },
   'edit-carrier': id => { const c = (carrierList || []).find(x => x.id === id); if (c && checkAction('integrations', 'Edit carrier')) openCarrierDialog(c); },
   'toggle-carrier': id => {
     const c = (carrierList || []).find(x => x.id === id);

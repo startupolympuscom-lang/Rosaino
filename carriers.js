@@ -15,6 +15,7 @@
 // where the tracking number/status are found in responses.
 import crypto from 'crypto';
 import { getStore, requireAuth, audit } from './auth.js';
+import { createClient as nearyaClientFor, matchRegion, inventoryCount, NEARYA_BASE_URL } from './nearya.js';
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS public.carriers (
@@ -287,6 +288,218 @@ function publicCarrier(c, req) {
   };
 }
 
+// Nearya Express has a fixed API, so it only needs credentials and a few choices.
+function cleanNearyaConfig(input = {}) {
+  const regionMap = typeof input.regionMap === 'object' && input.regionMap && !Array.isArray(input.regionMap) ? input.regionMap : {};
+  return {
+    baseUrl: String(input.baseUrl || NEARYA_BASE_URL).trim(),
+    clientId: String(input.clientId || '').trim().slice(0, 120),
+    businessId: String(input.businessId || '').trim().slice(0, 120),
+    parcelType: input.parcelType === 'store' ? 'store' : 'simple',
+    stockRegion: String(input.stockRegion || '').trim().slice(0, 60),
+    autoDispatch: !!input.autoDispatch,
+    pickupAddress: String(input.pickupAddress || '').trim().slice(0, 300),
+    pickupPhone: String(input.pickupPhone || '').trim().slice(0, 30),
+    regionMap: Object.fromEntries(Object.entries(regionMap).slice(0, 500).map(([k, v]) => [String(k).slice(0, 80), String(v).slice(0, 60)])),
+    trackingUrl: /^https:\/\//i.test(String(input.trackingUrl || '').trim()) ? String(input.trackingUrl).trim() : ''
+  };
+}
+
+const KINDS = ['api', 'manual', 'nearya'];
+const kindOf = k => (KINDS.includes(k) ? k : 'api');
+const configFor = (kind, input) => (kind === 'nearya' ? cleanNearyaConfig(input) : cleanConfig(input));
+
+function validateCarrier(c, apiKey) {
+  if (c.kind === 'api') {
+    const err = validateBaseUrl(c.config.baseUrl);
+    if (err) return err;
+  }
+  if (c.kind === 'nearya') {
+    const err = validateBaseUrl(c.config.baseUrl);
+    if (err) return err;
+    if (!c.config.clientId) return 'Enter your Nearya Client ID (x-api-id).';
+    if (!c.config.businessId) return 'Enter your Nearya Business ID.';
+  }
+  if (c.kind !== 'manual' && !apiKey && !c.apiKeyEnc) return 'Paste the API key from your carrier account.';
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Nearya Express
+// ---------------------------------------------------------------------------
+function nearya(c) {
+  const apiKey = decrypt(c.apiKeyEnc);
+  if (apiKey === null) throw fail(400, 'The saved API key can no longer be read (AUTH_SECRET changed). Re-enter it.');
+  return nearyaClientFor({ baseUrl: c.config.baseUrl, clientId: c.config.clientId, apiKey, businessId: c.config.businessId });
+}
+
+const regionCache = new Map(); // carrierId -> { at, list }
+async function nearyaRegions(c, { fresh = false } = {}) {
+  const hit = regionCache.get(c.id);
+  if (!fresh && hit && Date.now() - hit.at < 60 * 60 * 1000) return hit.list;
+  const list = await nearya(c).regions();
+  regionCache.set(c.id, { at: Date.now(), list });
+  return list;
+}
+
+// Turn a Nearya error into one the portal shows as-is.
+const asFail = err => (err.expose ? err : fail(502, err.message));
+
+// Send one order to a carrier. Returns the new shipment.
+// order: { id, customer, phone, city, address, amount, quantity, productName, sku, note, date }
+async function dispatchToCarrier(c, order, { trackingNumber = '', regionId = '' } = {}) {
+  let carrierStatus = 'Dispatched';
+  let parcelId = '';
+  let regionName = '';
+  if (c.kind === 'nearya') {
+    const regions = await nearyaRegions(c).catch(err => { throw asFail(err); });
+    const region = regionId ? regions.find(r => r.id === String(regionId)) : matchRegion(regions, order.city, c.config.regionMap);
+    if (!region) throw Object.assign(fail(400, `Choose the Nearya region for "${order.city || 'this city'}".`), { needsRegion: true });
+    regionName = region.name;
+    const parcel = {
+      orderId: order.id,
+      regionId: region.id,
+      recipient: order.customer,
+      address: order.address,
+      phone: order.phone,
+      price: Number(order.amount) || 0,
+      comment: [order.quantity && order.productName ? `${order.quantity} × ${order.productName}` : '', order.note].filter(Boolean).join(' · ').slice(0, 250)
+    };
+    let ref;
+    try {
+      if (c.config.parcelType === 'store') {
+        if (!order.sku) throw fail(400, 'This product has no SKU, which Nearya needs to ship from your stock. Add the SKU in Products, or use simple parcels.');
+        ref = await nearya(c).createStore({ ...parcel, items: [{ sku: order.sku, quantity: Number(order.quantity) || 1 }] });
+      } else {
+        ref = await nearya(c).createSimple(parcel);
+      }
+    } catch (err) {
+      throw asFail(err);
+    }
+    trackingNumber = ref.trackingCode;
+    parcelId = ref.parcelId;
+    carrierStatus = 'Created';
+  } else if (c.kind === 'api') {
+    let r;
+    try {
+      r = await callCarrier(c, 'POST', c.config.createPath || '/shipments', { payload: shipmentPayload(c, order) });
+    } catch (err) {
+      throw fail(502, `${c.name} could not be reached: ${err.message}`);
+    }
+    if (!r.ok) {
+      const detail = typeof r.data === 'object' ? (r.data.message || r.data.error || JSON.stringify(r.data)) : String(r.data);
+      throw fail(502, `${c.name} refused the shipment (HTTP ${r.status}): ${String(detail).slice(0, 160)}`);
+    }
+    trackingNumber = String(findValue(r.data, c.config.trackingField, TRACKING_KEYS) ?? '').trim();
+    if (!trackingNumber) throw fail(502, `${c.name} accepted the shipment but returned no tracking number. Set "Tracking number field" in the carrier settings.`);
+    carrierStatus = String(findValue(r.data, c.config.statusField, STATUS_KEYS) ?? 'Created');
+  } else if (!trackingNumber) {
+    throw fail(400, 'Enter the tracking number given by the carrier.');
+  }
+
+  const source = c.kind === 'manual' ? 'manual' : 'api';
+  const shipment = {
+    orderId: order.id, carrierId: c.id, carrierName: c.name, trackingNumber, status: 'In transit', carrierStatus,
+    events: [{ at: new Date().toISOString(), raw: carrierStatus, status: 'In transit', source }],
+    snapshot: {
+      customer: maskName(order.customer), city: order.city || '', productName: order.productName || '',
+      amount: Number(order.amount) || 0, quantity: Number(order.quantity) || 1, date: order.date || new Date().toISOString().slice(0, 10),
+      trackingUrl: c.config.trackingUrl ? c.config.trackingUrl.replace('{tracking}', encodeURIComponent(trackingNumber)) : '',
+      ...(parcelId ? { parcelId } : {}),
+      ...(regionName ? { region: regionName } : {})
+    },
+    createdAt: new Date().toISOString()
+  };
+  await repo.saveShipment(shipment);
+  if (hooks.onStatus) await hooks.onStatus(shipment);
+  return shipment;
+}
+
+// Latest status from the carrier for one shipment (Nearya or a configured API).
+async function pollShipment(c, s) {
+  if (c.kind === 'nearya') {
+    // Nearya's docs call it the parcel identifier: try the tracking code, then its internal id.
+    const ids = [...new Set([s.trackingNumber, s.snapshot?.parcelId].filter(Boolean))];
+    for (const [i, id] of ids.entries()) {
+      try {
+        return (await nearya(c).status(id)).status;
+      } catch (err) {
+        if (err.status !== 404 || i === ids.length - 1) throw err;
+      }
+    }
+  }
+  if (c.kind === 'api' && c.config.statusPath) {
+    const r = await callCarrier(c, 'GET', c.config.statusPath, { tracking: s.trackingNumber });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return findValue(r.data, c.config.statusField, STATUS_KEYS);
+  }
+  return undefined;
+}
+
+async function refreshShipment(c, s) {
+  const raw = await pollShipment(c, s);
+  s.checkedAt = new Date().toISOString();
+  if (raw != null && String(raw) !== s.carrierStatus) {
+    return applyCarrierStatus(s, raw, 'sync', c.config.statusMap, hooks.onStatus);
+  }
+  await repo.saveShipment(s);
+  return { mapped: null, changed: false };
+}
+
+// Re-open a parcel (relaunch / new recipient): it is on its way again.
+async function reopenShipment(s, raw, onStatus) {
+  s.events = [...(s.events || []), { at: new Date().toISOString(), raw, status: 'In transit', source: 'portal' }].slice(-50);
+  s.carrierStatus = raw;
+  const wasClosed = s.status !== 'In transit';
+  s.status = 'In transit';
+  await repo.saveShipment(s);
+  if (wasClosed && onStatus) await onStatus(s);
+}
+
+const hooks = { onStatus: null, getProduct: null };
+
+// Only one carrier receives confirmed orders automatically.
+async function clearOtherAutoDispatch(keepId) {
+  for (const other of await repo.listCarriers()) {
+    if (other.id !== keepId && other.config?.autoDispatch) {
+      other.config = { ...other.config, autoDispatch: false };
+      await repo.saveCarrier(other);
+    }
+  }
+}
+
+/**
+ * When an order is confirmed: send it to the carrier set to receive confirmed
+ * orders automatically, if there is one. Returns the shipment, or null.
+ */
+export async function autoDispatchOrder(order) {
+  const c = (await repo.listCarriers()).find(x => x.active !== false && x.config?.autoDispatch);
+  if (!c || await repo.getShipment(String(order.id))) return null;
+  const product = hooks.getProduct ? await hooks.getProduct(order.product) : null;
+  return dispatchToCarrier(c, {
+    ...order,
+    id: String(order.id),
+    productName: product?.name || order.productName || '',
+    sku: product?.sku || order.sku || '',
+    note: Array.isArray(order.notes) ? '' : (order.note || '')
+  });
+}
+
+/**
+ * The customer tracking page asks the carrier for news, at most every 10 minutes per parcel.
+ */
+export async function refreshForTracking(shipment) {
+  if (!shipment || shipment.status !== 'In transit') return shipment;
+  if (shipment.checkedAt && Date.now() - new Date(shipment.checkedAt) < 10 * 60 * 1000) return shipment;
+  try {
+    const c = await repo.getCarrier(shipment.carrierId);
+    if (c && c.active !== false && c.kind !== 'manual') await refreshShipment(c, shipment);
+  } catch (err) {
+    console.warn('[carriers] tracking refresh failed:', err.message);
+  }
+  return shipment;
+}
+
 function cleanConfig(input = {}) {
   const fieldMap = typeof input.fieldMap === 'string' && input.fieldMap.trim() ? JSON.parse(input.fieldMap) : (input.fieldMap || {});
   const statusMap = typeof input.statusMap === 'string' && input.statusMap.trim() ? JSON.parse(input.statusMap) : (input.statusMap || {});
@@ -311,7 +524,10 @@ const wrap = fn => async (req, res) => {
     await fn(req, res);
   } catch (err) {
     console.error('[carriers]', err.message);
-    res.status(err.status || 500).json({ error: err.expose ? err.message : 'Something went wrong. Please try again.' });
+    res.status(err.status || 500).json({
+      error: err.expose ? err.message : 'Something went wrong. Please try again.',
+      ...(err.needsRegion ? { needsRegion: true } : {})
+    });
   }
 };
 const fail = (status, message) => Object.assign(new Error(message), { status, expose: true });
@@ -321,7 +537,10 @@ const fail = (status, message) => Object.assign(new Error(message), { status, ex
  * onStatus(shipment) is called when a carrier moves a shipment to a new status,
  * so server.js can update the order everywhere else.
  */
-export function registerCarrierRoutes(app, { onStatus } = {}) {
+export function registerCarrierRoutes(app, { onStatus, getProduct } = {}) {
+  hooks.onStatus = onStatus;
+  hooks.getProduct = getProduct;
+
   // --- Carriers --------------------------------------------------------------
   app.get('/api/carriers', requireAuth('shipping', 'integrations'), wrap(async (req, res) => {
     res.json((await repo.listCarriers()).map(c => publicCarrier(c, req)));
@@ -331,21 +550,19 @@ export function registerCarrierRoutes(app, { onStatus } = {}) {
     const b = req.body || {};
     const name = String(b.name || '').trim().slice(0, 60);
     if (!name) throw fail(400, 'Carrier name is required.');
-    const kind = b.kind === 'manual' ? 'manual' : 'api';
+    const kind = kindOf(b.kind);
     let config;
-    try { config = cleanConfig(b.config); } catch { throw fail(400, 'Field names and status mapping must be valid JSON.'); }
-    if (kind === 'api') {
-      const err = validateBaseUrl(config.baseUrl);
-      if (err) throw fail(400, err);
-      if (!String(b.apiKey || '').trim()) throw fail(400, 'Paste the API key from your carrier account.');
-    }
-    if ((await repo.listCarriers()).some(c => c.name.toLowerCase() === name.toLowerCase())) throw fail(409, 'A carrier with this name already exists.');
+    try { config = configFor(kind, b.config); } catch { throw fail(400, 'Field names and status mapping must be valid JSON.'); }
     const key = String(b.apiKey || '').trim();
+    const invalid = validateCarrier({ kind, config }, key);
+    if (invalid) throw fail(400, invalid);
+    if ((await repo.listCarriers()).some(c => c.name.toLowerCase() === name.toLowerCase())) throw fail(409, 'A carrier with this name already exists.');
     const c = {
       id: 'car_' + crypto.randomBytes(5).toString('hex'), name, kind, config,
       apiKeyEnc: key ? encrypt(key) : null, keyHint: key ? '••••' + key.slice(-4) : '',
       webhookToken: crypto.randomBytes(18).toString('base64url'), active: true, createdAt: new Date().toISOString()
     };
+    if (config.autoDispatch) await clearOtherAutoDispatch(c.id);
     await repo.saveCarrier(c);
     await audit(req.user, 'carrier.added', name, req);
     res.status(201).json({ success: true, carrier: publicCarrier(c, req) });
@@ -361,14 +578,16 @@ export function registerCarrierRoutes(app, { onStatus } = {}) {
       c.name = name;
     }
     if (b.active !== undefined) c.active = !!b.active;
-    if (b.kind !== undefined) c.kind = b.kind === 'manual' ? 'manual' : 'api';
+    if (b.kind !== undefined) c.kind = kindOf(b.kind);
     if (b.config !== undefined) {
-      try { c.config = cleanConfig(b.config); } catch { throw fail(400, 'Field names and status mapping must be valid JSON.'); }
+      // Nearya: keep saved settings (e.g. city → region choices) not sent in this edit.
+      const merged = c.kind === 'nearya' ? { ...c.config, ...b.config } : b.config;
+      try { c.config = configFor(c.kind, merged); } catch { throw fail(400, 'Field names and status mapping must be valid JSON.'); }
     }
-    if (c.kind === 'api') {
-      const err = validateBaseUrl(c.config.baseUrl);
-      if (err) throw fail(400, err);
-    }
+    const invalid = validateCarrier(c, String(b.apiKey || '').trim());
+    if (invalid) throw fail(400, invalid);
+    if (c.config.autoDispatch) await clearOtherAutoDispatch(c.id);
+    regionCache.delete(c.id);
     if (String(b.apiKey || '').trim()) {
       const key = String(b.apiKey).trim();
       c.apiKeyEnc = encrypt(key);
@@ -393,6 +612,20 @@ export function registerCarrierRoutes(app, { onStatus } = {}) {
     const c = await repo.getCarrier(req.params.id);
     if (!c) throw fail(404, 'Carrier not found.');
     if (c.kind === 'manual') return res.json({ ok: true, message: 'Manual carrier: no API to test. Tracking numbers are entered when dispatching.' });
+    if (c.kind === 'nearya') {
+      try {
+        const regions = await nearyaRegions(c, { fresh: true });
+        // The status endpoint needs valid credentials; an unknown parcel is fine.
+        try {
+          await nearya(c).status('ROSAINO-TEST');
+        } catch (err) {
+          if (err.status === 401 || err.status === 403) return res.json({ ok: false, httpStatus: err.status, message: err.message });
+        }
+        return res.json({ ok: true, regions: regions.length, message: `Connected to Nearya · ${regions.length} delivery regions available.` });
+      } catch (err) {
+        return res.json({ ok: false, httpStatus: err.status, message: err.message });
+      }
+    }
     try {
       const r = await callCarrier(c, 'GET', c.config.statusPath || '', { tracking: 'ROSAINO-TEST' });
       if (r.status === 401 || r.status === 403) return res.json({ ok: false, httpStatus: r.status, message: 'The carrier rejected the API key. Check it was copied completely.' });
@@ -418,39 +651,16 @@ export function registerCarrierRoutes(app, { onStatus } = {}) {
     }
     const c = await repo.getCarrier(String(b.carrierId || ''));
     if (!c || c.active === false) throw fail(400, 'Choose an active carrier.');
-
-    let trackingNumber = String(b.trackingNumber || '').trim().slice(0, 80);
-    let carrierStatus = 'Dispatched';
-    if (c.kind === 'api') {
-      let r;
-      try {
-        r = await callCarrier(c, 'POST', c.config.createPath || '/shipments', { payload: shipmentPayload(c, { ...order, id: orderId }) });
-      } catch (err) {
-        throw fail(502, `${c.name} could not be reached: ${err.message}`);
-      }
-      if (!r.ok) {
-        const detail = typeof r.data === 'object' ? (r.data.message || r.data.error || JSON.stringify(r.data)) : String(r.data);
-        throw fail(502, `${c.name} refused the shipment (HTTP ${r.status}): ${String(detail).slice(0, 160)}`);
-      }
-      trackingNumber = String(findValue(r.data, c.config.trackingField, TRACKING_KEYS) ?? '').trim();
-      if (!trackingNumber) throw fail(502, `${c.name} accepted the shipment but returned no tracking number. Set "Tracking number field" in the carrier settings.`);
-      carrierStatus = String(findValue(r.data, c.config.statusField, STATUS_KEYS) ?? 'Created');
-    } else if (!trackingNumber) {
-      throw fail(400, 'Enter the tracking number given by the carrier.');
+    if (c.kind === 'nearya' && b.regionId && b.rememberRegion && order.city) {
+      c.config.regionMap = { ...(c.config.regionMap || {}), [String(order.city)]: String(b.regionId) };
+      await repo.saveCarrier(c);
     }
-
-    const shipment = {
-      orderId, carrierId: c.id, carrierName: c.name, trackingNumber, status: 'In transit', carrierStatus,
-      events: [{ at: new Date().toISOString(), raw: carrierStatus, status: 'In transit', source: c.kind === 'api' ? 'api' : 'manual' }],
-      snapshot: {
-        customer: maskName(order.customer), city: order.city || '', productName: order.productName || '',
-        amount: Number(order.amount) || 0, quantity: Number(order.quantity) || 1, date: order.date || new Date().toISOString().slice(0, 10),
-        trackingUrl: c.config.trackingUrl ? c.config.trackingUrl.replace('{tracking}', encodeURIComponent(trackingNumber)) : ''
-      },
-      createdAt: new Date().toISOString()
-    };
-    await repo.saveShipment(shipment);
-    if (onStatus) await onStatus(shipment);
+    const product = hooks.getProduct && order.product ? await hooks.getProduct(order.product) : null;
+    const shipment = await dispatchToCarrier(c, { ...order, id: orderId, sku: order.sku || product?.sku || '' }, {
+      trackingNumber: String(b.trackingNumber || '').trim().slice(0, 80),
+      regionId: String(b.regionId || '')
+    });
+    const trackingNumber = shipment.trackingNumber;
     await audit(req.user, 'shipment.dispatched', `${orderId} → ${c.name} (${trackingNumber})`, req);
     res.status(201).json({ success: true, shipment });
   }));
@@ -462,16 +672,11 @@ export function registerCarrierRoutes(app, { onStatus } = {}) {
     const results = { checked: 0, updated: 0, errors: [] };
     for (const s of open) {
       const c = carriers.get(s.carrierId);
-      if (!c || c.kind !== 'api' || !c.config.statusPath) continue;
+      if (!c || c.kind === 'manual' || (c.kind === 'api' && !c.config.statusPath)) continue;
       results.checked++;
       try {
-        const r = await callCarrier(c, 'GET', c.config.statusPath, { tracking: s.trackingNumber });
-        if (!r.ok) { results.errors.push(`${s.orderId}: HTTP ${r.status}`); continue; }
-        const raw = findValue(r.data, c.config.statusField, STATUS_KEYS);
-        if (raw != null && String(raw) !== s.carrierStatus) {
-          const { changed } = await applyCarrierStatus(s, raw, 'sync', c.config.statusMap, onStatus);
-          if (changed) results.updated++;
-        }
+        const { changed } = await refreshShipment(c, s);
+        if (changed) results.updated++;
       } catch (err) {
         results.errors.push(`${s.orderId}: ${err.message}`);
       }
@@ -488,6 +693,109 @@ export function registerCarrierRoutes(app, { onStatus } = {}) {
     await applyCarrierStatus(s, status, 'manual', {}, onStatus);
     await audit(req.user, 'shipment.status', `${s.orderId}: ${status}`, req);
     res.json({ success: true, shipment: s });
+  }));
+
+  // --- Nearya Express ----------------------------------------------------------
+  const nearyaCarrier = async id => {
+    const c = await repo.getCarrier(id);
+    if (!c || c.kind !== 'nearya') throw fail(404, 'Nearya carrier not found.');
+    return c;
+  };
+  const nearyaShipment = async orderId => {
+    const s = await repo.getShipment(orderId);
+    if (!s) throw fail(404, 'No shipment for this order.');
+    const c = await repo.getCarrier(s.carrierId);
+    if (!c || c.kind !== 'nearya') throw fail(400, 'This parcel was not sent with Nearya.');
+    return { s, c };
+  };
+  const call = async fn => { try { return await fn(); } catch (err) { throw asFail(err); } };
+
+  // Delivery regions (cities) and the saved city → region choices.
+  app.get('/api/carriers/:id/regions', requireAuth('shipping', 'integrations'), wrap(async (req, res) => {
+    const c = await nearyaCarrier(req.params.id);
+    const regions = await call(() => nearyaRegions(c, { fresh: req.query.fresh === '1' }));
+    const city = String(req.query.city || '');
+    res.json({ regions, match: city ? matchRegion(regions, city, c.config.regionMap)?.id || null : null, regionMap: c.config.regionMap || {} });
+  }));
+
+  // Ask Nearya to come and collect the parcels.
+  app.post('/api/carriers/:id/pickup', requireAuth('shipping'), wrap(async (req, res) => {
+    const c = await nearyaCarrier(req.params.id);
+    const b = req.body || {};
+    const clientAddress = String(b.clientAddress || c.config.pickupAddress || '').trim();
+    const clientPhone = String(b.clientPhone || c.config.pickupPhone || '').trim();
+    if (!clientAddress || !clientPhone) throw fail(400, 'Enter the pickup address and phone number.');
+    const reply = await call(() => nearya(c).pickup({
+      type: b.type === 'store' ? 'store' : (b.type === 'simple' ? 'simple' : c.config.parcelType),
+      pickup: b.pickup !== false, clientAddress, clientPhone, ticket: !!b.ticket
+    }));
+    await audit(req.user, 'carrier.pickup', `${c.name} · ${clientAddress}`, req);
+    res.json({ success: true, reply });
+  }));
+
+  // Stock held by Nearya, by product SKU (variant) or product name.
+  app.get('/api/carriers/:id/inventory', requireAuth('shipping', 'products'), wrap(async (req, res) => {
+    const c = await nearyaCarrier(req.params.id);
+    const region = String(req.query.region || c.config.stockRegion || '');
+    const sku = String(req.query.sku || '').trim();
+    const name = String(req.query.name || '').trim();
+    if (!sku && !name) throw fail(400, 'Give a SKU or a product name.');
+    const reply = await call(() => (sku ? nearya(c).variantInventory(sku, region) : nearya(c).productInventory(name, region)));
+    res.json({ quantity: inventoryCount(reply), reply });
+  }));
+
+  // One parcel: latest status now.
+  app.post('/api/shipments/:orderId/refresh', requireAuth('shipping', 'orders'), wrap(async (req, res) => {
+    const s = await repo.getShipment(req.params.orderId);
+    if (!s) throw fail(404, 'No shipment for this order.');
+    const c = await repo.getCarrier(s.carrierId);
+    if (!c || c.kind === 'manual') throw fail(400, 'This carrier has no status API.');
+    const result = await call(() => refreshShipment(c, s));
+    res.json({ success: true, shipment: s, ...result });
+  }));
+
+  // Relaunch a parcel (e.g. after a failed delivery).
+  app.post('/api/shipments/:orderId/relaunch', requireAuth('shipping'), wrap(async (req, res) => {
+    const { s, c } = await nearyaShipment(req.params.orderId);
+    await call(() => nearya(c).restart(s.trackingNumber));
+    await reopenShipment(s, 'Relancé', hooks.onStatus);
+    await audit(req.user, 'shipment.relaunched', `${s.orderId} (${s.trackingNumber})`, req);
+    res.json({ success: true, shipment: s });
+  }));
+
+  // Send the parcel to a new customer instead.
+  app.post('/api/shipments/:orderId/new-recipient', requireAuth('shipping'), wrap(async (req, res) => {
+    const { s, c } = await nearyaShipment(req.params.orderId);
+    const b = req.body || {};
+    for (const [k, label] of [['recipient', 'name'], ['phone', 'phone'], ['address', 'address'], ['regionId', 'region']]) {
+      if (!String(b[k] || '').trim()) throw fail(400, `Enter the new customer's ${label}.`);
+    }
+    const r = await call(() => nearya(c).newRecipient(s.trackingNumber, {
+      regionId: b.regionId, recipient: b.recipient, address: b.address, phone: b.phone, comment: b.comment, price: Number(b.price) || 0
+    }));
+    if (r.trackingCode && r.trackingCode !== s.trackingNumber) s.trackingNumber = r.trackingCode;
+    s.snapshot = { ...s.snapshot, customer: maskName(b.recipient), amount: Number(b.price) || 0 };
+    await reopenShipment(s, `Nouveau destinataire: ${String(b.recipient).slice(0, 40)}`, hooks.onStatus);
+    await audit(req.user, 'shipment.new_recipient', `${s.orderId} → ${String(b.recipient).slice(0, 40)}`, req);
+    res.json({ success: true, shipment: s });
+  }));
+
+  // Exchange: a replacement parcel for the same customer.
+  app.post('/api/shipments/:orderId/replace', requireAuth('shipping'), wrap(async (req, res) => {
+    const { s, c } = await nearyaShipment(req.params.orderId);
+    const order = req.body?.order || {};
+    const regions = await call(() => nearyaRegions(c));
+    const region = req.body?.regionId ? regions.find(r => r.id === String(req.body.regionId)) : matchRegion(regions, order.city, c.config.regionMap);
+    if (!region) throw Object.assign(fail(400, `Choose the Nearya region for "${order.city || 'this city'}".`), { needsRegion: true });
+    const ref = await call(() => nearya(c).replace(s.trackingNumber, {
+      orderId: s.orderId, regionId: region.id, recipient: order.customer, address: order.address, phone: order.phone,
+      price: Number(req.body?.price ?? 0) || 0, comment: String(req.body?.comment || 'Échange').slice(0, 250)
+    }));
+    s.events = [...(s.events || []), { at: new Date().toISOString(), raw: `Échange: nouveau colis ${ref.trackingCode}`, status: s.status, source: 'portal' }].slice(-50);
+    s.snapshot = { ...s.snapshot, replacements: [...(s.snapshot?.replacements || []), { trackingCode: ref.trackingCode, at: new Date().toISOString() }] };
+    await repo.saveShipment(s);
+    await audit(req.user, 'shipment.replaced', `${s.orderId} → ${ref.trackingCode}`, req);
+    res.json({ success: true, shipment: s, replacement: ref });
   }));
 
   // --- Carrier webhook (public; authenticated by the secret in the URL) ------

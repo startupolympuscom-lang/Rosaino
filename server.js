@@ -5,7 +5,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, getStore } from './auth.js';
 import { emailConfigured, sendContactNotification } from './mailer.js';
-import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers } from './carriers.js';
+import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers, autoDispatchOrder, refreshForTracking } from './carriers.js';
 import { registerCallRoutes } from './calls.js';
 import { loadCollections, saveRecords, getRecord, updateRecord, dataDb, seedIfEmpty, databaseHealth, describeDbError } from './data-store.js';
 
@@ -412,6 +412,21 @@ app.patch('/api/orders/:id', requireAuth('orders', 'calls', 'shipping'), async (
   if (from !== changed.order.status) {
     await audit(req.user, 'order.status', `${id}: ${from} → ${changed.order.status}`, req);
   }
+  // Confirmed orders go straight to the carrier set to receive them automatically.
+  if (changed.order.status === 'Confirmed' && from !== 'Confirmed') {
+    try {
+      const shipment = await autoDispatchOrder(changed.order);
+      if (shipment) {
+        await audit(req.user, 'shipment.dispatched', `${id} → ${shipment.carrierName} (${shipment.trackingNumber}) · automatic`, req);
+        const order = memoryOrders.find(o => String(o.id) === String(id)) || changed.order;
+        return res.json({ success: true, order, product: changed.product, shipment });
+      }
+    } catch (err) {
+      const why = err.message || 'unknown error';
+      const noted = await changeOrder(id, o => { o.notes = [...(o.notes || []), `Not sent to the carrier automatically: ${why}`]; });
+      return res.json({ success: true, ...(noted || changed), dispatchError: why });
+    }
+  }
   return res.json({ success: true, ...changed });
 });
 
@@ -442,6 +457,11 @@ registerCarrierRoutes(app, {
       o.carrier = shipment.carrierName;
       o.trackingNumber = shipment.trackingNumber;
     });
+  },
+  // Carrier routes don't preload data; read the product fresh (for its SKU).
+  async getProduct(id) {
+    await syncFromDb();
+    return memoryProducts.find(p => String(p.id) === String(id)) || null;
   }
 });
 
@@ -540,7 +560,8 @@ app.get('/api/track/:query', async (req, res) => {
   );
   // Carrier shipments are stored in the database, so they can be found by
   // order number or tracking number even when the order isn't in memory.
-  const shipment = await findShipmentForTracking(order ? order.id : query);
+  // Carrier shipments are looked up, and refreshed from the carrier if stale.
+  const shipment = await refreshForTracking(await findShipmentForTracking(order ? order.id : query));
 
   if (!order && !shipment) {
     return res.status(404).json({ error: 'Order not found' });
