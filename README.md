@@ -49,6 +49,17 @@ In the portal, **Carriers** lets an admin add each delivery company: choose it f
 - API keys are encrypted with `AUTH_SECRET` and never sent to browsers. Carriers and shipments are stored in Supabase Postgres (`carriers`, `shipments` tables, created automatically) when `DATABASE_URL` is set. Changing `AUTH_SECRET` later means re-entering carrier keys.
 - Every carrier's API is different, so connection details (paths, how the key is sent, JSON or form body, field names, where the tracking number and status are in replies) are adjustable under *Connection details*.
 
+### Nearya Express
+
+Nearya has a built-in connector using its API (`https://nearya.express`). In **Carriers → + Add carrier**, choose *Nearya Express* and enter your **Client ID** (`x-api-id`), **API key** (`x-api-key`) and **Business ID** (`company`) from your Nearya account, then click **Test connection**.
+
+- **Confirmation → parcel:** tick *Send orders to Nearya as soon as an agent confirms them* and every order confirmed in the call center or order list becomes a Nearya parcel immediately (`/api/parcelTrash/v1/simple`, or `/v1/store` with the product SKU when *Parcels* is set to *Stock*). Otherwise use **Dispatch** on the Shipping page. If a parcel can't be created (e.g. unknown city), the order stays confirmed with a note explaining why.
+- **Cities:** Nearya delivers by region (`/api/region`). Cities are matched by name; set any missing ones once in **Cities & regions** (or in the dispatch dialog).
+- **Tracking:** *Check carrier updates* on Shipping, the parcel view's *Check status now*, and the customer tracking page read `/api/docParcelStatus/v1` (the tracking page at most every 10 minutes per parcel). *Livré* marks the order delivered, *Retourné / Refusé* returned.
+- **Parcel view** (Shipping → *Parcel*): history, *Relaunch delivery* (`/api/parcel/v1/restart`), *Send to a new customer* (`/api/parcel/v1/address`), *Exchange* (`/api/parcelTrash/v1/replace`).
+- **Request pickup** (`/api/pickup/v1`) and **Stock at Nearya** (`/api/storeState/v1/...`) are on the Nearya carrier card.
+- Nearya's documentation doesn't describe its replies, so Rosaino reads the usual field names (e.g. `code`, `status`, inside `data` or not) and shows Nearya's own message when something is refused.
+
 ### Call center (confirmation calls)
 
 Confirmation agents work from **Call center** (also from the order details and the order list).
