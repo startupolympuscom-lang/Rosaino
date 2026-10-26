@@ -33,10 +33,16 @@ const MAX_FAILED_LOGINS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 const AUDIT_LIMIT = 500;
 
-const SECRET = process.env.AUTH_SECRET
-  || crypto.createHash('sha256').update('rosaino-admin:' + (process.env.SUPABASE_KEY || 'local-dev')).digest('hex');
-if (!process.env.AUTH_SECRET) {
-  console.warn('[auth] AUTH_SECRET is not set; using a derived development secret. Set AUTH_SECRET in production.');
+// On Vercel (or NODE_ENV=production) sign-in needs a real AUTH_SECRET. There is
+// deliberately no fallback there: a secret derived from known values could be
+// recomputed by anyone and used to forge Super Admin sessions.
+const PRODUCTION = !!process.env.VERCEL || process.env.NODE_ENV === 'production';
+const SECRET = process.env.AUTH_SECRET?.trim() || (PRODUCTION ? null : 'rosaino-local-development-only');
+const MISSING_SECRET = 'Sign-in is disabled until AUTH_SECRET is set. Add it in Vercel (Project → Settings → Environment Variables) and redeploy.';
+if (!process.env.AUTH_SECRET?.trim()) {
+  console.warn(PRODUCTION
+    ? '[auth] AUTH_SECRET is not set; sign-in is disabled until it is.'
+    : '[auth] AUTH_SECRET is not set; using a local development secret.');
 }
 
 // ---------------------------------------------------------------------------
@@ -125,10 +131,19 @@ async function bootstrap() {
     if (!envPassword) {
       console.warn('[auth] Default Super Admin password in use. Set ADMIN_EMAIL/ADMIN_PASSWORD before going live, or change it in the portal.');
     }
-  } else if (envEmail && envPassword && !(await store.findByEmail(envEmail))) {
-    // Recovery: a new ADMIN_EMAIL/ADMIN_PASSWORD pair adds a fresh Super Admin.
-    await store.saveUser(newUser({ name: 'Rosaino Super Admin', email: envEmail, password: envPassword, role: SUPER_ADMIN }));
-    console.log(`[auth] Added Super Admin ${envEmail} from environment variables.`);
+  } else if (envEmail && envPassword) {
+    const existing = await store.findByEmail(envEmail);
+    if (!existing) {
+      // Recovery: a new ADMIN_EMAIL/ADMIN_PASSWORD pair adds a fresh Super Admin.
+      await store.saveUser(newUser({ name: 'Rosaino Super Admin', email: envEmail, password: envPassword, role: SUPER_ADMIN }));
+      console.log(`[auth] Added Super Admin ${envEmail} from environment variables.`);
+    } else if (verifyPassword(DEFAULT_SUPER_ADMIN.password, existing.passwordHash)) {
+      // That account still has the public default password: replace it.
+      existing.passwordHash = hashPassword(envPassword);
+      existing.tokenVersion += 1;
+      await store.saveUser(existing);
+      console.log(`[auth] Replaced the default password of ${envEmail} with ADMIN_PASSWORD.`);
+    }
   }
 
   // Once your own Super Admin comes from ADMIN_EMAIL/ADMIN_PASSWORD, the default
@@ -228,7 +243,7 @@ function issueToken(u) {
 
 async function verifyToken(token) {
   const [payload, sig] = String(token || '').split('.');
-  if (!payload || !sig) return null;
+  if (!SECRET || !payload || !sig) return null;
   const expected = Buffer.from(sign(payload));
   const actual = Buffer.from(sig);
   if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return null;
@@ -326,6 +341,7 @@ export function registerAuthRoutes(app) {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+    if (!SECRET) return res.status(503).json({ error: MISSING_SECRET });
 
     const key = `${clientIp(req)}|${email}`;
     const attempt = await store.getAttempt(key);
@@ -340,6 +356,12 @@ export function registerAuthRoutes(app) {
       await store.setAttempt(key, fresh ? { count: 1, first: Date.now() } : { ...attempt, count: attempt.count + 1 });
       await audit(email, 'login.failed', u && u.active === false ? 'Account disabled' : 'Invalid credentials', req);
       return res.status(401).json({ error: u && u.active === false ? 'This account has been disabled' : 'Invalid email or password' });
+    }
+
+    // The default password is published in the README, so it never works on a live site.
+    if (PRODUCTION && verifyPassword(DEFAULT_SUPER_ADMIN.password, u.passwordHash)) {
+      await audit(u, 'login.failed', 'Default password refused', req);
+      return res.status(403).json({ error: 'This account still has the default password, which is public. Set ADMIN_EMAIL and ADMIN_PASSWORD in Vercel and redeploy, then sign in with them.' });
     }
 
     await store.clearAttempt(key);
@@ -511,6 +533,7 @@ export function registerAuthRoutes(app) {
   // --- Health ----------------------------------------------------------------
   app.get('/api/auth/status', handle(async (req, res) => {
     await ensureReady();
-    res.json({ storage: store.kind, ok: true, ...(storageError ? { warning: storageError } : {}) });
+    const warning = !SECRET ? MISSING_SECRET : storageError;
+    res.json({ storage: store.kind, ok: !!SECRET, ...(warning ? { warning } : {}) });
   }));
 }

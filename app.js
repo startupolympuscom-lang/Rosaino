@@ -604,6 +604,7 @@ async function handleCheckoutSubmit(e) {
     city,
     address,
     product: primaryProduct.id,
+    items: list.map(p => ({ product: p.id, quantity: cart[p.id] })),
     quantity: totalQuantity,
     amount: totalAmount,
     cost: totalCost,

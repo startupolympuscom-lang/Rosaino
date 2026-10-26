@@ -178,24 +178,41 @@ if (process.env.DATABASE_URL?.trim()) {
 }
 let seeded = false;
 
-// Load business data from Postgres into the working arrays. Returns false
-// when the server runs without a database (in-memory demo data).
-async function syncFromDb() {
+const ALL_COLLECTIONS = ['products', 'orders', 'purchase_orders', 'cms', 'contact', 'settings'];
+
+// Load business data from Postgres into the working arrays (only the given
+// collections). Returns false when the server runs without a database
+// (in-memory demo data).
+async function syncFromDb(names = ALL_COLLECTIONS) {
   if (!seeded) {
     await seedIfEmpty(DEFAULT_PRODUCTS);
     seeded = true;
   }
-  const d = await loadCollections(['products', 'orders', 'purchase_orders', 'cms', 'contact', 'settings']);
+  if (!names.length) return !!(await dataDb());
+  const d = await loadCollections(names);
   if (!d) return false;
-  memoryProducts = d.products;
-  memoryOrders = d.orders.reverse();
-  memoryPurchaseOrders = d.purchase_orders.reverse();
-  memoryCms.clear();
-  d.cms.forEach(c => memoryCms.set(String(c.id), c));
-  contactMessages.length = 0;
-  contactMessages.push(...d.contact.reverse());
-  blacklistedPhones = new Set(d.settings.find(x => x.id === 'blacklist')?.phones || []);
+  if (d.products) memoryProducts = d.products;
+  if (d.orders) memoryOrders = d.orders.reverse();
+  if (d.purchase_orders) memoryPurchaseOrders = d.purchase_orders.reverse();
+  if (d.cms) {
+    memoryCms.clear();
+    d.cms.forEach(c => memoryCms.set(String(c.id), c));
+  }
+  if (d.contact) {
+    contactMessages.length = 0;
+    contactMessages.push(...d.contact.reverse());
+  }
+  if (d.settings) blacklistedPhones = new Set(d.settings.find(x => x.id === 'blacklist')?.phones || []);
   return true;
+}
+
+// Public pages only load what they use; the portal loads everything.
+function collectionsFor(req) {
+  if (req.method === 'GET' && /^\/(products|cms\/[^/]+)$/.test(req.path)) return ['products', 'cms'];
+  if (req.method === 'POST' && req.path === '/contact') return [];
+  if (/^\/track\//.test(req.path)) return ['products', 'orders'];
+  if (req.method === 'POST' && req.path === '/orders' && !req.headers.authorization) return ['products', 'cms', 'orders', 'settings'];
+  return ALL_COLLECTIONS;
 }
 
 // Save a changed record when a database is connected (no-op in memory mode).
@@ -262,7 +279,7 @@ function cleanPhone(p) {
 }
 
 // Strip fields only staff may set from anonymous storefront orders.
-const STAFF_ONLY_ORDER_FIELDS = ['status', 'agent', 'stockDeducted', 'remittanceStatus', 'remittanceRef', 'remittedDate', 'courierFeeCharged', 'discrepancyNote', 'isDuplicate', 'trustScore', 'cost'];
+const STAFF_ONLY_ORDER_FIELDS = ['status', 'agent', 'stockDeducted', 'remittanceStatus', 'remittanceRef', 'remittedDate', 'courierFeeCharged', 'discrepancyNote', 'isDuplicate', 'trustScore', 'cost', 'trackingNumber'];
 function sanitizePublicOrder(body) {
   if (!body || typeof body !== 'object') return body;
   const order = { ...body };
@@ -273,6 +290,46 @@ function sanitizePublicOrder(body) {
   }
   return order;
 }
+
+// Price a storefront checkout from the catalogue, never from the browser's
+// numbers. A bag sends items: [{ product, quantity }]; a landing page sends
+// product + quantity and is priced from that product's bundle tiers.
+// Returns null if a product doesn't exist.
+function pricePublicOrder(order) {
+  const isBag = Array.isArray(order.items) && order.items.length > 0;
+  const wanted = isBag ? order.items.slice(0, 50) : [{ product: order.product, quantity: order.quantity }];
+  const lines = wanted.map(i => ({
+    p: memoryProducts.find(x => String(x.id) === String(i?.product)),
+    qty: Math.min(99, Math.max(1, Math.floor(Number(i?.quantity)) || 1))
+  }));
+  if (lines.some(l => !l.p)) return null;
+
+  let amount = lines.reduce((s, l) => s + (Number(l.p.price) || 0) * l.qty, 0);
+  if (!isBag) {
+    const { p, qty } = lines[0];
+    const tier = ((memoryCms.get(String(p.id)) || getDefaultCms(p)).tiers || []).find(t => Number(t.qty) === qty);
+    if (tier && Number(tier.price) > 0) amount = Number(tier.price);
+  }
+  return {
+    product: lines[0].p.id,
+    quantity: lines.reduce((s, l) => s + l.qty, 0),
+    amount,
+    cost: lines.reduce((s, l) => s + (Number(l.p.cost) || (Number(l.p.price) || 0) * 0.4) * l.qty, 0),
+    ...(isBag ? { items: lines.map(l => ({ product: l.p.id, quantity: l.qty })) } : {})
+  };
+}
+
+// Same phone number, ignoring spaces and the +212 / 0 prefix.
+function samePhone(a, b) {
+  const x = cleanPhone(a).slice(-9);
+  return x.length >= 8 && x === cleanPhone(b).slice(-9);
+}
+
+// What the public tracking page may show of an address.
+const maskAddress = a => {
+  const s = String(a || '').trim();
+  return s.length > 6 ? s.slice(0, 6) + '•••' : s ? '•••' : '';
+};
 
 // Authentication, user management, roles and audit trail
 registerAuthRoutes(app);
@@ -295,7 +352,7 @@ const NO_DATA_SYNC = /^\/(auth|users|roles|audit|calls|carriers|shipments|health
 app.use('/api', async (req, res, next) => {
   if (NO_DATA_SYNC.test(req.path)) return next();
   try {
-    await syncFromDb();
+    await syncFromDb(collectionsFor(req));
     next();
   } catch (err) {
     console.error('[data] database unavailable:', err.message);
@@ -363,9 +420,14 @@ app.get('/api/orders', requireAuth(), (req, res) => {
 app.post('/api/orders', optionalAuth, async (req, res) => {
   // Public storefront checkouts may only create new, unassigned orders.
   const staff = can(req.user, 'orders');
-  const orderData = staff ? req.body : sanitizePublicOrder(req.body);
+  let orderData = staff ? req.body : sanitizePublicOrder(req.body);
   if (!orderData || !orderData.customer || !orderData.phone) {
     return res.status(400).json({ error: 'Customer and phone are required' });
+  }
+  if (!staff) {
+    const priced = pricePublicOrder(orderData);
+    if (!priced) return res.status(400).json({ error: 'This product is no longer available.' });
+    orderData = { ...orderData, ...priced };
   }
   if (!orderData.id) orderData.id = 'RS-' + Date.now().toString(36).toUpperCase();
   if (staff && memoryOrders.some(o => String(o.id) === String(orderData.id))) {
@@ -553,11 +615,13 @@ app.get('/api/track/:query', async (req, res) => {
   const query = req.params.query.trim().toUpperCase();
   const cPhone = cleanPhone(query);
 
-  const order = memoryOrders.find(o =>
-    o.id.toUpperCase() === query ||
-    String(o.trackingNumber || '').toUpperCase() === query ||
-    (cPhone.length >= 8 && cleanPhone(o.phone) === cPhone)
+  let order = memoryOrders.find(o =>
+    o.id.toUpperCase() === query || String(o.trackingNumber || '').toUpperCase() === query
   );
+  // A phone number alone shows the order's progress, but not its number or
+  // address, so it can't be used to change someone else's delivery.
+  const byPhone = !order && cPhone.length >= 8;
+  if (byPhone) order = memoryOrders.find(o => samePhone(o.phone, cPhone));
   // Carrier shipments are stored in the database, so they can be found by
   // order number or tracking number even when the order isn't in memory.
   // Carrier shipments are looked up, and refreshed from the carrier if stale.
@@ -589,15 +653,17 @@ app.get('/api/track/:query', async (req, res) => {
       carrier: shipment.carrierName,
       productName: snap.productName || 'Rosaino Discovery',
       phone: '',
+      editable: false,
       ...tracking
     });
   }
 
   return res.json({
-    id: order.id,
+    id: byPhone ? order.id.slice(0, 5) + '•••' : order.id,
+    editable: !byPhone,
     customer: order.customer.split(' ')[0] + ' ' + (order.customer.split(' ')[1] ? order.customer.split(' ')[1][0] + '***' : ''),
     city: order.city,
-    address: order.address,
+    address: maskAddress(order.address),
     status: shipment && (shipment.status === 'Delivered' || shipment.status === 'Returned') ? shipment.status : order.status,
     amount: order.amount,
     quantity: order.quantity,
@@ -610,11 +676,20 @@ app.get('/api/track/:query', async (req, res) => {
 });
 
 app.patch('/api/track/:id', async (req, res) => {
-  const { action, preferredDate, city, address, note } = req.body || {};
+  const b = req.body || {};
+  const clip = (v, n) => String(v || '').trim().slice(0, n);
+  const action = b.action;
+  const preferredDate = clip(b.preferredDate, 80);
+  const city = clip(b.city, 60);
+  const address = clip(b.address, 300);
+  const note = clip(b.note, 500);
   const found = memoryOrders.find(o => o.id.toUpperCase() === String(req.params.id).toUpperCase());
-  if (!found) return res.status(404).json({ error: 'Order not found' });
+  // Changes need the order number AND the phone number the order was placed with.
+  if (!found || !samePhone(b.phone, found.phone)) {
+    return res.status(found ? 403 : 404).json({ error: found ? 'The phone number does not match this order.' : 'Order not found' });
+  }
 
-  const changed = await changeOrder(found.id, order => {
+  await changeOrder(found.id, order => {
     order.notes = order.notes || [];
     if (action === 'reschedule') {
       order.callback = preferredDate;
@@ -627,7 +702,7 @@ app.patch('/api/track/:id', async (req, res) => {
     }
   });
 
-  return res.json({ success: true, order: changed?.order });
+  return res.json({ success: true });
 });
 
 // Supplier Purchase Orders (PO) & Landed Cost Engine API
@@ -653,9 +728,10 @@ app.post('/api/purchase-orders', requireAuth('suppliers'), async (req, res) => {
   const sellingPrice = Number(po.sellingPrice) || 400;
   const expectedMarginPercent = Math.round(((sellingPrice - landedCostPerUnit) / sellingPrice) * 1000) / 10;
 
+  const poPrefix = `PO-${new Date().getFullYear()}-`;
   const newPO = {
-    id: 'PO-2026-' + String(memoryPurchaseOrders.length + 1).padStart(2, '0'),
-    poNumber: 'PO-2026-' + String(memoryPurchaseOrders.length + 1).padStart(2, '0'),
+    id: poPrefix + String(memoryPurchaseOrders.length + 1).padStart(2, '0'),
+    poNumber: poPrefix + String(memoryPurchaseOrders.length + 1).padStart(2, '0'),
     supplierId: po.supplierId || 's1',
     supplierName: po.supplierName || 'Atlas Trading',
     productId: po.productId,
@@ -676,7 +752,7 @@ app.post('/api/purchase-orders', requireAuth('suppliers'), async (req, res) => {
   };
 
   while (memoryPurchaseOrders.some(p => p.id === newPO.id)) {
-    newPO.id = newPO.poNumber = 'PO-2026-' + Date.now().toString(36).toUpperCase();
+    newPO.id = newPO.poNumber = poPrefix + Date.now().toString(36).toUpperCase();
   }
   await persist('purchase_orders', newPO);
   memoryPurchaseOrders.unshift(newPO);

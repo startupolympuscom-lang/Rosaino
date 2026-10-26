@@ -45,7 +45,7 @@ In the portal, **Carriers** lets an admin add each delivery company: choose it f
 - **Dispatch:** on **Shipping**, *Dispatch* sends the order (reference, recipient name and phone, city, address, cash-on-delivery amount, product, quantity) to the chosen carrier and stores the tracking number it returns.
 - **Status updates:** each carrier gets its own **update link** (webhook). Paste it into the carrier's dashboard and their *picked up / delivered / returned* notifications update the order automatically. *Check carrier updates* also asks carriers that offer a status API.
 - Carrier wording is understood in French and English (e.g. *Ramassé*, *En cours*, *Livré*, *Retourné*, *Refusé*, *Non livré*); extra wording can be mapped per carrier.
-- **Tracking:** customers can search the tracking page by order number, carrier tracking number or phone, and see the carrier's updates.
+- **Tracking:** customers can search the tracking page by order number, carrier tracking number or phone, and see the carrier's updates. The address is never shown in full. Searching by phone shows progress only; rescheduling or changing the address needs the order number plus the phone number the order was placed with.
 - API keys are encrypted with `AUTH_SECRET` and never sent to browsers. Carriers and shipments are stored in Supabase Postgres (`carriers`, `shipments` tables, created automatically) when `DATABASE_URL` is set. Changing `AUTH_SECRET` later means re-entering carrier keys.
 - Every carrier's API is different, so connection details (paths, how the key is sent, JSON or form body, field names, where the tracking number and status are in replies) are adjustable under *Connection details*.
 
@@ -87,7 +87,7 @@ The operations portal at `/admin/` requires an account. Sign-in is the app's own
 
 - **Storage:** with `DATABASE_URL` set to your Supabase Postgres connection string, accounts, role permissions, login lockouts and the audit trail are stored in Supabase Postgres (`auth-store.js`). The server connects to Postgres directly; the tables `admin_users`, `admin_roles`, `admin_audit` and `admin_login_attempts` are created automatically on first start, with row-level security enabled and no policies, so the public (anon) API key can never read them. Without `DATABASE_URL` (local development) the same data is kept in memory.
 - **Passwords** are hashed with scrypt. **Sessions** are signed tokens that expire after 12 hours; every request re-checks the account in the database, so disabling a user or changing a password takes effect immediately on every server instance.
-- Every admin API route checks the caller's role permissions on the server. The storefront, shop, product landing page and tracking page stay public; anonymous storefront orders are always created as `New`.
+- Every admin API route checks the caller's role permissions on the server. The storefront, shop, product landing page and tracking page stay public; anonymous storefront orders are always created as `New` and priced on the server from the catalogue (and the landing page's bundle prices), whatever amount the browser sends.
 - Five failed sign-ins for the same email and IP lock that pair out for 15 minutes.
 - If `DATABASE_URL` is wrong or the database can't be reached at startup, sign-in keeps working with the built-in Super Admin (accounts are then kept in memory), and `/api/auth/status` shows a warning. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` so that fallback uses your own credentials.
 - The server needs Node.js 22 (`engines` in `package.json`, which Vercel follows).
@@ -96,8 +96,8 @@ The operations portal at `/admin/` requires an account. Sign-in is the app's own
 ### Connecting Supabase Postgres
 
 1. In the Supabase dashboard, open **Connect** and copy the **Transaction pooler** connection string (port 6543), with your database password filled in.
-2. In Vercel (Project → Settings → Environment Variables), add `DATABASE_URL` with that value, plus `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`).
-3. Optionally add `ADMIN_EMAIL` and `ADMIN_PASSWORD` **before the first deploy** to choose the Super Admin login.
+2. In Vercel (Project → Settings → Environment Variables), add `DATABASE_URL` with that value, plus `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`). **`AUTH_SECRET` is required:** on Vercel, sign-in stays disabled until it is set.
+3. Add `ADMIN_EMAIL` and `ADMIN_PASSWORD` to choose the Super Admin login. On a live site the default password below is always refused, so this is how you sign in the first time. If the account already exists with the default password, `ADMIN_PASSWORD` replaces it on the next deploy.
 4. Redeploy. The first request creates the tables and the Super Admin account.
 5. Check it: open `https://<your-site>/api/health`. It shows `"database":"connected"` when everything is saved to Supabase, `"not_configured"` when `DATABASE_URL` is missing, or `"unreachable"` with the reason (wrong password, wrong host, paused project…). The portal header and the Overview checklist show the same.
 
@@ -111,7 +111,7 @@ Accounts are only seeded when `admin_users` is empty. Later, setting `ADMIN_EMAI
 
 Only one account is created: the **Super Admin**. There are no demo or sample accounts; create your team's accounts in the portal under **Team & RBAC**. Sample accounts created by earlier versions (admin@, operations@, agent@, finance@rosaino.com) are disabled automatically on startup.
 
-Default Super Admin login, used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not set on first start. Change it before going live (Settings → Change password):
+Default Super Admin login, used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not set on first start. It works for local development only; on Vercel it is refused because it is public:
 
 | Role | Email | Password |
 | --- | --- | --- |

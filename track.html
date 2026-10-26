@@ -255,6 +255,10 @@
     <form id="reschedule-form" class="checkout-form">
       <input type="hidden" id="reschedule-order-id">
       <div class="form-field">
+        <label for="reschedule-phone">Phone number used for this order</label>
+        <input type="tel" id="reschedule-phone" required placeholder="06 12 34 56 78" autocomplete="tel">
+      </div>
+      <div class="form-field">
         <label for="preferred-date">Preferred Delivery Date</label>
         <input type="date" id="preferred-date" required>
       </div>
@@ -286,6 +290,10 @@
     </div>
     <form id="address-form" class="checkout-form">
       <input type="hidden" id="address-order-id">
+      <div class="form-field">
+        <label for="address-phone">Phone number used for this order</label>
+        <input type="tel" id="address-phone" required placeholder="06 12 34 56 78" autocomplete="tel">
+      </div>
       <div class="form-field">
         <label for="update-city">City</label>
         <select id="update-city" required>
@@ -494,7 +502,14 @@
           </div>` : ''}
 
           <!-- Customer Self Service Actions -->
-          ${!isDelivered && !isReturned ? `
+          ${!isDelivered && !isReturned && !o.editable ? `
+            <div class="self-service-box">
+              <p style="font-size:13px;color:#5d7278;margin:0;">
+                To reschedule or change the address, search with your order number (RS-…) from your confirmation.
+              </p>
+            </div>
+          ` : ''}
+          ${!isDelivered && !isReturned && o.editable ? `
             <div class="self-service-box">
               <h3 style="font-size:15px;margin:0 0 10px;">Need to adjust your delivery?</h3>
               <p style="font-size:13px;color:#5d7278;margin:0 0 16px;">
@@ -530,7 +545,7 @@
         btnAddress.onclick = () => {
           $('#address-order-id').value = o.id;
           $('#update-city').value = o.city;
-          $('#update-address').value = o.address || '';
+          $('#update-address').value = '';
           $('#address-modal').showModal();
         };
       }
@@ -550,6 +565,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'reschedule',
+            phone: $('#reschedule-phone').value,
             preferredDate: `${date} (${slot})`,
             note
           })
@@ -559,7 +575,7 @@
           $('#reschedule-modal').close();
           fetchOrder(id);
         } else {
-          toast('Error rescheduling delivery.');
+          toast(res.status === 403 ? 'That phone number does not match this order.' : 'Error rescheduling delivery.');
         }
       } catch {
         toast('Connection error.');
@@ -578,6 +594,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'update_address',
+            phone: $('#address-phone').value,
             city,
             address
           })
@@ -587,7 +604,7 @@
           $('#address-modal').close();
           fetchOrder(id);
         } else {
-          toast('Error updating address.');
+          toast(res.status === 403 ? 'That phone number does not match this order.' : 'Error updating address.');
         }
       } catch {
         toast('Connection error.');

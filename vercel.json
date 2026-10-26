@@ -5,6 +5,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/assets/uploads/(.*)", "destination": "/api/index" },
     { "source": "/product", "destination": "/product.html" },
     { "source": "/product/(.*)", "destination": "/product.html" },
     { "source": "/p/(.*)", "destination": "/product.html" },

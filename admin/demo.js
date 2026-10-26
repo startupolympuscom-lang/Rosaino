@@ -3322,6 +3322,33 @@ function updateLivePreview() {
   }
 }
 
+// Scale an image data URL down to at most 2000px and about 2.5 MB (WebP).
+// Small images, GIFs and SVGs are returned unchanged.
+function shrinkImage(dataUrl) {
+  const MAX_SIDE = 2000;
+  const MAX_CHARS = 2.5 * 1024 * 1024 * 4 / 3;
+  if (dataUrl.length <= MAX_CHARS || /^data:image\/(gif|svg)/.test(dataUrl)) return Promise.resolve(dataUrl);
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+      let out = dataUrl;
+      for (let quality = 0.85; quality >= 0.5; quality -= 0.15) {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        out = canvas.toDataURL('image/webp', quality);
+        if (out.length <= MAX_CHARS) break;
+        scale *= 0.8;
+      }
+      resolve(out);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 function handleImageFileUpload(file, targetField) {
   if (!file || !file.type.startsWith('image/')) {
     toast('Please select a valid image file (PNG, JPG, WebP).');
@@ -3334,7 +3361,8 @@ function handleImageFileUpload(file, targetField) {
 
   const reader = new FileReader();
   reader.onload = async evt => {
-    const dataUrl = evt.target.result;
+    // Vercel accepts request bodies up to 4.5 MB, so large photos are scaled down first.
+    const dataUrl = await shrinkImage(evt.target.result);
     const p = db.products.find(x => String(x.id) === String(activeCmsProductId));
     if (!p) return;
     if (!db.cmsPages) db.cmsPages = {};
@@ -3352,8 +3380,10 @@ function handleImageFileUpload(file, targetField) {
       if (data && data.url) {
         db.cmsPages[p.id][targetField] = data.url;
         persist();
+      } else {
+        toast(data?.error || 'The photo could not be saved on the server.');
       }
-    }).catch(() => {});
+    }).catch(() => toast('The photo could not be saved on the server.'));
 
     toast(`Photo uploaded for "${targetField}"!`);
     render();
