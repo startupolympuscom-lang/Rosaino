@@ -235,9 +235,9 @@
   <div class="track-wrapper">
     <div class="track-search-box">
       <h1>Track Your Package</h1>
-      <p>Enter your Rosaino Order Reference (e.g. <code>RS-1024</code>) or your Moroccan phone number.</p>
+      <p>Enter your Rosaino order reference (e.g. <code>RS-1024</code>), the carrier's tracking number, or your Moroccan phone number.</p>
       <form id="track-form" class="track-search-form">
-        <input id="track-query" placeholder="Order ID (e.g. RS-1024) or Phone (06...)" required>
+        <input id="track-query" placeholder="Order ID (RS-1024), tracking number or phone (06...)" required>
         <button type="submit" class="primary">Track Order ↗</button>
       </form>
     </div>
@@ -254,6 +254,10 @@
     </div>
     <form id="reschedule-form" class="checkout-form">
       <input type="hidden" id="reschedule-order-id">
+      <div class="form-field">
+        <label for="reschedule-phone">Phone number used for this order</label>
+        <input type="tel" id="reschedule-phone" required placeholder="06 12 34 56 78" autocomplete="tel">
+      </div>
       <div class="form-field">
         <label for="preferred-date">Preferred Delivery Date</label>
         <input type="date" id="preferred-date" required>
@@ -287,6 +291,10 @@
     <form id="address-form" class="checkout-form">
       <input type="hidden" id="address-order-id">
       <div class="form-field">
+        <label for="address-phone">Phone number used for this order</label>
+        <input type="tel" id="address-phone" required placeholder="06 12 34 56 78" autocomplete="tel">
+      </div>
+      <div class="form-field">
         <label for="update-city">City</label>
         <select id="update-city" required>
           <option value="Casablanca">Casablanca</option>
@@ -314,6 +322,22 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <footer>
+    <div class="footer-top">
+      <a class="brand" href="/" aria-label="Rosaino home"><img src="/assets/logo.png" alt="Rosaino"></a>
+      <p>Everyday objects designed for mindful living. Modern silhouettes, honest materials, and quiet craft.</p>
+      <a href="/shop">Shop</a>
+      <a href="/track">Track Order</a>
+      <a href="/#contact">Contact</a>
+      <a href="/policy">Policies</a>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="footer-year"></span> Rosaino. All rights reserved.</span>
+      <span>Curated Everyday Essentials</span>
+    </div>
+  </footer>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
 
   <script>
     const $ = s => document.querySelector(s);
@@ -445,8 +469,13 @@
               <h3>🚚 Courier & Destination</h3>
               <div class="track-info-row">
                 <span>Courier Service</span>
-                <strong>${esc(o.carrier || 'Digylog Express')}</strong>
+                <strong>${esc(o.carrier || 'Rosaino delivery partner')}</strong>
               </div>
+              ${o.trackingNumber ? `
+              <div class="track-info-row">
+                <span>Tracking number</span>
+                <strong>${o.trackingUrl ? `<a href="${esc(o.trackingUrl)}" target="_blank" rel="noopener" style="color:var(--teal);">${esc(o.trackingNumber)} ↗</a>` : esc(o.trackingNumber)}</strong>
+              </div>` : ''}
               <div class="track-info-row">
                 <span>City</span>
                 <strong>${esc(o.city)}</strong>
@@ -462,8 +491,25 @@
             </div>
           </div>
 
+          ${Array.isArray(o.events) && o.events.length ? `
+          <div class="track-info-box" style="margin-top:16px;">
+            <h3>Carrier updates</h3>
+            ${o.events.slice().reverse().map(e => `
+              <div class="track-info-row">
+                <span>${esc(new Date(e.at).toLocaleString())}</span>
+                <strong>${esc(e.text || e.status || '')}</strong>
+              </div>`).join('')}
+          </div>` : ''}
+
           <!-- Customer Self Service Actions -->
-          ${!isDelivered && !isReturned ? `
+          ${!isDelivered && !isReturned && !o.editable ? `
+            <div class="self-service-box">
+              <p style="font-size:13px;color:#5d7278;margin:0;">
+                To reschedule or change the address, search with your order number (RS-…) from your confirmation.
+              </p>
+            </div>
+          ` : ''}
+          ${!isDelivered && !isReturned && o.editable ? `
             <div class="self-service-box">
               <h3 style="font-size:15px;margin:0 0 10px;">Need to adjust your delivery?</h3>
               <p style="font-size:13px;color:#5d7278;margin:0 0 16px;">
@@ -499,7 +545,7 @@
         btnAddress.onclick = () => {
           $('#address-order-id').value = o.id;
           $('#update-city').value = o.city;
-          $('#update-address').value = o.address || '';
+          $('#update-address').value = '';
           $('#address-modal').showModal();
         };
       }
@@ -519,6 +565,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'reschedule',
+            phone: $('#reschedule-phone').value,
             preferredDate: `${date} (${slot})`,
             note
           })
@@ -528,7 +575,7 @@
           $('#reschedule-modal').close();
           fetchOrder(id);
         } else {
-          toast('Error rescheduling delivery.');
+          toast(res.status === 403 ? 'That phone number does not match this order.' : 'Error rescheduling delivery.');
         }
       } catch {
         toast('Connection error.');
@@ -547,6 +594,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'update_address',
+            phone: $('#address-phone').value,
             city,
             address
           })
@@ -556,7 +604,7 @@
           $('#address-modal').close();
           fetchOrder(id);
         } else {
-          toast('Error updating address.');
+          toast(res.status === 403 ? 'That phone number does not match this order.' : 'Error updating address.');
         }
       } catch {
         toast('Connection error.');
