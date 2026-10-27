@@ -305,3 +305,51 @@ h1{font-size:26px;letter-spacing:-.5px}
   .login-panel{align-items:flex-start;padding:34px 20px 40px}
   .login-logo{margin-bottom:24px}
 }
+
+/* Platform guide */
+.guide-intro{display:flex;flex-direction:column;gap:14px}
+.guide-intro input{width:100%;font-size:14px}
+.guide-toc{display:flex;flex-wrap:wrap;gap:8px}
+.guide-chip{border-radius:20px;padding:8px 14px;font-size:12px;background:#f3f8f7}
+.guide-chip:hover{background:#e6f2ef;color:#147d77}
+.guide-section{scroll-margin-top:20px}
+.guide-group{margin:30px 2px 14px}
+.guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.guide-card{margin:0;display:flex;flex-direction:column}
+.guide-card-head{display:flex;gap:14px;align-items:flex-start}
+.guide-card-head h3{font-size:16px;margin:2px 0 4px}
+.guide-card-head p{margin:0;color:#6c8086;font-size:13px}
+.guide-icon{flex-shrink:0;width:42px;height:42px;border-radius:10px;background:#eaf3f0;display:grid;place-items:center;font-size:20px}
+.guide-card ul{margin:16px 0 18px;padding-left:18px;color:#3f5a63;font-size:13px;line-height:1.65}
+.guide-card ul li{margin-bottom:4px}
+.guide-actions{margin-top:auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.guide-actions button{font-size:12px;padding:8px 12px}
+.guide-go{display:inline-flex;align-items:center;gap:6px;background:#147d86;color:#fff;border-radius:8px;padding:9px 14px;font-weight:600;font-size:12px}
+.guide-go:hover{background:#0f6a72}
+.guide-locked{font-size:12px;color:#8a9a9f}
+.guide-flow{list-style:none;padding:0;margin:18px 0 0;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;counter-reset:none}
+.guide-flow li>a,.guide-flow li>div{display:flex;flex-direction:column;gap:6px;height:100%;padding:16px;border:1px solid #e2e9eb;border-radius:10px;background:#fafcfc;transition:border-color .15s,background .15s}
+.guide-flow li>a:hover{border-color:#147d86;background:#f0f7f6}
+.guide-flow b{font-size:14px}
+.guide-flow small{font-size:12px;line-height:1.5}
+.guide-step-n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#147d86;color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
+.guide-start{margin-top:10px}
+.guide-start-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid #eef2f3}
+.guide-start-row:last-child{border-bottom:0}
+.guide-start-row>div{flex:1;min-width:0}
+.guide-start-row small{display:block;margin-top:3px}
+.guide-start-row .guide-go{padding:7px 12px}
+@media(max-width:1100px){.guide-flow{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:750px){.guide-flow{grid-template-columns:1fr}.guide-grid{grid-template-columns:1fr}}
+[dir=rtl] .guide-card ul{padding-left:0;padding-right:18px}
+#content [data-guide-text][hidden],#content .guide-section[hidden],#guide-empty[hidden]{display:none!important}
+
+/* Phone header: keep everything on screen (status dot, language, storefront link) */
+@media(max-width:750px){
+  header>div:not(.header-right){min-width:0;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  header>div:not(.header-right) .muted{display:none}
+  .header-right{gap:6px;flex-shrink:0}
+  #supabase-pill-text,#header-user-tag,#header-logout-btn,#current-lang-label{display:none}
+  .supabase-pill{padding:8px}
+}
+@media(max-width:1200px){.cms-builder-wrap{grid-template-columns:minmax(0,1fr)}.cms-builder-wrap>div>div:first-child{flex-wrap:wrap;gap:10px}}

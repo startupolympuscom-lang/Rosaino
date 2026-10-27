@@ -119,6 +119,7 @@ Default Super Admin login, used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not
 
 ### Admin features
 
+- **Platform guide** (every role): explains each page of the portal and the customer pages, how an order moves from *New* to *Remitted*, and first setup steps. Every section has a button that opens that page (or the matching form, e.g. *Add a carrier*), plus a search box. Pages a role can't open are shown as locked.
 - **Team & RBAC** (Super Admin, or any role given `Users & RBAC Control`): create accounts with a temporary password, edit name/email/role, reset passwords, disable/enable or delete accounts, edit the role permission matrix, create and delete custom roles, and preview the workspace as any role. You can't disable or demote yourself, and the last active Super Admin can't be removed.
 - **Security & audit**: sign-ins, failed sign-ins, sign-outs, password changes, user and permission changes, order status changes, blacklist edits, remittances, PO receipts and product/CMS saves.
 - **My account** (click your profile, or Settings): change password, sign out, sign out on every device.

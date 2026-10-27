@@ -25,6 +25,7 @@ const I18N = {
     name: 'Français',
     dir: 'ltr',
     overview: 'Vue d\'ensemble',
+    guide: 'Guide de la plateforme',
     orders: 'Commandes & Prospects',
     calls: 'Centre d\'appels',
     routing: 'Routage des prospects',
@@ -65,6 +66,7 @@ const I18N = {
     name: 'English',
     dir: 'ltr',
     overview: 'Overview',
+    guide: 'Platform guide',
     orders: 'Leads & Orders',
     calls: 'Call Center',
     routing: 'Lead Routing',
@@ -105,6 +107,7 @@ const I18N = {
     name: 'العربية',
     dir: 'rtl',
     overview: 'نظرة عامة',
+    guide: 'دليل المنصة',
     orders: 'الطلبيات والعملاء',
     calls: 'مركز الاتصال والتأكيد',
     routing: 'توزيع الطلبيات',
@@ -640,6 +643,7 @@ function getNavIcon(id) {
     case 'reports': return `<svg ${s}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
     case 'stores': return `<svg ${s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
     case 'integrations': return `<svg ${s}><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`;
+    case 'guide': return `<svg ${s}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
     case 'security': return `<svg ${s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`;
     case 'team': return `<svg ${s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
     case 'settings': return `<svg ${s}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
@@ -649,6 +653,7 @@ function getNavIcon(id) {
 
 const pages = [
   ['overview', 'overview', 'Overview', 'overview'],
+  ['guide', 'guide', 'Platform guide', ''], // open to every role
   ['orders', 'orders', 'Leads & orders', 'orders'],
   ['calls', 'calls', 'Call center', 'calls'],
   ['routing', 'routing', 'Lead routing', 'routing'],
@@ -700,8 +705,7 @@ function scheduleServerSync() {
 function receivedAutoDispatch(o, r) {
   const s = r.shipment;
   Object.assign(o, { status: r.order?.status || 'In transit', stockDeducted: !!r.order?.stockDeducted, carrier: s.carrierName, trackingNumber: s.trackingNumber });
-  const p = db.products.find(x => String(x.id) === String(o.product));
-  if (p && o.stockDeducted) p.stock -= Number(o.quantity) || 1;
+  if (o.stockDeducted) orderLines(o).forEach(l => { const p = product(l.product); if (p) p.stock -= l.quantity; });
   shipmentList = [s, ...(shipmentList || []).filter(x => x.orderId !== s.orderId)];
   synced.orders.set(String(o.id), JSON.stringify(o));
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
@@ -735,8 +739,10 @@ async function pushChanges() {
       ? api('/api/orders', 'POST', o)
       : api(`/api/orders/${encodeURIComponent(id)}`, 'PATCH', changedFields(JSON.parse(before), o)).then(r => {
         // The server keeps stock; take its figure.
-        const p = r.product && db.products.find(x => String(x.id) === String(r.product.id));
-        if (p) p.stock = r.product.stock;
+        (r.products || (r.product ? [r.product] : [])).forEach(sp => {
+          const p = db.products.find(x => String(x.id) === String(sp.id));
+          if (p) p.stock = sp.stock;
+        });
         if (r.shipment) receivedAutoDispatch(o, r);
         if (r.dispatchError) {
           o.notes = r.order?.notes || o.notes;
@@ -960,7 +966,13 @@ function checkAction(perm, actionLabel) {
 
 const product = id => db.products.find(p => String(p.id) === String(id));
 const agent = id => db.agents.find(a => a.id === id);
-const reserved = id => db.orders.filter(o => String(o.product) === String(id) && o.status === 'Confirmed').reduce((s, o) => s + o.quantity, 0);
+// The products and quantities an order holds: a bag order lists each item.
+const orderLines = o => Array.isArray(o.items) && o.items.length
+  ? o.items.map(i => ({ product: i.product, quantity: Number(i.quantity) || 1 }))
+  : [{ product: o.product, quantity: Number(o.quantity) || 1 }];
+const parcelText = o => orderLines(o).map(l => `${l.quantity} × ${product(l.product)?.name || l.product}`).join(', ');
+const reserved = id => db.orders.filter(o => o.status === 'Confirmed')
+  .reduce((s, o) => s + orderLines(o).filter(l => String(l.product) === String(id)).reduce((a, l) => a + l.quantity, 0), 0);
 const sum = (list, key) => list.reduce((s, o) => s + Number(o[key] || 0), 0);
 
 function cleanPhone(p) {
@@ -1442,8 +1454,7 @@ async function loadShipments() {
         // Relaunched or sent to a new customer: the server already moved the order and its stock.
         o.status = 'In transit';
         o.stockDeducted = true;
-        const p = product(o.product);
-        if (p) p.stock -= Number(o.quantity) || 1;
+        orderLines(o).forEach(l => { const p = product(l.product); if (p) p.stock -= l.quantity; });
         synced?.orders.set(String(o.id), JSON.stringify(o));
         changed++;
       }
@@ -1901,7 +1912,7 @@ function openDispatchDialog(id) {
   modal('Dispatch ' + esc(o.id), `
     <div class="stat-line"><span>Customer</span><b>${esc(o.customer)} · ${esc(o.phone)}</b></div>
     <div class="stat-line"><span>Address</span><b>${esc(o.city)} · ${esc(o.address || '')}</b></div>
-    <div class="stat-line"><span>Parcel</span><b>${o.quantity} × ${esc(p?.name || o.product)} · ${money(o.amount)} cash on delivery</b></div>
+    <div class="stat-line"><span>Parcel</span><b>${esc(parcelText(o))} · ${money(o.amount)} cash on delivery</b></div>
     <div class="form-grid" style="margin-top:16px;">
       <label class="full">Carrier
         <select name="carrierId">${options.map(c => `<option value="${esc(c.id)}" data-kind="${c.kind}" ${c.name === o.carrier ? 'selected' : ''}>${esc(c.name)}${c.kind === 'manual' ? ' (manual)' : ''}</option>`).join('')}</select>
@@ -1923,7 +1934,7 @@ function openDispatchDialog(id) {
       trackingNumber: f.get('trackingNumber') || '',
       regionId: f.get('regionId') || '',
       rememberRegion: f.get('rememberRegion') === 'on',
-      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, quantity: o.quantity, product: o.product, productName: p?.name || '', sku: p?.sku || '', date: o.date }
+      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, quantity: o.quantity, product: o.product, items: o.items, productName: p?.name || '', sku: p?.sku || '', date: o.date }
     }).then(({ shipment: s }) => {
       $('#modal').close();
       o.carrier = s.carrierName;
@@ -2149,7 +2160,7 @@ function cms() {
       </summary>
       
       <div style="margin-top:14px;border-top:1px solid #e1eeec;padding-top:14px;">
-        <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px;">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 14px;">
           <label>
             Ad Network / Platform
             <select id="boost-platform">
@@ -3295,7 +3306,224 @@ function settings() {
   `;
 }
 
-const views = { overview, orders, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
+// ---------------------------------------------------------------------------
+// Platform guide: what every part of Rosaino does, with buttons that open it.
+// ---------------------------------------------------------------------------
+const GUIDE_SECTIONS = [
+  {
+    group: 'Sales',
+    items: [
+      { page: 'overview', icon: '📊', title: 'Overview', text: 'Your day at a glance.', points: [
+        'Collected revenue, total orders, orders awaiting confirmation and parcels on the way.',
+        'Revenue chart and order pipeline by status.',
+        '“Finish setting up” checklist: database, carrier, contact emails and team.'
+      ] },
+      { page: 'orders', icon: '🧾', title: 'Leads & orders', text: 'Every order from the storefront, landing pages, CSV imports or typed in by hand.', points: [
+        'Search and filter by status; open an order to see details, notes, history and assignment.',
+        'Move orders through New → Confirmed → In transit → Delivered / Returned.',
+        'Risk score per phone number (VIP, first-time, serial refuser, blacklisted) and duplicate detection.',
+        'Import and export CSV (save Excel sheets as CSV first).'
+      ], action: ['new-order', 'Create an order', 'orders'] },
+      { page: 'calls', icon: '📞', title: 'Call center', text: 'Confirmation calls for each agent’s queue.', points: [
+        'Phone call opens the dialer; WhatsApp call opens the customer’s chat.',
+        'A timer runs during the call; pick the outcome (Confirmed, Callback, No answer, Cancelled, Spam) and add notes.',
+        'Optional live transcript in Chrome/Edge (French, Moroccan Arabic, English) after telling the customer.',
+        'Every call is saved with agent, duration, outcome and transcript in Call history.'
+      ] },
+      { page: 'routing', icon: '🔀', title: 'Lead routing', text: 'Decide which agent gets which lead.', points: [
+        'Rules by product, source, city, or all leads, with percentage splits between agents.',
+        'Paused agents are skipped; anything unmatched is shared round-robin.',
+        'Run routing to assign all unassigned leads at once.'
+      ], action: ['new-rule', 'Add a routing rule', 'routing'] }
+    ]
+  },
+  {
+    group: 'Delivery',
+    items: [
+      { page: 'shipping', icon: '🚚', title: 'Shipping & labels', text: 'Send confirmed orders to a carrier and follow each parcel.', points: [
+        'Dispatch sends the order to the chosen carrier and stores its tracking number.',
+        'Stock is taken when a parcel ships and put back if it is returned.',
+        'Print one label or all labels; “Check carrier updates” pulls the latest statuses.',
+        'Nearya parcels: history, relaunch delivery, send to a new customer, exchange.'
+      ] },
+      { page: 'carriers', icon: '🏢', title: 'Carriers', text: 'The delivery companies you work with.', points: [
+        'Add Nearya Express, Digylog, OzoneExpress, AMEEX, Sendit, Cathedis, Amana or any other.',
+        'Paste the API URL and key, then “Test connection”. Carriers without an API can be added as manual.',
+        'Each carrier gets an update link (webhook) so “Livré / Retourné” updates orders by themselves.',
+        'Optionally send orders automatically the moment an agent confirms them.'
+      ], action: ['new-carrier', 'Add a carrier', 'integrations'] }
+    ]
+  },
+  {
+    group: 'Catalogue',
+    items: [
+      { page: 'products', icon: '📦', title: 'Products & stock', text: 'What you sell and how many you have.', points: [
+        'Price, cost, SKU, category, supplier and units in stock.',
+        'Reserved (confirmed) and available stock, with low-stock warnings.',
+        'Changes show on the storefront immediately.'
+      ], action: ['new-product', 'Add a product', 'products'] },
+      { page: 'cms', icon: '🎨', title: 'Landing page CMS', text: 'Build the product pages you send ad traffic to.', points: [
+        'Edit headline, images, bundle prices (1, 2 or 3 pieces), reviews, FAQs and the order form fields.',
+        'Show, hide and reorder sections; live preview while you edit.',
+        'French, Arabic or English pages. Customers order cash on delivery from the page.'
+      ] },
+      { page: 'suppliers', icon: '🏭', title: 'Suppliers & purchase orders', text: 'Restock from your suppliers.', points: [
+        'Create purchase orders with factory price, freight, customs and handling.',
+        'True landed cost per unit and expected margin are calculated for you.',
+        'Receiving a PO adds the units to stock and updates the product’s cost.'
+      ], action: ['new-po', 'Create a purchase order', 'suppliers'] }
+    ]
+  },
+  {
+    group: 'Finance',
+    items: [
+      { page: 'finance', icon: '💰', title: 'COD accounting', text: 'Where the cash on delivery money is.', points: [
+        'Collected revenue, delivered product costs, shipping expenses and net contribution.',
+        'Record expenses in the ledger.'
+      ] },
+      { page: 'reconciliation', icon: '🧮', title: 'Courier remittance audit', text: 'Make sure carriers pay you what they collected.', points: [
+        'Cash held by each carrier: remitted, pending and overdue.',
+        'Mark delivered orders as remitted with the bank transfer reference.',
+        'Spot carriers charging more than the agreed fee; print a claim statement.'
+      ] },
+      { page: 'reports', icon: '📈', title: 'Reports & ROAS', text: 'What is actually making money.', points: [
+        'Sales by product, results by campaign and channel, delivered ROAS.',
+        'Agent confirmation rates, calls and talk time. Export the data.'
+      ] }
+    ]
+  },
+  {
+    group: 'Workspace',
+    items: [
+      { page: 'stores', icon: '🛍️', title: 'Stores & media', text: 'Pages, links, brand assets and customer messages.', points: [
+        'Contact inbox: every message from the storefront’s “Contact us” form.',
+        'Store and landing page records, tracking links, downloadable brand assets.'
+      ] },
+      { page: 'integrations', icon: '🔌', title: 'Integrations & Supabase', text: 'What is connected.', points: [
+        'Database status: connected, not configured or unreachable (with the reason).',
+        'Email (Resend), carriers and ad platform connections.'
+      ] },
+      { page: 'team', icon: '👥', title: 'Team & roles', text: 'Who can sign in and what they can see.', points: [
+        'Create accounts with a temporary password; disable, reset or delete them.',
+        'Edit what each role can open, create custom roles, preview the portal as any role.',
+        'Manage the blacklist of phone numbers that refuse parcels.'
+      ], action: ['new-agent', 'Add a team member', 'rbac_manage'] },
+      { page: 'security', icon: '🛡️', title: 'Security & audit', text: 'A record of who did what.', points: [
+        'Sign-ins, failed sign-ins, password changes, user and permission changes.',
+        'Order status changes, dispatches, remittances, product and page saves.'
+      ] },
+      { page: 'settings', icon: '⚙️', title: 'Settings', text: 'Your account and workspace.', points: [
+        'Workspace name and region.',
+        'Change your password and sign out on every device.'
+      ], action: ['change-password', 'Change my password', ''] }
+    ]
+  }
+];
+
+const GUIDE_PUBLIC = [
+  { href: '/', icon: '🏠', title: 'Storefront', text: 'Home page with featured products, the bag and cash-on-delivery checkout, plus the “Contact us” form.' },
+  { href: '/shop', icon: '🗂️', title: 'Shop', text: 'Every category with all of its products.' },
+  { href: '/product', icon: '🎯', title: 'Product landing page', text: 'The page built in the CMS. Link it from your ads (add utm_source / utm_campaign to track results).' },
+  { href: '/track', icon: '📍', title: 'Order tracking', text: 'Customers search by order number, carrier tracking number or phone. Changing the address needs the order number and phone.' },
+  { href: '/policy', icon: '📄', title: 'Policies', text: 'Shipping, cash on delivery, returns, privacy and terms.' }
+];
+
+const GUIDE_FLOW = [
+  ['New', 'orders', 'An order arrives from the storefront, a landing page, an import or the portal.'],
+  ['Confirmed', 'calls', 'An agent calls the customer and confirms. It can go to the carrier automatically.'],
+  ['In transit', 'shipping', 'The parcel is dispatched; stock is taken.'],
+  ['Delivered', 'shipping', 'The carrier collects the cash. Returned parcels put the stock back.'],
+  ['Remitted', 'reconciliation', 'The carrier transfers the cash to you.']
+];
+
+const GUIDE_START = [
+  ['Check the database is connected', 'integrations', 'Shows “Database connected” when everything is saved in Supabase.'],
+  ['Add your products and stock', 'products', 'Price, cost, SKU and units.'],
+  ['Build a landing page', 'cms', 'Bundles, photos and the order form.'],
+  ['Connect a carrier', 'carriers', 'API or manual; test the connection.'],
+  ['Invite your team', 'team', 'One account per person, with the right role.'],
+  ['Set routing rules', 'routing', 'Who receives which leads.'],
+  ['Change your password', 'settings', 'Keep the Super Admin account safe.']
+];
+
+const pageAllowed = id => {
+  const def = pages.find(p => p[0] === id);
+  return !def || !def[3] || hasPermission(def[3]);
+};
+const guideOpen = (id, label) => pageAllowed(id)
+  ? `<a class="guide-go" href="#${id}">${esc(label)} →</a>`
+  : `<span class="guide-locked" title="Your role cannot open this page">🔒 Not in your role</span>`;
+
+function guide() {
+  const toc = GUIDE_SECTIONS.map(s => `<button type="button" class="guide-chip" data-action="guide-jump" data-id="guide-${s.group.toLowerCase()}">${esc(s.group)}</button>`).join('')
+    + '<button type="button" class="guide-chip" data-action="guide-jump" data-id="guide-customer">Customer pages</button>';
+  const card = it => `
+    <article class="panel guide-card" data-guide-text="${esc([it.title, it.text, ...it.points].join(' ').toLowerCase())}">
+      <div class="guide-card-head">
+        <span class="guide-icon" aria-hidden="true">${it.icon}</span>
+        <div><h3>${esc(it.title)}</h3><p>${esc(it.text)}</p></div>
+      </div>
+      <ul>${it.points.map(pt => `<li>${esc(pt)}</li>`).join('')}</ul>
+      <div class="guide-actions">
+        ${guideOpen(it.page, 'Open ' + it.title)}
+        ${it.action && (!it.action[2] || hasPermission(it.action[2])) ? `<button type="button" data-action="${it.action[0]}">${esc(it.action[1])}</button>` : ''}
+      </div>
+    </article>`;
+
+  return title('Platform guide', 'What every part of Rosaino does. Use the buttons to jump straight to a page.') + `
+    <div class="panel guide-intro">
+      <input id="guide-search" type="search" placeholder="Search the guide (e.g. carrier, stock, password)…" aria-label="Search the guide">
+      <div class="guide-toc">${toc}</div>
+    </div>
+
+    <section class="panel guide-flow-panel" data-guide-text="order flow new confirmed in transit delivered returned remitted">
+      <h2>How an order moves through Rosaino</h2>
+      <p class="info">Click a step to open the page where it happens.</p>
+      <ol class="guide-flow">
+        ${GUIDE_FLOW.map(([name, id, text], i) => `
+          <li>${pageAllowed(id) ? `<a href="#${id}">` : '<div>'}
+            <span class="guide-step-n">${i + 1}</span><b>${esc(name)}</b><small>${esc(text)}</small>
+          ${pageAllowed(id) ? '</a>' : '</div>'}</li>`).join('')}
+      </ol>
+    </section>
+
+    ${hasPermission('team') ? `<section class="panel" data-guide-text="getting started setup checklist first steps">
+      <h2>Getting started</h2>
+      <p class="info">First steps for a new workspace.</p>
+      <div class="guide-start">
+        ${GUIDE_START.map(([name, id, text], i) => `
+          <div class="guide-start-row">
+            <span class="guide-step-n">${i + 1}</span>
+            <div><b>${esc(name)}</b><small>${esc(text)}</small></div>
+            ${guideOpen(id, 'Open')}
+          </div>`).join('')}
+      </div>
+    </section>` : ''}
+
+    ${GUIDE_SECTIONS.map(s => `
+      <section class="guide-section" id="guide-${s.group.toLowerCase()}">
+        <div class="nav-group guide-group">${esc(s.group.toUpperCase())}</div>
+        <div class="guide-grid">${s.items.map(card).join('')}</div>
+      </section>`).join('')}
+
+    <section class="guide-section" id="guide-customer">
+      <div class="nav-group guide-group">CUSTOMER PAGES</div>
+      <div class="guide-grid">
+        ${GUIDE_PUBLIC.map(pp => ({ ...pp, href: pp.href === '/product' ? '/product?id=' + encodeURIComponent(db.products?.[0]?.id || 'p1') : pp.href })).map(pp => `
+          <article class="panel guide-card" data-guide-text="${esc((pp.title + ' ' + pp.text).toLowerCase())}">
+            <div class="guide-card-head">
+              <span class="guide-icon" aria-hidden="true">${pp.icon}</span>
+              <div><h3>${esc(pp.title)}</h3><p>${esc(pp.text)}</p></div>
+            </div>
+            <div class="guide-actions"><a class="guide-go" href="${esc(pp.href)}" target="_blank" rel="noopener">Open ${esc(pp.title)} ↗</a></div>
+          </article>`).join('')}
+      </div>
+    </section>
+    <p id="guide-empty" class="empty" hidden>Nothing in the guide matches your search.</p>
+  `;
+}
+
+const views = { overview, guide, orders, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
 
 function updateLivePreview() {
   const pId = activeCmsProductId;
@@ -4039,7 +4267,7 @@ function render() {
   let pendingGroup = '';
   $('#nav').innerHTML = pages.map(([id, icon, name, perm]) => {
     if (groupStarts[id]) pendingGroup = groupStarts[id][currentLang] || groupStarts[id].en;
-    if (!hasPermission(perm)) return '';
+    if (perm && !hasPermission(perm)) return '';
     const isAct = page === id;
     const group = pendingGroup ? `<div class="nav-group">${pendingGroup}</div>` : '';
     pendingGroup = '';
@@ -4052,7 +4280,7 @@ function render() {
   }).join('');
 
   // Check RBAC permission for this view
-  if (!hasPermission(reqPerm)) {
+  if (reqPerm && !hasPermission(reqPerm)) {
     $('#content').innerHTML = previewBanner() + accessDeniedView(pageDef ? pageDef[2] : page, reqPerm);
     return;
   }
@@ -4069,6 +4297,22 @@ function render() {
     $('#filter').onchange = e => {
       filter = e.target.value;
       $('#order-results').innerHTML = orderResults();
+    };
+  }
+  if (page === 'guide') {
+    // Filter the guide's cards and sections as you type.
+    $('#guide-search').oninput = e => {
+      const q = e.target.value.trim().toLowerCase();
+      let shown = 0;
+      document.querySelectorAll('#content [data-guide-text]').forEach(el => {
+        const hit = !q || el.dataset.guideText.includes(q);
+        el.hidden = !hit;
+        if (hit) shown++;
+      });
+      document.querySelectorAll('#content .guide-section').forEach(sec => {
+        sec.hidden = !sec.querySelector('[data-guide-text]:not([hidden])');
+      });
+      $('#guide-empty').hidden = shown > 0;
     };
   }
   if (page === 'calls' && $('#agent-select')) {
@@ -4225,18 +4469,18 @@ function changeStatus(o, next) {
   };
 
   if (!allowed[o.status].includes(next)) throw Error('That status transition is unavailable.');
-  const p = product(o.product);
-  if (p) {
-    if (next === 'Confirmed' && p.stock - reserved(p.id) < o.quantity) {
+  const lines = orderLines(o).map(l => ({ ...l, p: product(l.product) })).filter(l => l.p);
+  if (lines.length) {
+    if (next === 'Confirmed' && lines.some(l => l.p.stock - reserved(l.p.id) < l.quantity)) {
       throw Error('Not enough available stock to confirm this order.');
     }
     if (next === 'In transit') {
-      if (p.stock < o.quantity) throw Error('Not enough stock to dispatch.');
-      p.stock -= o.quantity;
+      if (lines.some(l => l.p.stock < l.quantity)) throw Error('Not enough stock to dispatch.');
+      lines.forEach(l => { l.p.stock -= l.quantity; });
       o.stockDeducted = true;
     }
     if (next === 'Returned' && o.stockDeducted) {
-      p.stock += o.quantity;
+      lines.forEach(l => { l.p.stock += l.quantity; });
       o.stockDeducted = false;
     }
   }
@@ -4368,7 +4612,7 @@ function showThermalLabel(id) {
         </div>
 
         <div style="font-size:12px;margin:8px 0;">
-          <strong>ITEMS:</strong> ${esc(p?.name || o.product)} × ${o.quantity} (${esc(p?.sku || 'SKU-01')})
+          <strong>ITEMS:</strong> ${orderLines(o).map(l => { const lp = product(l.product); return `${esc(lp?.name || l.product)} × ${l.quantity} (${esc(lp?.sku || 'SKU-01')})`; }).join(', ')}
         </div>
 
         <div class="thermal-barcode"></div>
@@ -4729,7 +4973,7 @@ function startCall(value) {
         </div>
         <div class="call-who">
           <b>${esc(o.phone)}</b>
-          <small>${esc(o.id)} · ${o.quantity} × ${esc(p?.name || o.product)} · ${money(o.amount)} · ${esc(o.city)}</small>
+          <small>${esc(o.id)} · ${esc(parcelText(o))} · ${money(o.amount)} · ${esc(o.city)}</small>
         </div>
       </div>
       <p class="info">${reopen}</p>
@@ -5102,6 +5346,7 @@ const actions = {
   order: orderDialog,
   awb: showThermalLabel,
   'new-order': newOrder,
+  'guide-jump': id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
   'new-po': createPurchaseOrderModal,
   'receive-po': receivePO,
   export: exportOrders,
@@ -6080,7 +6325,7 @@ if (loginForm) {
       // Land on the first module this role can open
       const target = location.hash.slice(1);
       const def = pages.find(p => p[0] === target);
-      if (!def || !hasPermission(def[3])) location.hash = (pages.find(p => hasPermission(p[3])) || pages[0])[0];
+      if (!def || (def[3] && !hasPermission(def[3]))) location.hash = (pages.find(p => hasPermission(p[3])) || pages[0])[0];
       render();
       bootSync();
     } catch (err) {
