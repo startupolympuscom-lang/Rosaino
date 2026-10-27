@@ -241,7 +241,7 @@ async function callCarrier(carrier, method, pathTemplate, { payload, tracking } 
   return { ok: res.ok, status: res.status, data };
 }
 
-function shipmentPayload(carrier, order) {
+function shipmentPayload(carrier, order, items) {
   const base = {
     reference: order.id,
     recipient_name: order.customer,
@@ -249,8 +249,8 @@ function shipmentPayload(carrier, order) {
     city: order.city,
     address: order.address,
     cod_amount: Number(order.amount) || 0,
-    product: order.productName || order.product || '',
-    quantity: Number(order.quantity) || 1,
+    product: items.map(i => i.name).join(', ') || order.product || '',
+    quantity: items.reduce((s, i) => s + i.quantity, 0) || 1,
     note: order.note || ''
   };
   const map = carrier.config?.fieldMap || {};
@@ -345,9 +345,27 @@ async function nearyaRegions(c, { fresh = false } = {}) {
 // Turn a Nearya error into one the portal shows as-is.
 const asFail = err => (err.expose ? err : fail(502, err.message));
 
+// Each product in the order with its name and SKU (a bag order holds several).
+async function parcelItems(order) {
+  const bag = Array.isArray(order.items) && order.items.length > 0;
+  const lines = bag ? order.items : [{ product: order.product, quantity: order.quantity }];
+  const out = [];
+  for (const l of lines) {
+    const p = hooks.getProduct && l.product ? await hooks.getProduct(l.product) : null;
+    out.push({
+      name: p?.name || (bag ? '' : order.productName) || String(l.product || ''),
+      sku: p?.sku || (bag ? '' : order.sku) || '',
+      quantity: Number(l.quantity) || 1
+    });
+  }
+  return out;
+}
+
 // Send one order to a carrier. Returns the new shipment.
-// order: { id, customer, phone, city, address, amount, quantity, productName, sku, note, date }
+// order: { id, customer, phone, city, address, amount, quantity, productName, sku, items?, note, date }
 async function dispatchToCarrier(c, order, { trackingNumber = '', regionId = '' } = {}) {
+  const items = await parcelItems(order);
+  const contents = items.map(i => `${i.quantity} × ${i.name}`).join(', ');
   let carrierStatus = 'Dispatched';
   let parcelId = '';
   let regionName = '';
@@ -363,13 +381,14 @@ async function dispatchToCarrier(c, order, { trackingNumber = '', regionId = '' 
       address: order.address,
       phone: order.phone,
       price: Number(order.amount) || 0,
-      comment: [order.quantity && order.productName ? `${order.quantity} × ${order.productName}` : '', order.note].filter(Boolean).join(' · ').slice(0, 250)
+      comment: [contents, order.note].filter(Boolean).join(' · ').slice(0, 250)
     };
     let ref;
     try {
       if (c.config.parcelType === 'store') {
-        if (!order.sku) throw fail(400, 'This product has no SKU, which Nearya needs to ship from your stock. Add the SKU in Products, or use simple parcels.');
-        ref = await nearya(c).createStore({ ...parcel, items: [{ sku: order.sku, quantity: Number(order.quantity) || 1 }] });
+        const noSku = items.find(i => !i.sku);
+        if (noSku) throw fail(400, `${noSku.name || 'This product'} has no SKU, which Nearya needs to ship from your stock. Add the SKU in Products, or use simple parcels.`);
+        ref = await nearya(c).createStore({ ...parcel, items: items.map(i => ({ sku: i.sku, quantity: i.quantity })) });
       } else {
         ref = await nearya(c).createSimple(parcel);
       }
@@ -382,7 +401,7 @@ async function dispatchToCarrier(c, order, { trackingNumber = '', regionId = '' 
   } else if (c.kind === 'api') {
     let r;
     try {
-      r = await callCarrier(c, 'POST', c.config.createPath || '/shipments', { payload: shipmentPayload(c, order) });
+      r = await callCarrier(c, 'POST', c.config.createPath || '/shipments', { payload: shipmentPayload(c, order, items) });
     } catch (err) {
       throw fail(502, `${c.name} could not be reached: ${err.message}`);
     }
@@ -402,7 +421,7 @@ async function dispatchToCarrier(c, order, { trackingNumber = '', regionId = '' 
     orderId: order.id, carrierId: c.id, carrierName: c.name, trackingNumber, status: 'In transit', carrierStatus,
     events: [{ at: new Date().toISOString(), raw: carrierStatus, status: 'In transit', source }],
     snapshot: {
-      customer: maskName(order.customer), city: order.city || '', productName: order.productName || '',
+      customer: maskName(order.customer), city: order.city || '', productName: items.length > 1 ? contents : (items[0]?.name || ''),
       amount: Number(order.amount) || 0, quantity: Number(order.quantity) || 1, date: order.date || new Date().toISOString().slice(0, 10),
       trackingUrl: c.config.trackingUrl ? c.config.trackingUrl.replace('{tracking}', encodeURIComponent(trackingNumber)) : '',
       ...(parcelId ? { parcelId } : {}),

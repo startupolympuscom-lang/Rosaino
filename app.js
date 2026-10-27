@@ -111,8 +111,10 @@ function saveCart() {
 // Calculate reserved & available stock
 function getStockInfo(p) {
   const reserved = (db?.orders || [])
-    .filter(o => String(o.product) === String(p.id) && o.status === 'Confirmed')
-    .reduce((s, o) => s + (Number(o.quantity) || 0), 0);
+    .filter(o => o.status === 'Confirmed')
+    .flatMap(o => Array.isArray(o.items) && o.items.length ? o.items : [{ product: o.product, quantity: o.quantity }])
+    .filter(i => String(i.product) === String(p.id))
+    .reduce((s, i) => s + (Number(i.quantity) || 0), 0);
   const onHand = Number(p.stock) || 0;
   const available = Math.max(0, onHand - reserved);
   return { onHand, reserved, available };

@@ -219,18 +219,25 @@ function collectionsFor(req) {
 const persist = (collection, ...records) => saveRecords(collection, records.filter(Boolean));
 
 // Stock follows the order: taken when it ships, put back when it returns.
-// Returns the change to apply to the product's stock.
-function stockChange(order) {
-  const qty = Number(order.quantity) || 1;
+// Returns -1 (take), 1 (put back) or 0.
+function stockDirection(order) {
   if (order.status === 'In transit' && !order.stockDeducted) {
     order.stockDeducted = true;
-    return -qty;
+    return -1;
   }
   if (order.status === 'Returned' && order.stockDeducted) {
     order.stockDeducted = false;
-    return qty;
+    return 1;
   }
   return 0;
+}
+
+// The products and quantities an order holds: a bag lists each item.
+function orderLines(order) {
+  if (Array.isArray(order.items) && order.items.length) {
+    return order.items.map(i => ({ product: i.product, quantity: Number(i.quantity) || 1 }));
+  }
+  return [{ product: order.product, quantity: Number(order.quantity) || 1 }];
 }
 
 const replaceIn = (list, item) => {
@@ -242,22 +249,28 @@ const replaceIn = (list, item) => {
 // runs as a transaction on the stored order, so teammates editing the same
 // order at the same moment never overwrite each other.
 async function changeOrder(id, mutate) {
-  let product = null;
+  const products = [];
   const run = async (order, adjustStock) => {
     const before = order.status;
     mutate(order);
     if (order.status !== before) {
-      const delta = stockChange(order);
-      if (delta) product = await adjustStock(order.product, delta);
+      const dir = stockDirection(order);
+      if (dir) {
+        for (const line of orderLines(order)) {
+          const p = await adjustStock(line.product, dir * line.quantity);
+          if (p) products.push(p);
+        }
+      }
     }
     return order;
   };
+  const result = order => ({ order, product: products[0] || null, products });
   if (await dataDb()) {
     const order = await updateRecord('orders', id, (data, tx) => run(data, (pid, d) => tx.adjust('products', pid, 'stock', d)));
     if (!order) return null;
     replaceIn(memoryOrders, order);
-    if (product) replaceIn(memoryProducts, product);
-    return { order, product };
+    products.forEach(p => replaceIn(memoryProducts, p));
+    return result(order);
   }
   const order = memoryOrders.find(o => String(o.id) === String(id));
   if (!order) return null;
@@ -266,7 +279,7 @@ async function changeOrder(id, mutate) {
     if (p) p.stock = (Number(p.stock) || 0) + d;
     return p || null;
   });
-  return { order, product };
+  return result(order);
 }
 
 // Order fields the browser may not set directly.
