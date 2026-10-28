@@ -107,6 +107,8 @@ If the database is configured but unreachable, the shop catalogue stays visible,
 
 If an older version of `supabase-schema.sql` was run in your Supabase project, run the current one once in the SQL Editor: it removes the public read/write access those versions gave to the old `orders` and `products` tables (it does not delete data).
 
+**Owner recovery:** signing in with exactly `ADMIN_EMAIL` and `ADMIN_PASSWORD` always works. It creates that Super Admin account if needed, or re-enables it and resets its password to `ADMIN_PASSWORD`, even after too many failed attempts. Keep these two values private in Vercel.
+
 Accounts are only seeded when `admin_users` is empty. Later, setting `ADMIN_EMAIL`/`ADMIN_PASSWORD` to an email that doesn't exist yet adds it as a new Super Admin (useful for recovering access).
 
 Only one account is created: the **Super Admin**. There are no demo or sample accounts; create your team's accounts in the portal under **Team & RBAC**. Sample accounts created by earlier versions (admin@, operations@, agent@, finance@rosaino.com) are disabled automatically on startup.

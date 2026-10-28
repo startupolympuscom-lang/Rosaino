@@ -319,6 +319,23 @@ const handle = fn => async (req, res) => {
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
+// The owner login from ADMIN_EMAIL / ADMIN_PASSWORD, if set (and not the public default password).
+function envOwner() {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD?.trim();
+  if (!email || !password || password === DEFAULT_SUPER_ADMIN.password) return null;
+  return { email, password };
+}
+
+function sameSecret(a, b) {
+  const x = crypto.createHash('sha256').update(String(a)).digest();
+  const y = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(x, y);
+}
+
+// o•••@shop.ma: enough to recognise your own email on the sign-in page.
+const maskEmail = e => e.replace(/^(.)[^@]*/, '$1•••');
+
 function validatePassword(pw) {
   if (typeof pw !== 'string' || pw.length < MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
@@ -343,6 +360,29 @@ export function registerAuthRoutes(app) {
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
     if (!SECRET) return res.status(503).json({ error: MISSING_SECRET });
 
+    // Owner recovery: exactly ADMIN_EMAIL + ADMIN_PASSWORD (set in Vercel) always
+    // signs in as Super Admin, creating, re-enabling or re-keying that account.
+    const owner = envOwner();
+    if (owner && email === owner.email && sameSecret(password.trim(), owner.password)) {
+      let u = await store.findByEmail(email);
+      if (!u) {
+        u = newUser({ name: 'Rosaino Super Admin', email, password: owner.password, role: SUPER_ADMIN });
+      } else {
+        if (!verifyPassword(owner.password, u.passwordHash)) {
+          u.passwordHash = hashPassword(owner.password);
+          u.tokenVersion += 1;
+        }
+        u.active = true;
+        u.role = SUPER_ADMIN;
+      }
+      await store.clearAttempt(`${clientIp(req)}|${email}`);
+      u.lastLoginAt = new Date().toISOString();
+      await store.saveUser(u);
+      await loadRoles();
+      await audit(u, 'login', 'ADMIN_EMAIL / ADMIN_PASSWORD', req);
+      return res.json({ success: true, ...issueToken(u), ...sessionPayload(u) });
+    }
+
     const key = `${clientIp(req)}|${email}`;
     const attempt = await store.getAttempt(key);
     if (attempt && attempt.count >= MAX_FAILED_LOGINS && Date.now() - attempt.first < LOCKOUT_MS) {
@@ -355,13 +395,22 @@ export function registerAuthRoutes(app) {
       const fresh = !attempt || Date.now() - attempt.first >= LOCKOUT_MS;
       await store.setAttempt(key, fresh ? { count: 1, first: Date.now() } : { ...attempt, count: attempt.count + 1 });
       await audit(email, 'login.failed', u && u.active === false ? 'Account disabled' : 'Invalid credentials', req);
-      return res.status(401).json({ error: u && u.active === false ? 'This account has been disabled' : 'Invalid email or password' });
+      if (u && u.active === false) {
+        return res.status(401).json({ error: u.id === DEFAULT_SUPER_ADMIN.id && owner
+          ? `This default account is switched off. Sign in with your ADMIN_EMAIL (${maskEmail(owner.email)}) and ADMIN_PASSWORD.`
+          : 'This account has been disabled' });
+      }
+      return res.status(401).json({ error: owner && email === owner.email
+        ? 'Wrong password. Use the ADMIN_PASSWORD value exactly as saved in Vercel.'
+        : 'Invalid email or password' });
     }
 
     // The default password is published in the README, so it never works on a live site.
     if (PRODUCTION && verifyPassword(DEFAULT_SUPER_ADMIN.password, u.passwordHash)) {
       await audit(u, 'login.failed', 'Default password refused', req);
-      return res.status(403).json({ error: 'This account still has the default password, which is public. Set ADMIN_EMAIL and ADMIN_PASSWORD in Vercel and redeploy, then sign in with them.' });
+      return res.status(403).json({ error: owner
+        ? `The default password is switched off. Sign in with your ADMIN_EMAIL (${maskEmail(owner.email)}) and ADMIN_PASSWORD.`
+        : 'The default password is public, so it is switched off. This deployment does not see ADMIN_EMAIL and ADMIN_PASSWORD yet: in Vercel, add both for the Production environment, then redeploy and sign in with them.' });
     }
 
     await store.clearAttempt(key);
