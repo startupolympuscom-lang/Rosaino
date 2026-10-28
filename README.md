@@ -83,6 +83,8 @@ If Resend rejects a message, the customer is told it couldn't be delivered inste
 
 ## Admin sign-in
 
+> **Temporary: open access is ON.** `OPEN_ACCESS = true` in `auth.js` signs everyone into the portal as Super Admin with no password, and a red banner says so on every page. Anyone with the link can see customer details and change orders. Set it to `false` to require sign-in again.
+
 The operations portal at `/admin/` requires an account. Sign-in is the app's own email + password authentication (`auth.js`). **Supabase Auth is not used.** Supabase is used only as the PostgreSQL database.
 
 - **Storage:** with `DATABASE_URL` set to your Supabase Postgres connection string, accounts, role permissions, login lockouts and the audit trail are stored in Supabase Postgres (`auth-store.js`). The server connects to Postgres directly; the tables `admin_users`, `admin_roles`, `admin_audit` and `admin_login_attempts` are created automatically on first start, with row-level security enabled and no policies, so the public (anon) API key can never read them. Without `DATABASE_URL` (local development) the same data is kept in memory.
