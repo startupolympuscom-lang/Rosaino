@@ -1849,8 +1849,8 @@ function openParcel(orderId) {
     ${nearyaParcel && hasPermission('shipping') ? `
       <div class="actions parcel-actions">
         <button type="button" data-action="parcel-refresh" data-id="${esc(o.id)}">Check status now</button>
-        <button type="button" data-action="parcel-relaunch" data-id="${esc(o.id)}">Relaunch delivery</button>
-        <button type="button" data-action="parcel-new-recipient" data-id="${esc(o.id)}">Send to a new customer</button>
+        ${s.status !== 'Delivered' ? `<button type="button" data-action="parcel-relaunch" data-id="${esc(o.id)}">Relaunch delivery</button>
+        <button type="button" data-action="parcel-new-recipient" data-id="${esc(o.id)}">Send to a new customer</button>` : ''}
         <button type="button" data-action="parcel-replace" data-id="${esc(o.id)}">Exchange</button>
       </div>` : ''}
     <div id="nearya-error" role="alert" class="form-error"></div>

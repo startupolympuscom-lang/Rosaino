@@ -648,6 +648,7 @@ export function registerCarrierRoutes(app, { onStatus, getProduct } = {}) {
     try {
       const r = await callCarrier(c, 'GET', c.config.statusPath || '', { tracking: 'ROSAINO-TEST' });
       if (r.status === 401 || r.status === 403) return res.json({ ok: false, httpStatus: r.status, message: 'The carrier rejected the API key. Check it was copied completely.' });
+      if (r.status === 404) return res.json({ ok: true, httpStatus: r.status, message: 'Connected: the carrier accepted the API key (it has no test parcel, as expected).' });
       return res.json({ ok: true, httpStatus: r.status, message: `Connected: the carrier answered (HTTP ${r.status}).` });
     } catch (err) {
       return res.json({ ok: false, message: `Could not reach the carrier: ${err.message}` });
@@ -774,8 +775,14 @@ export function registerCarrierRoutes(app, { onStatus, getProduct } = {}) {
   }));
 
   // Relaunch a parcel (e.g. after a failed delivery).
+  // A delivered parcel is finished (the cash is collected): it can be exchanged, not relaunched or redirected.
+  const notDelivered = s => {
+    if (s.status === 'Delivered') throw fail(409, 'This parcel was already delivered. Use Exchange to send a replacement.');
+  };
+
   app.post('/api/shipments/:orderId/relaunch', requireAuth('shipping'), wrap(async (req, res) => {
     const { s, c } = await nearyaShipment(req.params.orderId);
+    notDelivered(s);
     await call(() => nearya(c).restart(s.trackingNumber));
     await reopenShipment(s, 'Relancé', hooks.onStatus);
     await audit(req.user, 'shipment.relaunched', `${s.orderId} (${s.trackingNumber})`, req);
@@ -785,6 +792,7 @@ export function registerCarrierRoutes(app, { onStatus, getProduct } = {}) {
   // Send the parcel to a new customer instead.
   app.post('/api/shipments/:orderId/new-recipient', requireAuth('shipping'), wrap(async (req, res) => {
     const { s, c } = await nearyaShipment(req.params.orderId);
+    notDelivered(s);
     const b = req.body || {};
     for (const [k, label] of [['recipient', 'name'], ['phone', 'phone'], ['address', 'address'], ['regionId', 'region']]) {
       if (!String(b[k] || '').trim()) throw fail(400, `Enter the new customer's ${label}.`);
