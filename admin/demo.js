@@ -1125,9 +1125,16 @@ function bars(items, total) {
   `).join('');
 }
 
+// Set from /api/auth/status: the portal is temporarily open without a password.
+let openAccess = false;
+
 function previewBanner() {
-  if (!previewRole) return '';
-  return `
+  const open = openAccess ? `
+    <div class="panel" role="alert" style="background:#fdecea;border-color:#f3b4ab;color:#8f2b22;padding:14px 18px;">
+      <b>Open access is on.</b> Anyone with the link to this portal is signed in as Super Admin without a password and can see customer details and change orders. Turn it off as soon as sign-in is fixed.
+    </div>` : '';
+  if (!previewRole) return open;
+  return open + `
     <div class="panel" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff4dc;border-color:#f3d48e;padding:14px 18px;">
       <span>Previewing the workspace as <b>${esc(previewRole)}</b>. Your account keeps its own permissions.</span>
       <button data-action="exit-preview">Exit preview</button>
@@ -6385,8 +6392,21 @@ window.addEventListener('message', event => {
   }
 });
 
+// Open access: sign in straight away, without the sign-in screen.
+async function openAccessSignIn() {
+  try {
+    const status = await (await fetch('/api/auth/status')).json();
+    openAccess = !!status.openAccess;
+    if (!openAccess || getSession()) return;
+    const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await res.json();
+    if (res.ok && data.success) applySession(data);
+  } catch {}
+}
+
 // Initial boot check: check server for latest products & orders
 async function bootSync() {
+  await openAccessSignIn();
   if (!getSession()) return;
   if (!(await refreshSession()) && !getSession()) return;
   checkAuth();

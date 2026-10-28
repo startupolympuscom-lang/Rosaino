@@ -37,7 +37,13 @@ const AUDIT_LIMIT = 500;
 // deliberately no fallback there: a secret derived from known values could be
 // recomputed by anyone and used to forge Super Admin sessions.
 const PRODUCTION = !!process.env.VERCEL || process.env.NODE_ENV === 'production';
-const SECRET = process.env.AUTH_SECRET?.trim() || (PRODUCTION ? null : 'rosaino-local-development-only');
+
+// TEMPORARY (owner's request): anyone who opens the portal is signed in as
+// Super Admin, with no password. Customer data and every action are open to
+// anyone with the link. Set this back to false to require sign-in again.
+export const OPEN_ACCESS = true;
+
+const SECRET = process.env.AUTH_SECRET?.trim() || (PRODUCTION && !OPEN_ACCESS ? null : 'rosaino-local-development-only');
 const MISSING_SECRET = 'Sign-in is disabled until AUTH_SECRET is set. Add it in Vercel (Project → Settings → Environment Variables) and redeploy.';
 if (!process.env.AUTH_SECRET?.trim()) {
   console.warn(PRODUCTION
@@ -319,6 +325,18 @@ const handle = fn => async (req, res) => {
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
+// Open access signs everyone in as the owner's Super Admin account
+// (ADMIN_EMAIL if it exists, else the built-in one), switched on if needed.
+async function openAccessUser() {
+  const owner = envOwner();
+  let u = (owner && await store.findByEmail(owner.email)) || await store.getUser(DEFAULT_SUPER_ADMIN.id)
+    || (await store.listUsers()).find(x => x.role === SUPER_ADMIN);
+  if (!u) u = newUser({ id: DEFAULT_SUPER_ADMIN.id, name: 'Rosaino Super Admin', email: DEFAULT_SUPER_ADMIN.email, password: crypto.randomBytes(24).toString('hex'), role: SUPER_ADMIN });
+  u.active = true;
+  u.role = SUPER_ADMIN;
+  return u;
+}
+
 // The owner login from ADMIN_EMAIL / ADMIN_PASSWORD, if set (and not the public default password).
 function envOwner() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -355,6 +373,14 @@ export function registerAuthRoutes(app) {
   // --- Session ---------------------------------------------------------------
   app.post('/api/auth/login', handle(async (req, res) => {
     await ensureReady();
+    if (OPEN_ACCESS) {
+      const u = await openAccessUser();
+      u.lastLoginAt = new Date().toISOString();
+      await store.saveUser(u);
+      await loadRoles();
+      await audit(u, 'login', 'Open access (no password)', req);
+      return res.json({ success: true, ...issueToken(u), ...sessionPayload(u) });
+    }
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
@@ -583,6 +609,6 @@ export function registerAuthRoutes(app) {
   app.get('/api/auth/status', handle(async (req, res) => {
     await ensureReady();
     const warning = !SECRET ? MISSING_SECRET : storageError;
-    res.json({ storage: store.kind, ok: !!SECRET, ...(warning ? { warning } : {}) });
+    res.json({ storage: store.kind, ok: !!SECRET, openAccess: OPEN_ACCESS, ...(warning ? { warning } : {}) });
   }));
 }
