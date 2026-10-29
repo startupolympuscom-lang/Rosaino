@@ -32,6 +32,7 @@ const I18N = {
     shipping: 'Expédition & Colis',
     carriers: 'Transporteurs',
     products: 'Produits & Stock',
+    store: 'Connexion boutique',
     cms: 'CMS Page Produit',
     suppliers: 'Fournisseurs & Bons',
     finance: 'Comptabilité COD',
@@ -73,6 +74,7 @@ const I18N = {
     shipping: 'Shipping & Labels',
     carriers: 'Carriers',
     products: 'Products & Stock',
+    store: 'Store connection',
     cms: 'Landing Page CMS',
     suppliers: 'Suppliers & POs',
     finance: 'Finance Ledger',
@@ -114,6 +116,7 @@ const I18N = {
     shipping: 'الشحن والتوصيل',
     carriers: 'شركات التوصيل',
     products: 'المنتجات والمخزون',
+    store: 'ربط المتجر',
     cms: 'نظام صفحات الهبوط (CMS)',
     suppliers: 'الموردون وفواتير الشراء',
     finance: 'المحاسبة وتحصيل COD',
@@ -642,6 +645,7 @@ function getNavIcon(id) {
     case 'reconciliation': return `<svg ${s}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
     case 'reports': return `<svg ${s}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
     case 'stores': return `<svg ${s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
+    case 'store': return `<svg ${s}><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></svg>`;
     case 'integrations': return `<svg ${s}><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`;
     case 'guide': return `<svg ${s}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
     case 'security': return `<svg ${s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`;
@@ -651,9 +655,15 @@ function getNavIcon(id) {
   }
 }
 
+// Rosaino sells through its own online store, connected with an API key
+// (Store connection). The built-in storefront and its editors are retired.
+const STOREFRONT_ENABLED = false;
+const STOREFRONT_PAGES = ['cms', 'stores'];
+
 const pages = [
   ['overview', 'overview', 'Overview', 'overview'],
   ['guide', 'guide', 'Platform guide', ''], // open to every role
+  ['store', 'store', 'Store connection', 'integrations'],
   ['orders', 'orders', 'Leads & orders', 'orders'],
   ['calls', 'calls', 'Call center', 'calls'],
   ['routing', 'routing', 'Lead routing', 'routing'],
@@ -700,6 +710,42 @@ function scheduleServerSync() {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(pushChanges, 400);
 }
+
+// New orders (e.g. from the online store) and teammates' changes, without
+// reloading. Orders with changes not yet sent from this browser are left as they are.
+async function pullOrders({ announce = false } = {}) {
+  if (!synced || !getSession()) return 0;
+  let list;
+  try { list = await api('/api/orders'); } catch { return 0; }
+  if (!Array.isArray(list)) return 0;
+  let added = 0;
+  let changed = false;
+  for (const raw of list) {
+    const o = { notes: [], ...raw };
+    const id = String(o.id);
+    const json = JSON.stringify(o);
+    const i = db.orders.findIndex(x => String(x.id) === id);
+    if (i < 0) {
+      db.orders.unshift(o);
+      added++;
+    } else {
+      const local = JSON.stringify(db.orders[i]);
+      if (local !== synced.orders.get(id) || local === json) continue; // local edit pending, or nothing new
+      db.orders[i] = o;
+    }
+    synced.orders.set(id, json);
+    changed = true;
+  }
+  if (changed) {
+    try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+    const el = document.activeElement;
+    const typing = el && el.closest?.('#content') && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+    if (!$('#modal')?.open && !typing) render();
+  }
+  if (announce && added) toast(`${added} new order${added > 1 ? 's' : ''} received`);
+  return added;
+}
+setInterval(() => { if (document.visibilityState === 'visible') pullOrders({ announce: true }); }, 45000);
 
 // The server sent a confirmed order to the carrier on its own.
 function receivedAutoDispatch(o, r) {
@@ -1169,7 +1215,7 @@ function setupChecklist() {
   }
   const items = [
     [setupStatus.carriers > 0, 'Connect a carrier', 'Orders are sent to them when you dispatch, and deliveries update by themselves.', '#carriers', 'Add carrier'],
-    [setupStatus.email, 'Contact form emails', 'Customer messages are emailed to you through Resend (RESEND_API_KEY in Vercel).', '', ''],
+    [setupStatus.store?.received > 0, 'Connect your online store', setupStatus.store?.keys ? 'Your API key is ready; orders appear as soon as your store sends the first one.' : 'Create an API key and add it to your Shopify, YouCan or WooCommerce store so its orders arrive here.', '#store', setupStatus.store?.keys ? 'Open' : 'Create key'],
     [setupStatus.database, 'Database connected', setupStatus.databaseError ? `Not working: ${esc(setupStatus.databaseError)}` : 'Orders, products, accounts, carriers and calls are saved in Supabase (DATABASE_URL in Vercel).', '', ''],
     [setupStatus.team > 1, 'Invite your team', 'Give agents and managers their own login with only the pages they need.', '#team', 'Add member']
   ];
@@ -1941,7 +1987,7 @@ function openDispatchDialog(id) {
       trackingNumber: f.get('trackingNumber') || '',
       regionId: f.get('regionId') || '',
       rememberRegion: f.get('rememberRegion') === 'on',
-      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, quantity: o.quantity, product: o.product, items: o.items, productName: p?.name || '', sku: p?.sku || '', date: o.date }
+      order: { id: o.id, customer: o.customer, phone: o.phone, city: o.city, address: o.address, amount: o.amount, prepaid: !!o.prepaid, quantity: o.quantity, product: o.product, items: o.items, productName: p?.name || (typeof o.product === 'string' && !p ? o.product : ''), sku: p?.sku || o.sku || '', date: o.date }
     }).then(({ shipment: s }) => {
       $('#modal').close();
       o.carrier = s.carrierName;
@@ -3323,9 +3369,15 @@ const GUIDE_SECTIONS = [
       { page: 'overview', icon: '📊', title: 'Overview', text: 'Your day at a glance.', points: [
         'Collected revenue, total orders, orders awaiting confirmation and parcels on the way.',
         'Revenue chart and order pipeline by status.',
-        '“Finish setting up” checklist: database, carrier, contact emails and team.'
+        '“Finish setting up” checklist: database, online store, carrier and team.'
       ] },
-      { page: 'orders', icon: '🧾', title: 'Leads & orders', text: 'Every order from the storefront, landing pages, CSV imports or typed in by hand.', points: [
+      { page: 'store', icon: '🔗', title: 'Store connection', text: 'Your online store sends its orders here.', points: [
+        'Create an API key for your Shopify, YouCan or WooCommerce store, or your own site.',
+        'Add it to the store as an order webhook: each new order becomes a lead in seconds.',
+        'Products are matched by SKU so stock is counted; the same order sent twice is recorded once.',
+        'Your store can ask for an order’s status, carrier and tracking number with the same key.'
+      ], action: ['new-store-key', 'Create an API key', 'integrations'] },
+      { page: 'orders', icon: '🧾', title: 'Leads & orders', text: 'Every order from your online store, CSV imports or typed in by hand.', points: [
         'Search and filter by status; open an order to see details, notes, history and assignment.',
         'Move orders through New → Confirmed → In transit → Delivered / Returned.',
         'Risk score per phone number (VIP, first-time, serial refuser, blacklisted) and duplicate detection.',
@@ -3427,16 +3479,18 @@ const GUIDE_SECTIONS = [
   }
 ];
 
-const GUIDE_PUBLIC = [
+const GUIDE_PUBLIC_ALL = [
   { href: '/', icon: '🏠', title: 'Storefront', text: 'Home page with featured products, the bag and cash-on-delivery checkout, plus the “Contact us” form.' },
   { href: '/shop', icon: '🗂️', title: 'Shop', text: 'Every category with all of its products.' },
   { href: '/product', icon: '🎯', title: 'Product landing page', text: 'The page built in the CMS. Link it from your ads (add utm_source / utm_campaign to track results).' },
   { href: '/track', icon: '📍', title: 'Order tracking', text: 'Customers search by order number, carrier tracking number or phone. Changing the address needs the order number and phone.' },
   { href: '/policy', icon: '📄', title: 'Policies', text: 'Shipping, cash on delivery, returns, privacy and terms.' }
 ];
+// Without the built-in storefront, only the tracking page is public.
+const GUIDE_PUBLIC = STOREFRONT_ENABLED ? GUIDE_PUBLIC_ALL : GUIDE_PUBLIC_ALL.filter(p => p.href === '/track');
 
 const GUIDE_FLOW = [
-  ['New', 'orders', 'An order arrives from the storefront, a landing page, an import or the portal.'],
+  ['New', 'orders', 'An order arrives from your online store, an import or the portal.'],
   ['Confirmed', 'calls', 'An agent calls the customer and confirms. It can go to the carrier automatically.'],
   ['In transit', 'shipping', 'The parcel is dispatched; stock is taken.'],
   ['Delivered', 'shipping', 'The carrier collects the cash. Returned parcels put the stock back.'],
@@ -3446,7 +3500,7 @@ const GUIDE_FLOW = [
 const GUIDE_START = [
   ['Check the database is connected', 'integrations', 'Shows “Database connected” when everything is saved in Supabase.'],
   ['Add your products and stock', 'products', 'Price, cost, SKU and units.'],
-  ['Build a landing page', 'cms', 'Bundles, photos and the order form.'],
+  ['Connect your online store', 'store', 'Create an API key and add it to your store.'],
   ['Connect a carrier', 'carriers', 'API or manual; test the connection.'],
   ['Invite your team', 'team', 'One account per person, with the right role.'],
   ['Set routing rules', 'routing', 'Who receives which leads.'],
@@ -3507,7 +3561,7 @@ function guide() {
       </div>
     </section>` : ''}
 
-    ${GUIDE_SECTIONS.map(s => `
+    ${GUIDE_SECTIONS.map(s => ({ ...s, items: s.items.filter(it => STOREFRONT_ENABLED || !STOREFRONT_PAGES.includes(it.page)) })).map(s => `
       <section class="guide-section" id="guide-${s.group.toLowerCase()}">
         <div class="nav-group guide-group">${esc(s.group.toUpperCase())}</div>
         <div class="guide-grid">${s.items.map(card).join('')}</div>
@@ -3530,7 +3584,188 @@ function guide() {
   `;
 }
 
-const views = { overview, guide, orders, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
+// Store connection: Rosaino's own online store (Shopify, YouCan, WooCommerce
+// or custom code) sends its orders here with an API key.
+let storeKeys = null;
+const STORE_PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Other'];
+const storeEndpoint = () => `${location.origin}/api/v1/orders`;
+
+async function loadStoreKeys() {
+  try {
+    storeKeys = await api('/api/store-keys');
+  } catch {
+    storeKeys = storeKeys || [];
+  }
+  return storeKeys;
+}
+
+function storeSetupSteps(platform, secret) {
+  const key = secret || 'YOUR_API_KEY';
+  const hookUrl = `${storeEndpoint()}?key=${key}`;
+  const code = v => `<code class="copyable">${esc(v)}</code>`;
+  const steps = {
+    Shopify: `
+      <ol class="steps">
+        <li>In your Shopify admin, open <b>Settings → Notifications → Webhooks</b> and click <b>Create webhook</b>.</li>
+        <li>Event: <b>Order creation</b> · Format: <b>JSON</b> · URL: ${code(hookUrl)}</li>
+        <li>Save. Shopify shows <i>"Your webhooks will be signed with …"</i>: copy that secret into this key's <b>Signing secret</b> here, so Rosaino only accepts orders really sent by your store.</li>
+        <li>Click <b>Send test</b> next to the webhook in Shopify: a sample order appears in Leads &amp; orders.</li>
+      </ol>`,
+    YouCan: `
+      <ol class="steps">
+        <li>In your YouCan store, add a webhook for the <b>order created</b> event (in your store settings, or through Zapier / Make if your plan doesn't list webhooks).</li>
+        <li>URL: ${code(hookUrl)} · Method: <b>POST</b> · Format: <b>JSON</b></li>
+        <li>Place a test order on your store: it appears in Leads &amp; orders within seconds.</li>
+      </ol>`,
+    WooCommerce: `
+      <ol class="steps">
+        <li>In WordPress, open <b>WooCommerce → Settings → Advanced → Webhooks</b> and click <b>Add webhook</b>.</li>
+        <li>Status: <b>Active</b> · Topic: <b>Order created</b> · Delivery URL: ${code(hookUrl)}</li>
+        <li>Save, then place a test order on your store: it appears in Leads &amp; orders.</li>
+      </ol>`,
+    Other: `
+      <ol class="steps">
+        <li>From your site's code, send each new order to ${code(storeEndpoint())} with <b>POST</b>.</li>
+        <li>Add the header ${code('Authorization: Bearer ' + key)} (or ${code('X-API-Key: ' + key)}).</li>
+        <li>Send JSON like the example under <b>Developer reference</b> below.</li>
+      </ol>`
+  };
+  return steps[platform] || steps.Other;
+}
+
+function storeConnection() {
+  if (!storeKeys) loadStoreKeys().then(() => page === 'store' && render());
+  const keys = storeKeys || [];
+  const active = keys.filter(k => k.active);
+  const received = keys.reduce((n, k) => n + (k.ordersReceived || 0), 0);
+  const last = keys.map(k => k.lastUsedAt).filter(Boolean).sort().pop();
+  const recent = keys.flatMap(k => (k.recent || []).map(r => ({ ...r, keyName: k.name }))).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20);
+  const fromStore = db.orders.filter(o => o.storeKeyId);
+  const resultBadge = r => ({ created: badge('New'), duplicate: '<span class="badge">Already received</span>', rejected: '<span class="badge cancelled">Rejected</span>', test: '<span class="badge in-transit">Test</span>', ping: '<span class="badge in-transit">Connection check</span>' }[r] || esc(r));
+  const example = JSON.stringify({
+    order_id: '1042',
+    customer: 'Hind Berrada',
+    phone: '0661234567',
+    city: 'Rabat',
+    address: '12 Rue Oued Fes, Agdal',
+    items: [{ sku: 'ROS-FASH-02', name: 'Everyday Tote', quantity: 2, price: 240 }],
+    total: 480,
+    note: 'Call after 6pm',
+    utm_campaign: 'Meta_Tote_Oct'
+  }, null, 2);
+
+  return title(
+    'Store connection',
+    'Orders placed on your online store (Shopify, YouCan, WooCommerce or your own site) arrive here as new leads, ready for the call center and your carriers.',
+    '<button class="primary" data-action="new-store-key">+ Create API key</button>'
+  ) + `
+    <div class="metrics">
+      ${metric('Connected stores', active.length, active.length ? active.map(k => esc(k.name)).join(', ') : 'No API key yet')}
+      ${metric('Orders received', received, 'Since the first key was created')}
+      ${metric('Last order', last ? new Date(last).toLocaleDateString() : '—', last ? new Date(last).toLocaleTimeString() : 'Waiting for the first one')}
+      ${metric('Open store leads', fromStore.filter(o => ['New', 'Callback'].includes(o.status)).length, 'To confirm in the call center')}
+    </div>
+
+    ${!storeKeys ? '<div class="panel empty">Loading…</div>' : !keys.length ? `
+      <div class="panel">
+        <h2>Connect your store in three steps</h2>
+        <ol class="steps">
+          <li><b>Create an API key</b> for your store. It is shown once: keep it like a password.</li>
+          <li><b>Add it to your store</b> as an order webhook (Shopify, YouCan, WooCommerce) or in your site's code. Step-by-step instructions appear when you create the key.</li>
+          <li><b>Orders arrive as leads</b> in Leads &amp; orders. Agents confirm them in the call center, and confirmed orders go to your carrier.</li>
+        </ol>
+        <p><button class="primary" data-action="new-store-key">+ Create your API key</button></p>
+      </div>` : `
+      <div class="panel">
+        <div class="panel-head"><div><h2>API keys</h2><p>Each key lets one store send orders. Revoke a key and its store can no longer send anything.</p></div></div>
+        <div class="store-keys">${table(['Store', 'Key', 'Orders received', 'Last order', 'Status', ''], keys.map(k => `
+          <tr>
+            <td><b>${esc(k.name)}</b><small>${esc(k.platform)} · created ${new Date(k.createdAt).toLocaleDateString()}${k.createdBy ? ' by ' + esc(k.createdBy) : ''}</small></td>
+            <td><code>${esc(k.prefix)}…</code>${k.platform === 'Shopify' ? `<small>${k.hasSigningSecret ? 'Shopify signature checked' : 'No signing secret'}</small>` : ''}</td>
+            <td><b>${k.ordersReceived || 0}</b></td>
+            <td>${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '<small>Nothing yet</small>'}</td>
+            <td>${k.active ? badge('Active') : '<span class="badge cancelled">Revoked</span>'}</td>
+            <td><div class="row-actions">
+              <button data-action="store-key-setup" data-id="${esc(k.id)}">Setup steps</button>
+              ${k.active ? `<button data-action="store-key-test" data-id="${esc(k.id)}">Send test order</button>` : ''}
+              ${k.platform === 'Shopify' ? `<button data-action="store-key-secret" data-id="${esc(k.id)}">Signing secret</button>` : ''}
+              <button class="${k.active ? 'danger' : ''}" data-action="store-key-toggle" data-id="${esc(k.id)}">${k.active ? 'Revoke' : 'Activate'}</button>
+            </div></td>
+          </tr>`))}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Recent deliveries</h2><p>What your store sent, and what Rosaino did with it.</p></div><button data-action="refresh-store-keys">Refresh</button></div>
+        ${recent.length ? table(['When', 'Store', 'Result', 'Order', 'Details'], recent.map(r => `
+          <tr>
+            <td>${new Date(r.at).toLocaleString()}</td>
+            <td>${esc(r.keyName)}<small>${esc(r.platform || '')}</small></td>
+            <td>${resultBadge(r.result)}</td>
+            <td>${r.orderId && r.orderId !== 'pending' ? `<button data-action="order" data-id="${esc(r.orderId)}">${esc(r.orderId)}</button>${r.ref ? `<small>Store ref ${esc(r.ref)}</small>` : ''}` : '—'}</td>
+            <td>${r.reason ? `<small class="form-error">${esc(r.reason)}</small>` : r.customer ? esc(r.customer) : ''}</td>
+          </tr>`)) : '<div class="empty">Nothing received yet. Use <b>Send test order</b>, or place an order on your store.</div>'}
+      </div>`}
+
+    <div class="panel">
+      <div class="panel-head"><div><h2>Developer reference</h2><p>For a custom site, Zapier / Make, or anyone checking the setup.</p></div></div>
+      <div class="dev-ref">
+        <div class="stat-line"><span>Send an order</span><b><code>POST ${esc(storeEndpoint())}</code></b></div>
+        <div class="stat-line"><span>Authentication</span><b><code>Authorization: Bearer rsk_live_…</code> or <code>X-API-Key</code>, or <code>?key=</code> in the URL for webhooks</b></div>
+        <div class="stat-line"><span>Formats accepted</span><b>Shopify order webhook · YouCan order · WooCommerce order · the JSON below</b></div>
+        <div class="stat-line"><span>Order status</span><b><code>GET ${esc(storeEndpoint())}/{your order number}</code> → status, carrier, tracking number</b></div>
+        <div class="stat-line"><span>Check a key</span><b><code>GET ${esc(location.origin)}/api/v1/ping</code></b></div>
+        <h3 class="sub">Example order</h3>
+        <pre class="code-block">${esc(example)}</pre>
+        <p class="info">Required: customer name, phone and at least one item. Items are matched to your products by SKU (then by name) so stock is counted; unknown items are kept on the order as sent. Send <code>"prepaid": true</code> (or a Shopify order marked paid) when the customer already paid, so the courier collects nothing. Sending the same order number twice records it once. Replies: <code>201</code> created, <code>200</code> already received, <code>401</code> bad key, <code>422</code> missing fields.</p>
+      </div>
+    </div>
+  `;
+}
+
+// The key is shown once, with the steps for the store's platform.
+function showStoreKey(k, secret) {
+  modal(`API key for ${esc(k.name)}`, `
+    <p class="info">Copy this key now. For security it is never shown again; if it's lost, revoke it and create a new one.</p>
+    <label class="copy-field">API key
+      <span><input readonly id="store-secret" value="${esc(secret)}"><button type="button" data-action="copy-store-secret">Copy</button></span>
+    </label>
+    <label class="copy-field">Webhook URL (key included)
+      <span><input readonly id="store-hook" value="${esc(`${storeEndpoint()}?key=${secret}`)}"><button type="button" data-action="copy-store-hook">Copy</button></span>
+    </label>
+    <h3 class="sub">Set up ${esc(k.platform === 'Other' ? 'your site' : k.platform)}</h3>
+    ${storeSetupSteps(k.platform, secret)}
+  `, null);
+}
+
+function openNewStoreKey() {
+  if (!checkAction('integrations', 'Create API key')) return;
+  modal('Create an API key', `
+    <div class="form-grid">
+      <label>Name<input name="name" required maxlength="60" placeholder="e.g. Shopify store"></label>
+      <label>Store platform
+        <select name="platform">${STORE_PLATFORMS.map(p => `<option value="${p}">${p === 'Other' ? 'Other / custom site' : p}</option>`).join('')}</select>
+      </label>
+      <label class="full shopify-only">Shopify webhook signing secret (optional, can be added later)<input name="signingSecret" autocomplete="off" placeholder="Shown in Shopify under Settings → Notifications → Webhooks"></label>
+    </div>
+    <div id="store-key-error" role="alert" class="form-error"></div>
+  `, 'Create key', f => {
+    api('/api/store-keys', 'POST', { name: f.get('name').trim(), platform: f.get('platform'), signingSecret: (f.get('signingSecret') || '').trim() })
+      .then(async ({ key, secret }) => {
+        await loadStoreKeys();
+        render();
+        showStoreKey(key, secret);
+      })
+      .catch(err => { $('#store-key-error').textContent = err.message; });
+    return false;
+  });
+  const form = $('#dialog-form');
+  const sync = () => { form.querySelector('.shopify-only').style.display = form.platform.value === 'Shopify' ? '' : 'none'; };
+  form.platform.onchange = sync;
+  sync();
+}
+
+const storeKeyById = id => (storeKeys || []).find(k => k.id === id);
+
+const views = { overview, guide, store: storeConnection, orders, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
 
 function updateLivePreview() {
   const pId = activeCmsProductId;
@@ -4265,7 +4500,7 @@ function render() {
   // Render navigation with permission locks and translated labels
   // Only list the pages this role can open, so the menu stays short and clear.
   const groupStarts = {
-    orders: { fr: 'VENTES', en: 'SALES', ar: 'المبيعات' },
+    store: { fr: 'VENTES', en: 'SALES', ar: 'المبيعات' },
     shipping: { fr: 'LIVRAISON', en: 'DELIVERY', ar: 'التوصيل' },
     products: { fr: 'CATALOGUE', en: 'CATALOGUE', ar: 'المنتجات' },
     finance: { fr: 'FINANCE', en: 'FINANCE', ar: 'المالية' },
@@ -4275,6 +4510,7 @@ function render() {
   $('#nav').innerHTML = pages.map(([id, icon, name, perm]) => {
     if (groupStarts[id]) pendingGroup = groupStarts[id][currentLang] || groupStarts[id].en;
     if (perm && !hasPermission(perm)) return '';
+    if (STOREFRONT_PAGES.includes(id) && !STOREFRONT_ENABLED) return '';
     const isAct = page === id;
     const group = pendingGroup ? `<div class="nav-group">${pendingGroup}</div>` : '';
     pendingGroup = '';
@@ -4285,6 +4521,12 @@ function render() {
       </a>
     `;
   }).join('');
+
+  // The built-in storefront is retired: its editors are not shown.
+  if (STOREFRONT_PAGES.includes(page) && !STOREFRONT_ENABLED) {
+    location.hash = 'store';
+    return;
+  }
 
   // Check RBAC permission for this view
   if (reqPerm && !hasPermission(reqPerm)) {
@@ -6066,6 +6308,48 @@ const actions = {
     toast(n ? `${n} order(s) updated by carriers` : polled?.errors?.length ? `No changes · ${polled.errors.length} carrier error(s): ${polled.errors[0]}` : 'Everything is up to date');
   },
   'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
+  'new-store-key': openNewStoreKey,
+  'refresh-store-keys': () => loadStoreKeys().then(() => { render(); toast('Updated'); }),
+  'copy-store-secret': () => { const el = $('#store-secret'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('API key copied')).catch(() => toast('Select the key and copy it')); },
+  'copy-store-hook': () => { const el = $('#store-hook'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('Webhook URL copied')).catch(() => toast('Select the URL and copy it')); },
+  'store-key-setup': id => {
+    const k = storeKeyById(id);
+    if (k) modal(`Set up ${esc(k.name)}`, `<p class="info">Use the full key you copied when it was created (it starts with <code>${esc(k.prefix)}</code>).</p>${storeSetupSteps(k.platform)}`, null);
+  },
+  'store-key-test': id => {
+    const k = storeKeyById(id);
+    if (!k) return;
+    api(`/api/store-keys/${encodeURIComponent(id)}/test`, 'POST', {})
+      .then(async ({ id: orderId }) => {
+        await loadStoreKeys();
+        await pullOrders();
+        render();
+        toast(`Test order ${orderId} received. It's in Leads & orders; you can cancel it.`);
+      })
+      .catch(err => toast(err.message));
+  },
+  'store-key-secret': id => {
+    const k = storeKeyById(id);
+    if (!k) return;
+    modal(`Shopify signing secret · ${esc(k.name)}`, `
+      <p class="info">Shopify shows it under <b>Settings → Notifications → Webhooks</b> ("Your webhooks will be signed with …"). With it, Rosaino rejects any order that wasn't sent by your store. Leave empty to remove it.</p>
+      <label>Signing secret<input name="signingSecret" autocomplete="off" placeholder="${k.hasSigningSecret ? 'A secret is saved; enter a new one to replace it' : 'Paste the secret'}"></label>
+      <div id="store-key-error" role="alert" class="form-error"></div>
+    `, 'Save', f => {
+      api(`/api/store-keys/${encodeURIComponent(id)}`, 'PATCH', { signingSecret: (f.get('signingSecret') || '').trim() })
+        .then(async () => { $('#modal').close(); await loadStoreKeys(); render(); toast('Signing secret saved'); })
+        .catch(err => { $('#store-key-error').textContent = err.message; });
+      return false;
+    });
+  },
+  'store-key-toggle': id => {
+    const k = storeKeyById(id);
+    if (!k) return;
+    if (k.active && !confirm(`Revoke the key for ${k.name}? The store can no longer send orders with it.`)) return;
+    api(`/api/store-keys/${encodeURIComponent(id)}`, 'PATCH', { active: !k.active })
+      .then(async () => { await loadStoreKeys(); render(); toast(k.active ? `${k.name}: key revoked` : `${k.name}: key active again`); })
+      .catch(err => toast(err.message));
+  },
   'nearya-regions': openNearyaRegions,
   'nearya-pickup': id => { if (checkAction('shipping', 'Request pickup')) openNearyaPickup(id); },
   'nearya-stock': openNearyaStock,

@@ -248,7 +248,7 @@ function shipmentPayload(carrier, order, items) {
     recipient_phone: order.phone,
     city: order.city,
     address: order.address,
-    cod_amount: Number(order.amount) || 0,
+    cod_amount: codAmount(order),
     product: items.map(i => i.name).join(', ') || order.product || '',
     quantity: items.reduce((s, i) => s + i.quantity, 0) || 1,
     note: order.note || ''
@@ -353,13 +353,17 @@ async function parcelItems(order) {
   for (const l of lines) {
     const p = hooks.getProduct && l.product ? await hooks.getProduct(l.product) : null;
     out.push({
-      name: p?.name || (bag ? '' : order.productName) || String(l.product || ''),
-      sku: p?.sku || (bag ? '' : order.sku) || '',
+      // Store orders keep the item's own name and SKU when it isn't in the catalogue.
+      name: p?.name || l.name || (bag ? '' : order.productName) || String(l.product || ''),
+      sku: p?.sku || l.sku || (bag ? '' : order.sku) || '',
       quantity: Number(l.quantity) || 1
     });
   }
   return out;
 }
+
+// Cash the courier collects: nothing when the order was paid online.
+const codAmount = order => (order.prepaid ? 0 : Number(order.amount) || 0);
 
 // Send one order to a carrier. Returns the new shipment.
 // order: { id, customer, phone, city, address, amount, quantity, productName, sku, items?, note, date }
@@ -380,8 +384,8 @@ async function dispatchToCarrier(c, order, { trackingNumber = '', regionId = '' 
       recipient: order.customer,
       address: order.address,
       phone: order.phone,
-      price: Number(order.amount) || 0,
-      comment: [contents, order.note].filter(Boolean).join(' · ').slice(0, 250)
+      price: codAmount(order),
+      comment: [contents, order.prepaid ? 'Payé en ligne: rien à encaisser' : '', order.note].filter(Boolean).join(' · ').slice(0, 250)
     };
     let ref;
     try {

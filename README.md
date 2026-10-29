@@ -1,6 +1,45 @@
-# Rosaino storefront + operations demo
+# Rosaino operations portal
 
-The existing Rosaino landing page and original bundled assets are preserved. Its footer now links to **Rosaino Admin Demo**, at `/admin/`.
+Rosaino sells through its **own online store** (Shopify, YouCan, WooCommerce or a custom site). That store sends each new order to this portal with an **API key**, and the portal is where leads are confirmed, routed, sent to carriers and tracked. The portal is at `/admin/`.
+
+The built-in storefront pages (`/`, `/shop`, `/product`, `/policy`) are retired and redirect to the portal; the customer tracking page `/track` stays. To bring the storefront back, set `STOREFRONT_ENABLED=true` in Vercel, set `STOREFRONT_ENABLED = true` in `admin/demo.js`, and remove the `redirects` in `vercel.json`.
+
+## Store connection (orders from your online store)
+
+In the portal, open **Store connection** (first item under Sales) and click **+ Create API key**. Name it, choose the store's platform, and copy the key: it is shown **once** (only a fingerprint is stored). The dialog shows the webhook URL with the key included and the setup steps for that platform:
+
+- **Shopify:** Settings → Notifications → Webhooks → *Create webhook*, event **Order creation**, format **JSON**, URL = the webhook URL. Copy the signing secret Shopify shows into the key's **Signing secret** so Rosaino only accepts orders signed by your store. *Send test* in Shopify creates a sample lead.
+- **YouCan:** add a webhook for *order created* with the webhook URL (or through Zapier / Make).
+- **WooCommerce:** WooCommerce → Settings → Advanced → Webhooks → *Add webhook*, topic **Order created**, delivery URL = the webhook URL.
+- **Custom site / Zapier / Make:** `POST /api/v1/orders` with `Authorization: Bearer rsk_live_…` (or `X-API-Key`), JSON body:
+
+```json
+{
+  "order_id": "1042",
+  "customer": "Hind Berrada",
+  "phone": "0661234567",
+  "city": "Rabat",
+  "address": "12 Rue Oued Fes, Agdal",
+  "items": [{ "sku": "ROS-FASH-02", "name": "Everyday Tote", "quantity": 2, "price": 240 }],
+  "total": 480,
+  "note": "Call after 6pm",
+  "utm_campaign": "Meta_Tote_Oct",
+  "prepaid": false
+}
+```
+
+What happens to an order:
+
+- It becomes a **New** lead in Leads & orders (source = the platform), appears in the open portal within a minute without reloading, and goes through the call center, routing and carriers like any other order. With Nearya auto-dispatch on, confirming it creates the parcel.
+- Items are matched to Products by **SKU** (then by name) so stock is counted. Unknown items are kept on the order with their name, SKU and price.
+- Phone numbers are normalised (`+212 6…` → `06…`). UTM campaign / content are kept for Reports.
+- Orders paid online (`"prepaid": true`, or a Shopify order marked paid without COD) are flagged, and carriers are told to collect **0**.
+- The same order number sent twice (webhook retries, even simultaneous) is recorded once.
+- Replies: `201` created, `200` already received, `401` bad or revoked key, `422` missing customer name, phone or items, `429` more than 120 requests a minute.
+
+Your store can also ask where an order is: `GET /api/v1/orders/{store order number or RS-…}` with the same key returns its status, carrier and tracking number. `GET /api/v1/ping` checks a key. A key only sees its own store's orders.
+
+The Store connection page lists each key (orders received, last order, Shopify signature on/off), **Send test order**, **Revoke**, and the last deliveries with the reason for any rejected order.
 
 ## Run locally
 
@@ -32,7 +71,7 @@ This export comes from the existing Rosaino Sites source. It preserves that sour
 - Integrations: clearly simulated setup cards for Google Sheets, WooCommerce, Meta Ads, Digylog, OzoneExpress, AMEEX and Supabase.
 - Team: sample members and editable role labels. Settings: company/region preferences, demo reset.
 
-## Storefront pages
+## Storefront pages (retired, kept in the code)
 
 - `/`: storefront home, with featured products and a **Contact us** section (`#contact`). Messages appear in the portal under **Stores & media → Contact inbox**.
 - `/shop`: every category with all of its products. The category menu, the home page's collections link and every footer's **Shop** link open it.
@@ -83,7 +122,7 @@ If Resend rejects a message, the customer is told it couldn't be delivered inste
 
 ## Admin sign-in
 
-> **Temporary: open access is ON.** `OPEN_ACCESS = true` in `auth.js` signs everyone into the portal as Super Admin with no password, and a red banner says so on every page. Anyone with the link can see customer details and change orders. Set it to `false` to require sign-in again.
+> **Temporary: open access is ON.** `OPEN_ACCESS = true` in `auth.js` signs everyone into the portal as Super Admin with no password, and a red banner says so on every page. Anyone with the link can see customer details and change orders, and can create or revoke Store connection API keys. Set it to `false` to require sign-in again.
 
 The operations portal at `/admin/` requires an account. Sign-in is the app's own email + password authentication (`auth.js`). **Supabase Auth is not used.** Supabase is used only as the PostgreSQL database.
 

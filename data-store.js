@@ -72,6 +72,25 @@ export async function saveRecords(collection, records) {
 
 export const saveRecord = (collection, record) => saveRecords(collection, [record]);
 
+// Insert a record only if its id is new. Returns true for the first caller,
+// false if it already existed (used to receive each store order only once,
+// even when the store sends it twice at the same moment).
+const memClaims = new Set();
+export async function claimRecord(collection, id, data = {}) {
+  const s = await dataDb();
+  if (!s) {
+    const k = `${collection}:${id}`;
+    if (memClaims.has(k)) return false;
+    memClaims.add(k);
+    return true;
+  }
+  const { rowCount } = await s.query(
+    'INSERT INTO app_records (collection, id, data) VALUES ($1, $2, $3) ON CONFLICT (collection, id) DO NOTHING',
+    [collection, String(id), JSON.stringify({ id: String(id), ...data })]
+  );
+  return rowCount === 1;
+}
+
 // Change one stored record inside a transaction: the row is locked, so two
 // simultaneous edits are applied one after the other instead of the slower
 // one overwriting the faster. fn(data, tx) returns the new data; tx.adjust

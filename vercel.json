@@ -4,16 +4,101 @@
   "buildCommand": "node build.js",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/assets/uploads/(.*)", "destination": "/api/index" },
-    { "source": "/product", "destination": "/product.html" },
-    { "source": "/product/(.*)", "destination": "/product.html" },
-    { "source": "/p/(.*)", "destination": "/product.html" },
-    { "source": "/track", "destination": "/track.html" },
-    { "source": "/policy", "destination": "/policy.html" },
-    { "source": "/shop", "destination": "/shop.html" },
-    { "source": "/track/(.*)", "destination": "/track.html" },
-    { "source": "/admin", "destination": "/admin/index.html" },
-    { "source": "/admin/", "destination": "/admin/index.html" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/assets/uploads/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/product",
+      "destination": "/product.html"
+    },
+    {
+      "source": "/product/(.*)",
+      "destination": "/product.html"
+    },
+    {
+      "source": "/p/(.*)",
+      "destination": "/product.html"
+    },
+    {
+      "source": "/track",
+      "destination": "/track.html"
+    },
+    {
+      "source": "/policy",
+      "destination": "/policy.html"
+    },
+    {
+      "source": "/shop",
+      "destination": "/shop.html"
+    },
+    {
+      "source": "/track/(.*)",
+      "destination": "/track.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin/",
+      "destination": "/admin/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/index.html",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/shop",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/shop.html",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/product",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/product.html",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/product/:path*",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/p/:path*",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/policy",
+      "destination": "/admin/",
+      "permanent": false
+    },
+    {
+      "source": "/policy.html",
+      "destination": "/admin/",
+      "permanent": false
+    }
   ]
 }

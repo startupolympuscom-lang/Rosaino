@@ -7,16 +7,24 @@ import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, getStore } f
 import { emailConfigured, sendContactNotification } from './mailer.js';
 import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers, autoDispatchOrder, refreshForTracking } from './carriers.js';
 import { registerCallRoutes } from './calls.js';
-import { loadCollections, saveRecords, getRecord, updateRecord, dataDb, seedIfEmpty, databaseHealth, describeDbError } from './data-store.js';
+import { registerStoreApi, storeConnectionStatus } from './store-api.js';
+import { loadCollections, saveRecords, getRecord, updateRecord, dataDb, claimRecord, seedIfEmpty, databaseHealth, describeDbError } from './data-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Rosaino sells through its own online store, which sends orders to the
+// portal with an API key (store-api.js). The built-in storefront pages
+// redirect to the portal; set STOREFRONT_ENABLED=true to bring them back
+// (and remove the redirects in vercel.json).
+const STOREFRONT_ENABLED = process.env.STOREFRONT_ENABLED === 'true';
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
-app.use(express.json({ limit: '50mb' }));
+// rawBody: Shopify webhooks are verified against the exact bytes received.
+app.use(express.json({ limit: '50mb', verify: (req, res, buf) => { if (req.url.startsWith('/api/v1/')) req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Uploaded images. Serverless hosts (Vercel) have a read-only code folder, so
@@ -433,6 +441,9 @@ app.get('/api/orders', requireAuth(), (req, res) => {
 app.post('/api/orders', optionalAuth, async (req, res) => {
   // Public storefront checkouts may only create new, unassigned orders.
   const staff = can(req.user, 'orders');
+  if (!staff && !STOREFRONT_ENABLED) {
+    return res.status(403).json({ error: 'Orders come from your online store through the Store API (/api/v1/orders).' });
+  }
   let orderData = staff ? req.body : sanitizePublicOrder(req.body);
   if (!orderData || !orderData.customer || !orderData.phone) {
     return res.status(400).json({ error: 'Customer and phone are required' });
@@ -517,12 +528,96 @@ app.get('/api/setup-status', requireAuth(), async (req, res) => {
     const store = await getStore();
     status.team = (await store.listUsers()).filter(u => u.active !== false).length;
     status.carriers = await countActiveCarriers();
+    status.store = await storeConnectionStatus();
   } catch {}
   res.json(status);
 });
 
 // Confirmation call log (phone & WhatsApp calls, duration, transcript)
 registerCallRoutes(app);
+
+// Store API: orders from Rosaino's own online store become leads.
+const productBySku = sku => {
+  const k = String(sku || '').trim().toLowerCase();
+  return k ? memoryProducts.find(p => String(p.sku || '').trim().toLowerCase() === k) : null;
+};
+const productByName = name => {
+  const k = String(name || '').trim().toLowerCase();
+  return k ? memoryProducts.find(p => String(p.name || '').trim().toLowerCase() === k) : null;
+};
+
+registerStoreApi(app, {
+  async createLead(lead, { platform, keyName, keyId }) {
+    // Each store order is received once, even if the store sends it twice.
+    if (lead.externalId) {
+      const first = await claimRecord('store_refs', `${keyId}:${lead.externalId}`, { at: new Date().toISOString() });
+      if (!first) {
+        await syncFromDb(['orders']);
+        const existing = memoryOrders.find(o => o.storeKeyId === keyId && String(o.externalId) === String(lead.externalId));
+        if (existing) return { order: existing, duplicate: true };
+        // Claimed by a request still being processed: report it as received.
+        return { order: { id: 'pending', status: 'New' }, duplicate: true };
+      }
+    }
+    const items = lead.items.map(i => {
+      const p = productBySku(i.sku) || productByName(i.name);
+      return { product: p ? p.id : null, name: p?.name || i.name, sku: i.sku || p?.sku || '', quantity: i.quantity, price: i.price };
+    });
+    const main = items.find(i => i.product) || items[0];
+    const source = platform === 'API' ? 'Online store' : platform;
+    let id;
+    do { id = 'RS-' + Math.floor(100000 + Math.random() * 900000); } while (memoryOrders.some(o => o.id === id));
+    const order = {
+      id,
+      customer: lead.customer,
+      phone: lead.phone,
+      city: lead.city,
+      address: lead.address,
+      product: main.product || main.name,
+      sku: main.sku,
+      quantity: items.reduce((s, i) => s + i.quantity, 0),
+      items,
+      amount: lead.amount,
+      cost: items.reduce((s, i) => {
+        const p = i.product && memoryProducts.find(x => x.id === i.product);
+        return s + (p ? (Number(p.cost) || 0) * i.quantity : 0);
+      }, 0),
+      status: 'New',
+      agent: '',
+      source,
+      campaign: lead.campaign || `${source}_Direct`,
+      creative: lead.creative || '',
+      carrier: '',
+      date: new Date().toISOString().slice(0, 10),
+      notes: [
+        `Order ${lead.externalRef || ''} received from ${keyName} (${platform}) · ${items.map(i => `${i.quantity} × ${i.name}`).join(', ')}`.replace('Order  ', 'Order '),
+        lead.prepaid ? 'Paid online: the courier collects nothing.' : '',
+        lead.note ? `Customer note: ${lead.note}` : ''
+      ].filter(Boolean),
+      callback: '',
+      shipping: lead.shipping || 0,
+      stockDeducted: false,
+      prepaid: !!lead.prepaid,
+      externalId: lead.externalId,
+      externalRef: lead.externalRef,
+      storeKeyId: keyId,
+      isDuplicate: memoryOrders.some(o => samePhone(o.phone, lead.phone) && !['Delivered', 'Returned', 'Cancelled', 'Spam'].includes(o.status)),
+      trustScore: evaluateTrustScore(lead.phone)
+    };
+    await persist('orders', order);
+    memoryOrders.unshift(order);
+    return { order, duplicate: false };
+  },
+
+  async findOrder(ref, keyId) {
+    await syncFromDb(['orders']);
+    const r = ref.trim().toUpperCase();
+    const order = memoryOrders.find(o => o.storeKeyId === keyId && [o.id, o.externalId, o.externalRef, o.externalRef && String(o.externalRef).replace(/^#/, '')]
+      .some(v => v != null && String(v).toUpperCase() === r));
+    if (!order) return null;
+    return { order, shipment: await findShipmentForTracking(order.id) };
+  }
+});
 
 // Carriers (transporteurs): dispatch orders to carrier APIs and receive status updates.
 registerCarrierRoutes(app, {
@@ -1129,6 +1224,11 @@ app.post('/api/cms/:id', requireAuth('cms'), async (req, res) => {
   await audit(req.user, 'cms.saved', p.name, req);
   return res.json({ success: true, cms: updated });
 });
+
+// Storefront pages are retired: send visitors to the operations portal.
+if (!STOREFRONT_ENABLED) {
+  app.get(['/', '/index.html', '/shop', '/shop.html', '/product', '/product.html', '/p/:id', '/policy', '/policy.html'], (req, res) => res.redirect(302, '/admin/'));
+}
 
 // Dedicated Public Product Landing Page
 app.get('/product', (req, res) => {
