@@ -1,0 +1,29 @@
+# One-off check of the live deployment (database, sign-in, routes). Removed after use.
+name: live-check
+on:
+  push:
+    branches: [claude/fervent-lamport-x3bf0g]
+    paths: ['.github/workflows/live-check.yml']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe https://rosaino.vercel.app
+        run: |
+          B=https://rosaino.vercel.app
+          echo "== waiting for the new version (open access off) =="
+          for i in $(seq 1 30); do
+            S=$(curl -s -m 20 $B/api/auth/status || true)
+            echo "$S" | grep -q '"openAccess":false' && break
+            sleep 20
+          done
+          echo "== /api/auth/status";  curl -s -m 20 -w '  [HTTP %{http_code}]\n' $B/api/auth/status
+          echo "== /api/health";       curl -s -m 30 -w '  [HTTP %{http_code}]\n' $B/api/health
+          echo "== / (should redirect)"; curl -s -o /dev/null -m 20 -w '[HTTP %{http_code}] -> %{redirect_url}\n' $B/
+          echo "== /admin/";           curl -s -o /dev/null -m 20 -w '[HTTP %{http_code}]\n' $B/admin/
+          echo "== /track";            curl -s -o /dev/null -m 20 -w '[HTTP %{http_code}]\n' $B/track
+          echo "== /api/products without sign-in (expect 401)"; curl -s -o /dev/null -m 20 -w '[HTTP %{http_code}]\n' $B/api/products
+          echo "== /api/v1/ping bad key (expect 401)"; curl -s -m 20 -w '  [HTTP %{http_code}]\n' -H 'x-api-key: rsk_live_invalid' $B/api/v1/ping
+          echo "== login, empty (expect 400)"; curl -s -m 20 -w '  [HTTP %{http_code}]\n' -X POST -H 'content-type: application/json' -d '{}' $B/api/auth/login
+          echo "== login, old public password (expect refused)"; curl -s -m 20 -w '  [HTTP %{http_code}]\n' -X POST -H 'content-type: application/json' -d '{"email":"superadmin@rosaino.com","password":"RosainoSuperAdmin2026!"}' $B/api/auth/login
+          echo "== headers"; curl -s -D - -o /dev/null -m 20 $B/api/health | grep -iE '^(x-content-type|x-frame|cache-control|x-vercel-id|date)' || true
