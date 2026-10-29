@@ -14,7 +14,7 @@
 // create/status paths, how the key is sent, JSON or form body, field names and
 // where the tracking number/status are found in responses.
 import crypto from 'crypto';
-import { getStore, requireAuth, audit } from './auth.js';
+import { getStore, requireAuth, audit, serverSecret } from './auth.js';
 import { createClient as nearyaClientFor, matchRegion, inventoryCount, NEARYA_BASE_URL } from './nearya.js';
 
 const SCHEMA_SQL = `
@@ -50,8 +50,9 @@ ALTER TABLE public.shipments ENABLE ROW LEVEL SECURITY;
 // ---------------------------------------------------------------------------
 // Secrets
 // ---------------------------------------------------------------------------
-const KEY = crypto.createHash('sha256').update('rosaino-carrier-keys:' + (process.env.AUTH_SECRET
-  || crypto.createHash('sha256').update('rosaino-admin:' + (process.env.SUPABASE_KEY || 'local-dev')).digest('hex'))).digest();
+// Same key as before when AUTH_SECRET is set; otherwise the server's private
+// secret (derived from DATABASE_URL), never a public value.
+const KEY = crypto.createHash('sha256').update('rosaino-carrier-keys:' + serverSecret()).digest();
 
 function encrypt(text) {
   const iv = crypto.randomBytes(12);

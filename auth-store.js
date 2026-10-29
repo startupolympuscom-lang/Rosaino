@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.admin_login_attempts (
   count INTEGER NOT NULL,
   first_at TIMESTAMPTZ NOT NULL
 );
+ALTER TABLE public.admin_users ADD COLUMN IF NOT EXISTS owner_login_retired BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_audit ENABLE ROW LEVEL SECURITY;
@@ -60,6 +61,7 @@ const fromRow = r => r && ({
   active: r.active,
   passwordHash: r.password_hash,
   tokenVersion: r.token_version,
+  ownerLoginRetired: !!r.owner_login_retired,
   createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : r.created_at,
   lastLoginAt: r.last_login_at instanceof Date ? r.last_login_at.toISOString() : r.last_login_at
 });
@@ -119,12 +121,13 @@ function postgresStore(rawConnectionString) {
     },
     async saveUser(u) {
       await q(
-        `INSERT INTO admin_users (id, name, email, role, avatar, active, password_hash, token_version, created_at, last_login_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `INSERT INTO admin_users (id, name, email, role, avatar, active, password_hash, token_version, created_at, last_login_at, owner_login_retired)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, role = EXCLUDED.role,
            avatar = EXCLUDED.avatar, active = EXCLUDED.active, password_hash = EXCLUDED.password_hash,
-           token_version = EXCLUDED.token_version, last_login_at = EXCLUDED.last_login_at`,
-        [u.id, u.name, u.email, u.role, u.avatar, u.active !== false, u.passwordHash, u.tokenVersion, u.createdAt, u.lastLoginAt]
+           token_version = EXCLUDED.token_version, last_login_at = EXCLUDED.last_login_at,
+           owner_login_retired = EXCLUDED.owner_login_retired`,
+        [u.id, u.name, u.email, u.role, u.avatar, u.active !== false, u.passwordHash, u.tokenVersion, u.createdAt, u.lastLoginAt, !!u.ownerLoginRetired]
       );
     },
     async deleteUser(id) {

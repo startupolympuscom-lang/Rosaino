@@ -20,6 +20,18 @@ const app = express();
 // redirect to the portal; set STOREFRONT_ENABLED=true to bring them back
 // (and remove the redirects in vercel.json).
 const STOREFRONT_ENABLED = process.env.STOREFRONT_ENABLED === 'true';
+
+// Security headers (the same are set for static files in vercel.json).
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=(self)');
+  // Customer data must never sit in a shared cache.
+  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
@@ -186,7 +198,12 @@ if (process.env.DATABASE_URL?.trim()) {
 }
 let seeded = false;
 
-const ALL_COLLECTIONS = ['products', 'orders', 'purchase_orders', 'cms', 'contact', 'settings'];
+const ALL_COLLECTIONS = ['products', 'orders', 'purchase_orders', 'cms', 'contact', 'settings', 'workspace'];
+
+// Shared lists the portal used to keep only in each browser.
+// name -> permission needed to change it (everyone signed in can read).
+const WORKSPACE_LISTS = { suppliers: 'suppliers', expenses: 'finance', rules: 'routing' };
+const memoryWorkspace = new Map();
 
 // Load business data from Postgres into the working arrays (only the given
 // collections). Returns false when the server runs without a database
@@ -211,6 +228,10 @@ async function syncFromDb(names = ALL_COLLECTIONS) {
     contactMessages.push(...d.contact.reverse());
   }
   if (d.settings) blacklistedPhones = new Set(d.settings.find(x => x.id === 'blacklist')?.phones || []);
+  if (d.workspace) {
+    memoryWorkspace.clear();
+    d.workspace.forEach(w => memoryWorkspace.set(String(w.id), w.items));
+  }
   return true;
 }
 
@@ -408,7 +429,10 @@ app.get('/api/schema', requireAuth('integrations'), (req, res) => {
 });
 
 // Products API
-app.get('/api/products', (req, res) => {
+// Public only for the built-in storefront; otherwise costs and stock stay private.
+const storefrontOrStaff = (req, res, next) => (STOREFRONT_ENABLED ? next() : requireAuth()(req, res, next));
+
+app.get('/api/products', storefrontOrStaff, (req, res) => {
   res.json(memoryProducts);
 });
 
@@ -1048,10 +1072,27 @@ app.post('/api/upload', requireAuth('products', 'cms', 'stores'), async (req, re
 });
 
 // Contact form messages (public submit, staff inbox)
+// Shared portal lists: suppliers, expenses, routing rules.
+app.get('/api/workspace', requireAuth(), (req, res) => {
+  res.json(Object.fromEntries([...memoryWorkspace].filter(([k]) => k in WORKSPACE_LISTS)));
+});
+
+app.put('/api/workspace/:name', requireAuth(), async (req, res) => {
+  const name = req.params.name;
+  if (!(name in WORKSPACE_LISTS)) return res.status(404).json({ error: 'Unknown list' });
+  if (!can(req.user, WORKSPACE_LISTS[name])) return res.status(403).json({ error: `Your role (${req.user.role}) cannot change ${name}` });
+  const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 2000) : null;
+  if (!items) return res.status(400).json({ error: 'items must be a list' });
+  await persist('workspace', { id: name, items });
+  memoryWorkspace.set(name, items);
+  res.json({ success: true });
+});
+
 const contactMessages = [];
 const contactRate = new Map();
 
 app.post('/api/contact', async (req, res) => {
+  if (!STOREFRONT_ENABLED) return res.status(404).json({ error: 'Not found' });
   const b = req.body || {};
   if (b.website) return res.json({ success: true }); // honeypot: silently drop bots
   const clip = (v, n) => String(v || '').trim().slice(0, n);
@@ -1209,7 +1250,7 @@ app.get('/api/cms', requireAuth('cms', 'products'), (req, res) => {
   res.json(Object.fromEntries(memoryCms));
 });
 
-app.get('/api/cms/:id', (req, res) => {
+app.get('/api/cms/:id', storefrontOrStaff, (req, res) => {
   const p = memoryProducts.find(x => String(x.id) === String(req.params.id));
   if (!p) return res.status(404).json({ error: 'Product not found' });
   return res.json(memoryCms.get(String(p.id)) || getDefaultCms(p));
@@ -1265,7 +1306,7 @@ app.get('/admin', (req, res) => {
 
 // Storefront static assets and root. Only public files are served so server
 // source (server.js, auth.js, .env, schema) is never exposed.
-const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'demo.css', 'demo.js', 'product.html', 'track.html', 'policy.html', 'shop.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
+const PUBLIC_ROOT_FILES = new Set(['index.html', 'style.css', 'app.js', 'product.html', 'track.html', 'policy.html', 'shop.html', 'collection.png', 'icon.png', 'logo.png', 'pattern.png', 'ribbon.png']);
 app.get('/:file', (req, res, next) => {
   if (!PUBLIC_ROOT_FILES.has(req.params.file)) return next();
   res.sendFile(path.join(__dirname, req.params.file));

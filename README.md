@@ -122,23 +122,25 @@ If Resend rejects a message, the customer is told it couldn't be delivered inste
 
 ## Admin sign-in
 
-> **Temporary: open access is ON.** `OPEN_ACCESS = true` in `auth.js` signs everyone into the portal as Super Admin with no password, and a red banner says so on every page. Anyone with the link can see customer details and change orders, and can create or revoke Store connection API keys. Set it to `false` to require sign-in again.
+**Sign-in:** the portal at `/admin/` asks for email and password. The Super Admin is `superadmin@rosaino.com`; its password was given to the owner privately and is **not** in this repository (only its scrypt hash is, in `auth.js`, and the password can't be recovered from it). It works on a fresh deployment with no extra setup. Change it in the portal (Settings → Change password); after that only the new password works. Create everyone else's account under **Team & roles**.
 
 The operations portal at `/admin/` requires an account. Sign-in is the app's own email + password authentication (`auth.js`). **Supabase Auth is not used.** Supabase is used only as the PostgreSQL database.
 
 - **Storage:** with `DATABASE_URL` set to your Supabase Postgres connection string, accounts, role permissions, login lockouts and the audit trail are stored in Supabase Postgres (`auth-store.js`). The server connects to Postgres directly; the tables `admin_users`, `admin_roles`, `admin_audit` and `admin_login_attempts` are created automatically on first start, with row-level security enabled and no policies, so the public (anon) API key can never read them. Without `DATABASE_URL` (local development) the same data is kept in memory.
 - **Passwords** are hashed with scrypt. **Sessions** are signed tokens that expire after 12 hours; every request re-checks the account in the database, so disabling a user or changing a password takes effect immediately on every server instance.
-- Every admin API route checks the caller's role permissions on the server. The storefront, shop, product landing page and tracking page stay public; anonymous storefront orders are always created as `New` and priced on the server from the catalogue (and the landing page's bundle prices), whatever amount the browser sends.
+- Every admin API route checks the caller's role permissions on the server. Public: the customer tracking page, `/api/health`, carrier update links (secret token in the URL) and the Store API (`/api/v1`, API key). With the storefront retired, the catalogue and landing-page APIs need sign-in too.
+- Security headers on every response (no sniffing, same-origin framing, strict referrer, camera/location off), and `Cache-Control: no-store` on all API responses.
 - Five failed sign-ins for the same email and IP lock that pair out for 15 minutes.
-- If `DATABASE_URL` is wrong or the database can't be reached at startup, sign-in keeps working with the built-in Super Admin (accounts are then kept in memory), and `/api/auth/status` shows a warning. Set `ADMIN_EMAIL`/`ADMIN_PASSWORD` so that fallback uses your own credentials.
+- If `DATABASE_URL` is wrong or the database can't be reached at startup, sign-in keeps working with the Super Admin (accounts are then kept in memory), and `/api/auth/status` shows a warning.
+- Sessions are signed with `AUTH_SECRET` if set, otherwise with a key derived from `DATABASE_URL` (private, as it contains the database password). With neither, sign-in still works but sessions may end when Vercel switches server instance.
 - The server needs Node.js 22 (`engines` in `package.json`, which Vercel follows).
-- Setting `ADMIN_EMAIL`/`ADMIN_PASSWORD` retires the default `superadmin@rosaino.com` login (unless you gave it a new password). `?sslmode=require` on `DATABASE_URL` is fine; TLS is handled by the app.
+- `?sslmode=require` on `DATABASE_URL` is fine; TLS is handled by the app.
 
 ### Connecting Supabase Postgres
 
 1. In the Supabase dashboard, open **Connect** and copy the **Transaction pooler** connection string (port 6543), with your database password filled in.
-2. In Vercel (Project → Settings → Environment Variables), add `DATABASE_URL` with that value, plus `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`). **`AUTH_SECRET` is required:** on Vercel, sign-in stays disabled until it is set.
-3. Add `ADMIN_EMAIL` and `ADMIN_PASSWORD` to choose the Super Admin login. On a live site the default password below is always refused, so this is how you sign in the first time. If the account already exists with the default password, `ADMIN_PASSWORD` replaces it on the next deploy.
+2. In Vercel (Project → Settings → Environment Variables), add `DATABASE_URL` with that value. `AUTH_SECRET` (a long random string, e.g. `openssl rand -hex 32`) is recommended but optional. Changing `AUTH_SECRET` later signs everyone out and means re-entering carrier API keys.
+3. Optional: `ADMIN_EMAIL` and `ADMIN_PASSWORD` add a second Super Admin login that always works (see *Owner recovery*).
 4. Redeploy. The first request creates the tables and the Super Admin account.
 5. Check it: open `https://<your-site>/api/health`. It shows `"database":"connected"` when everything is saved to Supabase, `"not_configured"` when `DATABASE_URL` is missing, or `"unreachable"` with the reason (wrong password, wrong host, paused project…). The portal header and the Overview checklist show the same.
 
@@ -150,15 +152,9 @@ If an older version of `supabase-schema.sql` was run in your Supabase project, r
 
 **Owner recovery:** signing in with exactly `ADMIN_EMAIL` and `ADMIN_PASSWORD` always works. It creates that Super Admin account if needed, or re-enables it and resets its password to `ADMIN_PASSWORD`, even after too many failed attempts. Keep these two values private in Vercel.
 
-Accounts are only seeded when `admin_users` is empty. Later, setting `ADMIN_EMAIL`/`ADMIN_PASSWORD` to an email that doesn't exist yet adds it as a new Super Admin (useful for recovering access).
+Only one account is created: the **Super Admin**. There are no demo or sample accounts; create your team's accounts in the portal under **Team & roles**. Sample accounts created by earlier versions (admin@, operations@, agent@, finance@rosaino.com) are disabled automatically, and a Super Admin still on the old public default password from earlier versions is moved to the owner password on startup (the old password is refused everywhere).
 
-Only one account is created: the **Super Admin**. There are no demo or sample accounts; create your team's accounts in the portal under **Team & RBAC**. Sample accounts created by earlier versions (admin@, operations@, agent@, finance@rosaino.com) are disabled automatically on startup.
-
-Default Super Admin login, used only when `ADMIN_EMAIL`/`ADMIN_PASSWORD` are not set on first start. It works for local development only; on Vercel it is refused because it is public:
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Super Admin | superadmin@rosaino.com | RosainoSuperAdmin2026! |
+**Shared lists:** suppliers, expenses and routing rules are saved on the server for the whole team (they used to stay in each browser). With a database connected, the sample suppliers, expenses, team members and blacklisted numbers the portal ships with are removed.
 
 ### Admin features
 

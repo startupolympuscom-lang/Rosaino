@@ -698,12 +698,23 @@ function persist() {
 let synced = null; // last version the server has: { orders: Map, cms: Map }
 let syncTimer = null;
 
-function markSynced(orders, pages) {
+function markSynced(orders, pages, workspace = {}) {
   synced = {
     orders: new Map(orders.map(o => [String(o.id), JSON.stringify(o)])),
-    cms: new Map(Object.entries(pages).map(([id, c]) => [id, JSON.stringify(c)]))
+    cms: new Map(Object.entries(pages).map(([id, c]) => [id, JSON.stringify(c)])),
+    workspace: new Map(Object.entries(workspace).map(([name, items]) => [name, JSON.stringify(items)]))
   };
 }
+
+// Lists shared with the whole team (kept on the server): name -> permission to change.
+const WORKSPACE_LISTS = { suppliers: 'suppliers', expenses: 'finance', rules: 'routing' };
+
+// Sample records the portal ships with, removed once a real database is connected.
+const SAMPLE_RECORDS = {
+  suppliers: s => ['s1', 's2', 's3'].includes(s.id) && /@example\.test$/.test(s.contact || ''),
+  expenses: e => (e.id === 'e1' && e.name === 'Meta campaign · September') || (e.id === 'e2' && e.name === 'Packaging supplies'),
+  pages: pg => ['lp1', 'lp2'].includes(pg.id)
+};
 
 function scheduleServerSync() {
   if (!synced || !getSession()) return;
@@ -796,6 +807,12 @@ async function pushChanges() {
           toast(`${o.id} confirmed, but not sent to the carrier: ${r.dispatchError}`);
         }
       }));
+  });
+  Object.entries(WORKSPACE_LISTS).forEach(([name, perm]) => {
+    if (!hasPermission(perm) || !Array.isArray(db[name])) return;
+    const json = JSON.stringify(db[name]);
+    if (synced.workspace.get(name) === json) return;
+    send(synced.workspace, name, json, () => api(`/api/workspace/${name}`, 'PUT', { items: db[name] }));
   });
   if (hasPermission('cms')) {
     Object.entries(db.cmsPages || {}).forEach(([id, c]) => {
@@ -1171,16 +1188,9 @@ function bars(items, total) {
   `).join('');
 }
 
-// Set from /api/auth/status: the portal is temporarily open without a password.
-let openAccess = false;
-
 function previewBanner() {
-  const open = openAccess ? `
-    <div class="panel" role="alert" style="background:#fdecea;border-color:#f3b4ab;color:#8f2b22;padding:14px 18px;">
-      <b>Open access is on.</b> Anyone with the link to this portal is signed in as Super Admin without a password and can see customer details and change orders. Turn it off as soon as sign-in is fixed.
-    </div>` : '';
-  if (!previewRole) return open;
-  return open + `
+  if (!previewRole) return '';
+  return `
     <div class="panel" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff4dc;border-color:#f3d48e;padding:14px 18px;">
       <span>Previewing the workspace as <b>${esc(previewRole)}</b>. Your account keeps its own permissions.</span>
       <button data-action="exit-preview">Exit preview</button>
@@ -6676,21 +6686,8 @@ window.addEventListener('message', event => {
   }
 });
 
-// Open access: sign in straight away, without the sign-in screen.
-async function openAccessSignIn() {
-  try {
-    const status = await (await fetch('/api/auth/status')).json();
-    openAccess = !!status.openAccess;
-    if (!openAccess || getSession()) return;
-    const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const data = await res.json();
-    if (res.ok && data.success) applySession(data);
-  } catch {}
-}
-
 // Initial boot check: check server for latest products & orders
 async function bootSync() {
-  await openAccessSignIn();
   if (!getSession()) return;
   if (!(await refreshSession()) && !getSession()) return;
   checkAuth();
@@ -6703,9 +6700,7 @@ async function bootSync() {
     ]);
     if (pRes && pRes.ok) {
       const prods = await pRes.json();
-      if (Array.isArray(prods) && prods.length > 0) {
-        db.products = prods;
-      }
+      if (Array.isArray(prods)) db.products = prods;
     }
     // The server is the source of truth, even when a list is empty.
     let serverOrders = db.orders;
@@ -6720,7 +6715,23 @@ async function bootSync() {
     // Pages edited only in this browser so far are sent up by the next sync.
     const pages = (hasPermission('cms') || hasPermission('products')) ? await api('/api/cms').catch(() => ({})) : {};
     db.cmsPages = { ...(db.cmsPages || {}), ...pages };
-    markSynced(serverOrders, pages);
+
+    // With a real database, the samples the portal ships with are removed and
+    // shared lists come from the server (lists only in this browser are sent up).
+    const live = (await fetch('/api/health').then(r => r.json()).catch(() => ({}))).database === 'connected';
+    const workspace = await api('/api/workspace').catch(() => ({}));
+    for (const name of Object.keys(WORKSPACE_LISTS)) {
+      if (Array.isArray(workspace[name])) db[name] = workspace[name];
+      else if (live && Array.isArray(db[name]) && SAMPLE_RECORDS[name]) db[name] = db[name].filter(x => !SAMPLE_RECORDS[name](x));
+    }
+    if (live) {
+      db.pages = (db.pages || []).filter(x => !SAMPLE_RECORDS.pages(x));
+      const sampleTeam = { usr_admin: 'Operations Admin', usr_ops: 'Lina Benali', usr_agent: 'Sara Amrani', usr_finance: 'Tariq Mansouri' };
+      db.agents = (db.agents || []).filter(a => sampleTeam[a.id] !== a.name);
+      const bl = await api('/api/blacklist').catch(() => null);
+      if (bl && Array.isArray(bl.blacklistedPhones)) db.blacklistedPhones = bl.blacklistedPhones;
+    }
+    markSynced(serverOrders, pages, workspace);
     persist();
     render();
   } catch {}

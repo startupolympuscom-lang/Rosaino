@@ -33,23 +33,25 @@ const MAX_FAILED_LOGINS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 const AUDIT_LIMIT = 500;
 
-// On Vercel (or NODE_ENV=production) sign-in needs a real AUTH_SECRET. There is
-// deliberately no fallback there: a secret derived from known values could be
-// recomputed by anyone and used to forge Super Admin sessions.
 const PRODUCTION = !!process.env.VERCEL || process.env.NODE_ENV === 'production';
 
-// TEMPORARY (owner's request): anyone who opens the portal is signed in as
-// Super Admin, with no password. Customer data and every action are open to
-// anyone with the link. Set this back to false to require sign-in again.
-export const OPEN_ACCESS = true;
+// Open access (everyone signed in without a password) was a temporary measure.
+// Sign-in is required.
+export const OPEN_ACCESS = false;
 
-const SECRET = process.env.AUTH_SECRET?.trim() || (PRODUCTION && !OPEN_ACCESS ? null : 'rosaino-local-development-only');
-const MISSING_SECRET = 'Sign-in is disabled until AUTH_SECRET is set. Add it in Vercel (Project → Settings → Environment Variables) and redeploy.';
-if (!process.env.AUTH_SECRET?.trim()) {
-  console.warn(PRODUCTION
-    ? '[auth] AUTH_SECRET is not set; sign-in is disabled until it is.'
-    : '[auth] AUTH_SECRET is not set; using a local development secret.');
-}
+// Key that signs sessions (and, derived from it, encrypts carrier keys).
+// AUTH_SECRET if set; otherwise derived from DATABASE_URL, which holds the
+// database password and is just as private, so sign-in works without extra
+// setup. Never derived from public values: those would let anyone forge sessions.
+const SECRET = process.env.AUTH_SECRET?.trim()
+  || (process.env.DATABASE_URL?.trim() ? crypto.createHash('sha256').update('rosaino-auth-v1:' + process.env.DATABASE_URL.trim()).digest('hex') : null)
+  || (PRODUCTION ? crypto.randomBytes(32).toString('hex') : 'rosaino-local-development-only');
+const SECRET_WARNING = process.env.AUTH_SECRET?.trim() || process.env.DATABASE_URL?.trim() ? null
+  : PRODUCTION ? 'Neither AUTH_SECRET nor DATABASE_URL is set: sessions only last on one server instance, so you may be asked to sign in again. Set DATABASE_URL (and optionally AUTH_SECRET) in Vercel.' : null;
+if (SECRET_WARNING) console.warn('[auth] ' + SECRET_WARNING);
+
+/** The server's private key material, for other modules (carrier and store secrets). */
+export const serverSecret = () => SECRET;
 
 // ---------------------------------------------------------------------------
 // Password hashing
@@ -77,7 +79,7 @@ let roles = JSON.parse(JSON.stringify(DEFAULT_ROLES));
 
 const initials = name => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 
-function newUser({ id, name, email, role, password }) {
+function newUser({ id, name, email, role, password, passwordHash }) {
   return {
     id: id || 'usr_' + crypto.randomBytes(6).toString('hex'),
     name,
@@ -85,14 +87,25 @@ function newUser({ id, name, email, role, password }) {
     role,
     avatar: initials(name),
     active: true,
-    passwordHash: hashPassword(password),
+    passwordHash: passwordHash || hashPassword(password),
     tokenVersion: 1,
     createdAt: new Date().toISOString(),
     lastLoginAt: null
   };
 }
 
+// Old default password, published in earlier READMEs: never accepted, and
+// replaced by the owner password below wherever it is still set.
 const DEFAULT_SUPER_ADMIN = { id: 'usr_superadmin', email: 'superadmin@rosaino.com', password: 'RosainoSuperAdmin2026!' };
+
+// The Super Admin login given to the owner. Only its scrypt hash is in the
+// code (the password itself was handed over privately and can't be worked out
+// from the hash). It signs in with no setup in Vercel. Once the owner changes
+// the password in Settings, only the new one works.
+const OWNER_LOGIN = {
+  email: DEFAULT_SUPER_ADMIN.email,
+  passwordHash: 'scrypt$75bd3dbca893e55aaa11ed9c9a010cca$1de56a221ee288307cfb9871424651985ad35c2c24b730ae1764b5848691f6970886cfd6f2d837a0b38003c06342c9569fd8ff4403891d7f42b9b33dc506a0ef'
+};
 
 const RETIRED_DEMO_ACCOUNTS = [
   { id: 'usr_admin', email: 'admin@rosaino.com', password: 'RosainoAdmin2026!' },
@@ -129,15 +142,28 @@ async function bootstrap() {
     await store.saveUser(newUser({
       id: 'usr_superadmin',
       name: 'Rosaino Super Admin',
-      email: envEmail || DEFAULT_SUPER_ADMIN.email,
-      password: envPassword || DEFAULT_SUPER_ADMIN.password,
+      email: OWNER_LOGIN.email,
+      passwordHash: OWNER_LOGIN.passwordHash,
       role: SUPER_ADMIN
     }));
     console.log(`[auth] Created the Super Admin account in ${store.kind} storage.`);
-    if (!envPassword) {
-      console.warn('[auth] Default Super Admin password in use. Set ADMIN_EMAIL/ADMIN_PASSWORD before going live, or change it in the portal.');
+  } else {
+    // The Super Admin account still on the old public password (or switched off
+    // because of it) gets the owner password instead.
+    const sa = await store.findByEmail(OWNER_LOGIN.email);
+    if (sa && verifyPassword(DEFAULT_SUPER_ADMIN.password, sa.passwordHash)) {
+      sa.passwordHash = OWNER_LOGIN.passwordHash;
+      sa.role = SUPER_ADMIN;
+      sa.active = true;
+      sa.tokenVersion += 1;
+      await store.saveUser(sa);
+      console.log('[auth] Super Admin moved off the old public password.');
+    } else if (!sa) {
+      await store.saveUser(await ownerAccount());
+      console.log('[auth] Added the Super Admin account.');
     }
-  } else if (envEmail && envPassword) {
+  }
+  if (envEmail && envPassword) {
     const existing = await store.findByEmail(envEmail);
     if (!existing) {
       // Recovery: a new ADMIN_EMAIL/ADMIN_PASSWORD pair adds a fresh Super Admin.
@@ -152,12 +178,7 @@ async function bootstrap() {
     }
   }
 
-  // Once your own Super Admin comes from ADMIN_EMAIL/ADMIN_PASSWORD, the default
-  // login (whose password is public) is retired the same way as the samples.
-  const retired = [...RETIRED_DEMO_ACCOUNTS];
-  if (envEmail && envPassword && envEmail !== DEFAULT_SUPER_ADMIN.email && (await store.findByEmail(envEmail))?.active !== false) {
-    retired.push(DEFAULT_SUPER_ADMIN);
-  }
+  const retired = [...RETIRED_DEMO_ACCOUNTS, DEFAULT_SUPER_ADMIN];
 
   // Sample accounts created by earlier versions are switched off and signed out,
   // unless someone has since given them a new password.
@@ -170,6 +191,12 @@ async function bootstrap() {
       console.log(`[auth] Disabled default account ${u.email}.`);
     }
   }
+}
+
+// A new account for the owner login (its usual id may belong to another account).
+async function ownerAccount() {
+  const id = (await store.getUser(DEFAULT_SUPER_ADMIN.id)) ? 'usr_owner_' + crypto.randomBytes(4).toString('hex') : DEFAULT_SUPER_ADMIN.id;
+  return newUser({ id, name: 'Rosaino Super Admin', email: OWNER_LOGIN.email, passwordHash: OWNER_LOGIN.passwordHash, role: SUPER_ADMIN });
 }
 
 let ready = null;
@@ -325,18 +352,6 @@ const handle = fn => async (req, res) => {
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
-// Open access signs everyone in as the owner's Super Admin account
-// (ADMIN_EMAIL if it exists, else the built-in one), switched on if needed.
-async function openAccessUser() {
-  const owner = envOwner();
-  let u = (owner && await store.findByEmail(owner.email)) || await store.getUser(DEFAULT_SUPER_ADMIN.id)
-    || (await store.listUsers()).find(x => x.role === SUPER_ADMIN);
-  if (!u) u = newUser({ id: DEFAULT_SUPER_ADMIN.id, name: 'Rosaino Super Admin', email: DEFAULT_SUPER_ADMIN.email, password: crypto.randomBytes(24).toString('hex'), role: SUPER_ADMIN });
-  u.active = true;
-  u.role = SUPER_ADMIN;
-  return u;
-}
-
 // The owner login from ADMIN_EMAIL / ADMIN_PASSWORD, if set (and not the public default password).
 function envOwner() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -373,18 +388,9 @@ export function registerAuthRoutes(app) {
   // --- Session ---------------------------------------------------------------
   app.post('/api/auth/login', handle(async (req, res) => {
     await ensureReady();
-    if (OPEN_ACCESS) {
-      const u = await openAccessUser();
-      u.lastLoginAt = new Date().toISOString();
-      await store.saveUser(u);
-      await loadRoles();
-      await audit(u, 'login', 'Open access (no password)', req);
-      return res.json({ success: true, ...issueToken(u), ...sessionPayload(u) });
-    }
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
-    if (!SECRET) return res.status(503).json({ error: MISSING_SECRET });
 
     // Owner recovery: exactly ADMIN_EMAIL + ADMIN_PASSWORD (set in Vercel) always
     // signs in as Super Admin, creating, re-enabling or re-keying that account.
@@ -407,6 +413,31 @@ export function registerAuthRoutes(app) {
       await loadRoles();
       await audit(u, 'login', 'ADMIN_EMAIL / ADMIN_PASSWORD', req);
       return res.json({ success: true, ...issueToken(u), ...sessionPayload(u) });
+    }
+
+    // The Super Admin login given to the owner always signs in (creating,
+    // re-enabling or re-keying the account), until the owner sets a password
+    // of their own on that account.
+    if (email === OWNER_LOGIN.email && verifyPassword(password, OWNER_LOGIN.passwordHash)) {
+      let u = await store.findByEmail(email);
+      if (!u || !u.ownerLoginRetired) {
+        if (!u) {
+          u = await ownerAccount();
+        } else {
+          if (u.passwordHash !== OWNER_LOGIN.passwordHash) {
+            u.passwordHash = OWNER_LOGIN.passwordHash;
+            u.tokenVersion += 1;
+          }
+          u.active = true;
+          u.role = SUPER_ADMIN;
+        }
+        await store.clearAttempt(`${clientIp(req)}|${email}`);
+        u.lastLoginAt = new Date().toISOString();
+        await store.saveUser(u);
+        await loadRoles();
+        await audit(u, 'login', 'Owner login', req);
+        return res.json({ success: true, ...issueToken(u), ...sessionPayload(u) });
+      }
     }
 
     const key = `${clientIp(req)}|${email}`;
@@ -436,7 +467,7 @@ export function registerAuthRoutes(app) {
       await audit(u, 'login.failed', 'Default password refused', req);
       return res.status(403).json({ error: owner
         ? `The default password is switched off. Sign in with your ADMIN_EMAIL (${maskEmail(owner.email)}) and ADMIN_PASSWORD.`
-        : 'The default password is public, so it is switched off. This deployment does not see ADMIN_EMAIL and ADMIN_PASSWORD yet: in Vercel, add both for the Production environment, then redeploy and sign in with them.' });
+        : 'This old password is public, so it is switched off. Use the Super Admin password you were given.' });
     }
 
     await store.clearAttempt(key);
@@ -473,6 +504,7 @@ export function registerAuthRoutes(app) {
     if (err) return res.status(400).json({ error: err });
     req.user.passwordHash = hashPassword(newPassword);
     req.user.tokenVersion += 1; // sign out other devices
+    if (req.user.email === OWNER_LOGIN.email) req.user.ownerLoginRetired = true; // only the new password works now
     await store.saveUser(req.user);
     await audit(req.user, 'password.changed', '', req);
     res.json({ success: true, ...issueToken(req.user), ...sessionPayload(req.user) });
@@ -580,6 +612,7 @@ export function registerAuthRoutes(app) {
       if (pwErr) return res.status(400).json({ error: pwErr });
       u.passwordHash = hashPassword(password);
       u.tokenVersion += 1;
+      if (u.email === OWNER_LOGIN.email) u.ownerLoginRetired = true;
       changes.push('password reset');
     }
     await store.saveUser(u);
@@ -608,7 +641,7 @@ export function registerAuthRoutes(app) {
   // --- Health ----------------------------------------------------------------
   app.get('/api/auth/status', handle(async (req, res) => {
     await ensureReady();
-    const warning = !SECRET ? MISSING_SECRET : storageError;
-    res.json({ storage: store.kind, ok: !!SECRET, openAccess: OPEN_ACCESS, ...(warning ? { warning } : {}) });
+    const warning = storageError || SECRET_WARNING;
+    res.json({ storage: store.kind, ok: true, openAccess: OPEN_ACCESS, ...(warning ? { warning } : {}) });
   }));
 }

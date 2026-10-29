@@ -11,7 +11,7 @@
 // - GET /api/v1/orders/:ref tells the store where an order is (status,
 //   carrier, tracking number), using the store's own order number.
 import crypto from 'crypto';
-import { requireAuth, audit } from './auth.js';
+import { requireAuth, audit, serverSecret } from './auth.js';
 import { dataDb, loadCollections, saveRecords } from './data-store.js';
 
 const KEY_PREFIX = 'rsk_live_';
@@ -20,7 +20,7 @@ export const PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Other'];
 // ---------------------------------------------------------------------------
 // Secrets (Shopify webhook signing secret), encrypted like carrier keys
 // ---------------------------------------------------------------------------
-const ENC_KEY = crypto.createHash('sha256').update('rosaino-store-secrets:' + (process.env.AUTH_SECRET || 'rosaino-local-development-only')).digest();
+const ENC_KEY = crypto.createHash('sha256').update('rosaino-store-secrets:' + serverSecret()).digest();
 function encrypt(text) {
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv('aes-256-gcm', ENC_KEY, iv);

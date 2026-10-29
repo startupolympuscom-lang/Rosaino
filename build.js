@@ -24,12 +24,6 @@ fs.mkdirSync(distPDir, { recursive: true });
 fs.copyFileSync(path.join(__dirname, 'index.html'), path.join(distDir, 'index.html'));
 fs.copyFileSync(path.join(__dirname, 'style.css'), path.join(distDir, 'style.css'));
 fs.copyFileSync(path.join(__dirname, 'app.js'), path.join(distDir, 'app.js'));
-if (fs.existsSync(path.join(__dirname, 'demo.css'))) {
-  fs.copyFileSync(path.join(__dirname, 'demo.css'), path.join(distDir, 'demo.css'));
-}
-if (fs.existsSync(path.join(__dirname, 'demo.js'))) {
-  fs.copyFileSync(path.join(__dirname, 'demo.js'), path.join(distDir, 'demo.js'));
-}
 
 // Copy public track portal (both as file and folder index for trailingSlash tolerance)
 if (fs.existsSync(path.join(__dirname, 'track.html'))) {
