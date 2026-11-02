@@ -1,0 +1,17 @@
+# One-off check of the live deployment. Removed after use.
+name: live-check
+on:
+  push:
+    branches: [claude/fervent-lamport-x3bf0g]
+    paths: ['.github/workflows/live-check.yml']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe https://rosaino.vercel.app
+        run: |
+          B=https://rosaino.vercel.app
+          echo "== /api/health";       curl -s -m 30 -w '  [HTTP %{http_code}]\n' $B/api/health
+          echo "== /api/auth/status";  curl -s -m 20 -w '  [HTTP %{http_code}]\n' $B/api/auth/status
+          echo "== /api/v1/ping, bad key (expect 401)"; curl -s -m 20 -w '  [HTTP %{http_code}]\n' -H 'x-api-key: rsk_live_invalidinvalidinvalid' $B/api/v1/ping
+          echo "== /api/v1/orders, no key (expect 401)"; curl -s -m 20 -w '  [HTTP %{http_code}]\n' -X POST -H 'content-type: application/json' -d '{}' $B/api/v1/orders
