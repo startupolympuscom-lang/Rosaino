@@ -82,28 +82,117 @@ function normalizeConnectionString(raw) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Supabase: Vercel can't use the "Direct connection" string
+// ---------------------------------------------------------------------------
+// db.<project>.supabase.co only has an IPv6 address, and Vercel has no IPv6,
+// so connections hang until they time out. The project's connection pooler
+// accepts the same password over IPv4. Its address depends on the project's
+// region, which isn't in the string, so every region is tried at once: the
+// wrong ones answer "Tenant or user not found" straight away.
+const SUPABASE_REGIONS = [
+  'eu-west-3', 'eu-central-1', 'eu-west-1', 'eu-west-2', 'eu-central-2', 'eu-north-1',
+  'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2', 'ca-central-1', 'sa-east-1',
+  'ap-south-1', 'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1', 'ap-northeast-2'
+];
+
+// The project id from a direct (db.<id>.supabase.co) or API (<id>.supabase.co) host.
+export function supabaseProjectRef(host) {
+  const m = /^(?:db\.)?([a-z0-9]{20})\.supabase\.co$/i.exec(String(host || ''));
+  return m ? m[1].toLowerCase() : null;
+}
+
+/**
+ * Find the pooler that serves this project. tryConnect(config) resolves when
+ * a connection succeeds and rejects with the server's error otherwise.
+ * Returns the pooler connection string (transaction mode, port 6543).
+ */
+export async function findSupabasePooler(connectionString, tryConnect) {
+  const url = new URL(connectionString);
+  const ref = supabaseProjectRef(url.hostname);
+  if (!ref) return connectionString;
+  const password = decodeURIComponent(url.password);
+  const database = decodeURIComponent(url.pathname.replace(/^\//, '')) || 'postgres';
+  const user = `postgres.${ref}`;
+  const hosts = SUPABASE_REGIONS.flatMap(r => [`aws-0-${r}.pooler.supabase.com`, `aws-1-${r}.pooler.supabase.com`]);
+  const errors = [];
+  const attempt = host => tryConnect({ host, port: 6543, user, password, database })
+    .then(() => host, err => { errors.push(String(err?.message || err)); throw err; });
+  try {
+    const host = await Promise.any(hosts.map(attempt));
+    const out = new URL(connectionString);
+    out.hostname = host;
+    out.port = '6543';
+    out.username = user;
+    return out.toString();
+  } catch {
+    // The right region answers with the real problem (e.g. a wrong password).
+    const real = errors.find(e => !/tenant or user not found|ENOTFOUND|getaddrinfo/i.test(e));
+    const err = new Error(real || `No Supabase pooler knows project ${ref}. Check the project exists and copy the Transaction pooler string from Connect.`);
+    err.supabaseRef = ref;
+    throw err;
+  }
+}
+
+// Where the server is (trying to be) connected, for the health check.
+// Never includes the user name or password.
+let dbTarget = null;
+export const databaseTarget = () => dbTarget;
+const describeTarget = (cs, note) => {
+  try {
+    const u = new URL(cs);
+    return { host: u.hostname, port: u.port || '5432', note: note || null };
+  } catch {
+    return { host: '?', port: '?', note: note || null };
+  }
+};
+
 function postgresStore(rawConnectionString) {
   const connectionString = normalizeConnectionString(rawConnectionString);
   const local = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
-  const pool = new pg.Pool({
-    connectionString,
-    // Supabase requires TLS. Its certificates are signed by Supabase's own CA,
-    // so verification is opt-in via DATABASE_SSL_CA (the CA from the dashboard).
-    ssl: local ? false : process.env.DATABASE_SSL_CA
-      ? { ca: process.env.DATABASE_SSL_CA.replace(/\\n/g, '\n') }
-      : { rejectUnauthorized: false },
-    max: Number(process.env.DATABASE_POOL_MAX) || 3,
-    idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 5000
-  });
-  const q = (text, params) => pool.query(text, params);
+  // Supabase requires TLS. Its certificates are signed by Supabase's own CA,
+  // so verification is opt-in via DATABASE_SSL_CA (the CA from the dashboard).
+  const ssl = local ? false : process.env.DATABASE_SSL_CA
+    ? { ca: process.env.DATABASE_SSL_CA.replace(/\\n/g, '\n') }
+    : { rejectUnauthorized: false };
+  dbTarget = describeTarget(connectionString);
+
+  // Direct / API Supabase hosts are switched to the project's pooler first.
+  async function resolveConnectionString() {
+    let host;
+    try { host = new URL(connectionString).hostname; } catch { return connectionString; }
+    if (!supabaseProjectRef(host) || process.env.DATABASE_DIRECT === 'true') return connectionString;
+    const pooled = await findSupabasePooler(connectionString, async cfg => {
+      const client = new pg.Client({ ...cfg, ssl, connectionTimeoutMillis: 8000 });
+      try {
+        await client.connect();
+      } finally {
+        client.end().catch(() => {});
+      }
+    });
+    dbTarget = describeTarget(pooled, `DATABASE_URL uses Supabase's direct address (${host}), which Vercel can't reach; connected through the project's pooler instead. You can paste the Transaction pooler string from Supabase → Connect into DATABASE_URL to skip this lookup.`);
+    console.warn('[db] ' + dbTarget.note);
+    return pooled;
+  }
+
+  let poolPromise = null;
+  const getPool = () => (poolPromise ||= resolveConnectionString()
+    .then(cs => new pg.Pool({
+      connectionString: cs,
+      ssl,
+      max: Number(process.env.DATABASE_POOL_MAX) || 3,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 8000
+    }))
+    .catch(err => { poolPromise = null; throw err; }));
+  const q = async (text, params) => (await getPool()).query(text, params);
 
   return {
     kind: 'postgres',
     // Shared connection for other server modules (carriers & shipments).
     query: q,
     // A dedicated connection, for transactions (release it when done).
-    connect: () => pool.connect(),
+    connect: async () => (await getPool()).connect(),
     async init() {
       await q(SCHEMA_SQL);
     },
@@ -138,7 +227,7 @@ function postgresStore(rawConnectionString) {
       return rows.length ? Object.fromEntries(rows.map(r => [r.role, r.permissions])) : null;
     },
     async saveRoles(roles) {
-      const client = await pool.connect();
+      const client = await (await getPool()).connect();
       try {
         await client.query('BEGIN');
         await client.query('DELETE FROM admin_roles WHERE NOT (role = ANY($1))', [Object.keys(roles)]);

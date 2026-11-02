@@ -3597,7 +3597,7 @@ function guide() {
 // Store connection: Rosaino's own online store (Shopify, YouCan, WooCommerce
 // or custom code) sends its orders here with an API key.
 let storeKeys = null;
-const STORE_PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Other'];
+const STORE_PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Lightfunnels', 'Google Sheets', 'Zapier / Make', 'Other'];
 const storeEndpoint = () => `${location.origin}/api/v1/orders`;
 
 async function loadStoreKeys() {
@@ -3620,10 +3620,11 @@ function storeSetupSteps(platform, secret) {
         <li>Event: <b>Order creation</b> · Format: <b>JSON</b> · URL: ${code(hookUrl)}</li>
         <li>Save. Shopify shows <i>"Your webhooks will be signed with …"</i>: copy that secret into this key's <b>Signing secret</b> here, so Rosaino only accepts orders really sent by your store.</li>
         <li>Click <b>Send test</b> next to the webhook in Shopify: a sample order appears in Leads &amp; orders.</li>
-      </ol>`,
+      </ol>
+      <p class="info">Cash-on-delivery form apps (EasySell, Releasit…) create normal Shopify orders, so they arrive too, including the phone and city fields those apps add.</p>`,
     YouCan: `
       <ol class="steps">
-        <li>In your YouCan store, add a webhook for the <b>order created</b> event (in your store settings, or through Zapier / Make if your plan doesn't list webhooks).</li>
+        <li>If your YouCan plan offers webhooks, add one for the <b>order created</b> event. Otherwise use the <b>Google Sheets</b> or <b>Zapier / Make</b> setup (create the key with that platform to see its steps).</li>
         <li>URL: ${code(hookUrl)} · Method: <b>POST</b> · Format: <b>JSON</b></li>
         <li>Place a test order on your store: it appears in Leads &amp; orders within seconds.</li>
       </ol>`,
@@ -3632,6 +3633,51 @@ function storeSetupSteps(platform, secret) {
         <li>In WordPress, open <b>WooCommerce → Settings → Advanced → Webhooks</b> and click <b>Add webhook</b>.</li>
         <li>Status: <b>Active</b> · Topic: <b>Order created</b> · Delivery URL: ${code(hookUrl)}</li>
         <li>Save, then place a test order on your store: it appears in Leads &amp; orders.</li>
+      </ol>`,
+    Lightfunnels: `
+      <ol class="steps">
+        <li>In Lightfunnels, add a webhook for the <b>order created</b> event (Settings → Webhooks, or an automation that sends a webhook).</li>
+        <li>URL: ${code(hookUrl)} · Method: <b>POST</b> · Format: <b>JSON</b></li>
+        <li>Place a test order: it appears in Leads &amp; orders.</li>
+      </ol>`,
+    'Google Sheets': `
+      <p class="info">For stores that already send their orders to a Google Sheet (YouCan, Shopify and most COD forms can). Each new row is sent to Rosaino every minute; a <b>Rosaino</b> column shows what was sent.</p>
+      <ol class="steps">
+        <li>Open the orders sheet → <b>Extensions → Apps Script</b>, replace the code with the script below and click <b>Save</b>.</li>
+        <li>Click <b>Triggers</b> (clock icon) → <b>Add trigger</b> → function <b>sendNewOrders</b>, event <b>Time-driven</b>, <b>every minute</b> → Save, and allow access.</li>
+        <li>Columns can be in English, French or Arabic: Name / Nom / الاسم, Phone / Téléphone / الهاتف, City / Ville / المدينة, Address / Adresse / العنوان, Product / Produit / المنتج, Quantity / Quantité / الكمية, Total / Prix, SKU, Order ID.</li>
+      </ol>
+      <pre class="code-block">${esc(`// Rosaino: send new order rows to the operations portal.
+const ROSAINO_URL = '${hookUrl}';
+
+function sendNewOrders() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  const rows = sheet.getDataRange().getValues();
+  const head = rows[0].map(String);
+  let col = head.indexOf('Rosaino');
+  if (col < 0) { col = head.length; sheet.getRange(1, col + 1).setValue('Rosaino'); }
+  for (let r = 1; r < rows.length; r++) {
+    if (String(rows[r][col] || '').startsWith('Sent')) continue;
+    const order = {};
+    head.forEach((h, i) => { if (h && i !== col && rows[r][i] !== '') order[h] = rows[r][i]; });
+    if (!Object.keys(order).length) continue;
+    order.sheet_row = 'sheet-' + sheet.getSheetId() + '-row-' + (r + 1);
+    const res = UrlFetchApp.fetch(ROSAINO_URL, {
+      method: 'post', contentType: 'application/json',
+      payload: JSON.stringify(order), muteHttpExceptions: true
+    });
+    const code = res.getResponseCode();
+    sheet.getRange(r + 1, col + 1).setValue(code < 300
+      ? 'Sent ' + new Date().toLocaleString()
+      : 'Error ' + code + ': ' + res.getContentText().slice(0, 100));
+  }
+}`)}</pre>`,
+    'Zapier / Make': `
+      <ol class="steps">
+        <li>Create a Zap (or Make scenario): trigger <b>New order</b> in your store's app (YouCan, Shopify, WooCommerce, Google Sheets…).</li>
+        <li>Action: <b>Webhooks → POST</b> to ${code(hookUrl)}, payload type <b>JSON</b>.</li>
+        <li>Map the fields: <code>order_id</code>, <code>customer</code>, <code>phone</code>, <code>city</code>, <code>address</code>, <code>product</code> (or <code>sku</code>), <code>quantity</code>, <code>total</code>, and <code>note</code> if you have it.</li>
+        <li>Test the step: the order appears in Leads &amp; orders.</li>
       </ol>`,
     Other: `
       <ol class="steps">
@@ -3720,7 +3766,7 @@ function storeConnection() {
       <div class="dev-ref">
         <div class="stat-line"><span>Send an order</span><b><code>POST ${esc(storeEndpoint())}</code></b></div>
         <div class="stat-line"><span>Authentication</span><b><code>Authorization: Bearer rsk_live_…</code> or <code>X-API-Key</code>, or <code>?key=</code> in the URL for webhooks</b></div>
-        <div class="stat-line"><span>Formats accepted</span><b>Shopify order webhook · YouCan order · WooCommerce order · the JSON below</b></div>
+        <div class="stat-line"><span>Formats accepted</span><b>Shopify, YouCan, WooCommerce, Lightfunnels orders · Google Sheets rows (English, French or Arabic columns) · Zapier / Make · the JSON below</b></div>
         <div class="stat-line"><span>Order status</span><b><code>GET ${esc(storeEndpoint())}/{your order number}</code> → status, carrier, tracking number</b></div>
         <div class="stat-line"><span>Check a key</span><b><code>GET ${esc(location.origin)}/api/v1/ping</code></b></div>
         <h3 class="sub">Example order</h3>
@@ -3742,6 +3788,7 @@ function showStoreKey(k, secret) {
       <span><input readonly id="store-hook" value="${esc(`${storeEndpoint()}?key=${secret}`)}"><button type="button" data-action="copy-store-hook">Copy</button></span>
     </label>
     <h3 class="sub">Set up ${esc(k.platform === 'Other' ? 'your site' : k.platform)}</h3>
+    <p class="info">Not sure? Every setup uses the same URL; you can also follow the steps for another platform (Setup steps on the key's row).</p>
     ${storeSetupSteps(k.platform, secret)}
   `, null);
 }
@@ -6324,7 +6371,15 @@ const actions = {
   'copy-store-hook': () => { const el = $('#store-hook'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('Webhook URL copied')).catch(() => toast('Select the URL and copy it')); },
   'store-key-setup': id => {
     const k = storeKeyById(id);
-    if (k) modal(`Set up ${esc(k.name)}`, `<p class="info">Use the full key you copied when it was created (it starts with <code>${esc(k.prefix)}</code>).</p>${storeSetupSteps(k.platform)}`, null);
+    if (!k) return;
+    modal(`Set up ${esc(k.name)}`, `
+      <p class="info">Replace <code>YOUR_API_KEY</code> with the full key you copied when it was created (it starts with <code>${esc(k.prefix)}</code>).</p>
+      <label>Connect with
+        <select id="setup-platform">${STORE_PLATFORMS.map(p => `<option value="${p}" ${p === k.platform ? 'selected' : ''}>${p === 'Other' ? 'Other / custom site' : p}</option>`).join('')}</select>
+      </label>
+      <div id="setup-steps">${storeSetupSteps(k.platform)}</div>
+    `, null);
+    $('#setup-platform').onchange = e => { $('#setup-steps').innerHTML = storeSetupSteps(e.target.value); };
   },
   'store-key-test': id => {
     const k = storeKeyById(id);

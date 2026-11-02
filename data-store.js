@@ -3,7 +3,7 @@
 // Each record is stored as JSON in one private table that only the server can
 // reach. Without DATABASE_URL the server keeps using its in-memory demo data.
 import { getStore } from './auth.js';
-import { createStore } from './auth-store.js';
+import { createStore, databaseTarget, supabaseProjectRef } from './auth-store.js';
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS public.app_records (
@@ -194,20 +194,30 @@ export async function databaseHealth() {
     const s = await dataDb();
     const started = Date.now();
     await s.query('SELECT 1');
-    return { configured: true, connected: true, latencyMs: Date.now() - started, records: await countRecords() };
+    const t = databaseTarget();
+    return { configured: true, connected: true, latencyMs: Date.now() - started, records: await countRecords(), ...(t ? { target: `${t.host}:${t.port}`, ...(t.note ? { note: t.note } : {}) } : {}) };
   } catch (err) {
-    return { configured: true, connected: false, error: describeDbError(err) };
+    const t = databaseTarget();
+    return { configured: true, connected: false, error: describeDbError(err), ...(t ? { target: `${t.host}:${t.port}` } : {}) };
   }
 }
 
-// A readable reason without credentials or host names.
+// A readable reason and what to do, without credentials.
 export function describeDbError(err) {
   const m = String(err?.message || err || '');
-  if (/password authentication failed/i.test(m)) return 'Wrong database password in DATABASE_URL.';
-  if (/ENOTFOUND|getaddrinfo/i.test(m)) return 'The database host in DATABASE_URL was not found.';
-  if (/ECONNREFUSED|ETIMEDOUT|timeout/i.test(m)) return 'The database did not answer (check the host, port and that the project is not paused).';
-  if (/Tenant or user not found/i.test(m)) return 'The user name in DATABASE_URL does not match the Supabase project (use the pooler string from Connect).';
-  if (/self.signed|certificate/i.test(m)) return 'SSL certificate problem connecting to the database.';
-  if (/does not exist/i.test(m)) return 'The database named in DATABASE_URL does not exist.';
-  return 'Database error: ' + m.replace(/postgres(ql)?:\/\/\S+/gi, '[connection string]').slice(0, 160);
+  const t = databaseTarget();
+  const where = t ? ` (${t.host}:${t.port})` : '';
+  const supabaseDirect = t && supabaseProjectRef(t.host);
+  if (/password authentication failed/i.test(m)) return `Wrong database password in DATABASE_URL${where}. Use the database password of your Supabase project (Project Settings → Database → Reset password if unsure).`;
+  if (/No Supabase pooler knows project/i.test(m)) return m;
+  if (/ENOTFOUND|getaddrinfo/i.test(m)) return `The database host in DATABASE_URL was not found${where}. The Supabase project may have been deleted: copy the Transaction pooler string from Supabase → Connect.`;
+  if (/ECONNREFUSED|ETIMEDOUT|timeout/i.test(m)) {
+    return supabaseDirect
+      ? `The database did not answer${where}. This is Supabase's direct address, which Vercel can't reach: use the Transaction pooler string from Supabase → Connect.`
+      : `The database did not answer${where}. Check the host and port, and that the Supabase project is not paused or still starting.`;
+  }
+  if (/Tenant or user not found/i.test(m)) return `The user name in DATABASE_URL does not match the Supabase project${where}. With the pooler it must be postgres.<project id>: copy the Transaction pooler string from Supabase → Connect.`;
+  if (/self.signed|certificate/i.test(m)) return `SSL certificate problem connecting to the database${where}.`;
+  if (/does not exist/i.test(m)) return `The database named in DATABASE_URL does not exist${where}.`;
+  return `Database error${where}: ` + m.replace(/postgres(ql)?:\/\/\S+/gi, '[connection string]').slice(0, 160);
 }

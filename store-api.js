@@ -15,7 +15,7 @@ import { requireAuth, audit, serverSecret } from './auth.js';
 import { dataDb, loadCollections, saveRecords } from './data-store.js';
 
 const KEY_PREFIX = 'rsk_live_';
-export const PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Other'];
+export const PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Lightfunnels', 'Google Sheets', 'Zapier / Make', 'Other'];
 
 // ---------------------------------------------------------------------------
 // Secrets (Shopify webhook signing secret), encrypted like carrier keys
@@ -100,6 +100,66 @@ function detectPlatform(b, hinted) {
   return 'API';
 }
 
+// Column / field names stores use for the same thing (English, French,
+// Arabic, and common spellings), for sheets, forms and simple JSON.
+const ALIASES = {
+  customer: ['customer', 'customer_name', 'client', 'client_name', 'nom', 'nom_complet', 'nom_et_prenom', 'nom_prenom', 'full_name', 'fullname', 'name', 'الاسم', 'الاسم_الكامل', 'اسم'],
+  phone: ['phone', 'phone_number', 'telephone', 'tel', 'mobile', 'gsm', 'numero', 'numero_de_telephone', 'whatsapp', 'الهاتف', 'رقم_الهاتف', 'الجوال'],
+  city: ['city', 'ville', 'المدينة', 'مدينة'],
+  address: ['address', 'adresse', 'address1', 'adresse_de_livraison', 'shipping_address', 'العنوان'],
+  product: ['product', 'product_name', 'produit', 'article', 'المنتج', 'منتج'],
+  sku: ['sku', 'product_sku', 'ref_produit', 'reference_produit'],
+  quantity: ['quantity', 'qty', 'quantite', 'qte', 'الكمية'],
+  total: ['total', 'total_price', 'montant', 'montant_total', 'prix_total', 'amount', 'المبلغ', 'المجموع'],
+  price: ['price', 'prix', 'unit_price', 'الثمن', 'السعر'],
+  orderId: ['order_id', 'external_id', 'id_commande', 'numero_commande', 'commande', 'order_number', 'رقم_الطلب', 'sheet_row'],
+  note: ['note', 'notes', 'remarque', 'commentaire', 'comment', 'ملاحظة', 'ملاحظات']
+};
+const keyOf = k => String(k).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_|_$/g, '');
+
+// A flat { normalised key: value } view of an order's plain fields, plus
+// Shopify note_attributes / additional fields ([{ name, value }]) that COD
+// form apps fill in.
+function flatFields(b) {
+  const out = {};
+  const put = (k, v) => { if (v != null && typeof v !== 'object' && str(v) !== '' && !(keyOf(k) in out)) out[keyOf(k)] = v; };
+  Object.entries(b).forEach(([k, v]) => put(k, v));
+  for (const list of [b.note_attributes, b.additional_fields, b.custom_fields, b.attributes, b.meta_data]) {
+    if (Array.isArray(list)) list.forEach(a => a && put(a.name ?? a.key ?? a.label ?? '', a.value));
+  }
+  return out;
+}
+const pickAlias = (flat, field) => {
+  for (const a of ALIASES[field]) if (flat[keyOf(a)] != null) return flat[keyOf(a)];
+  return undefined;
+};
+
+// Last resort: a phone number anywhere in the order (any key mentioning phone).
+function findPhoneDeep(obj, depth = 0) {
+  if (!obj || typeof obj !== 'object' || depth > 4) return '';
+  for (const [k, v] of Object.entries(obj)) {
+    if (v != null && typeof v !== 'object' && /phone|tel|mobile|gsm|هاتف/i.test(k) && str(v).replace(/\D/g, '').length >= 8) return str(v);
+  }
+  for (const v of Object.values(obj)) {
+    const found = typeof v === 'object' ? findPhoneDeep(v, depth + 1) : '';
+    if (found) return found;
+  }
+  return '';
+}
+
+// Webhooks often wrap the order: { event, data: {...} }, { payload: {...} }, { order: {...} }.
+const looksLikeOrder = o => o && typeof o === 'object' && !Array.isArray(o)
+  && !!(o.line_items || o.items || o.variants || o.products || o.customer || o.shipping_address || o.billing || o.phone || o.total || o.total_price);
+function unwrapOrder(body) {
+  let b = body && typeof body === 'object' ? body : {};
+  for (let i = 0; i < 3; i++) {
+    const inner = ['order', 'data', 'payload', 'resource', 'object', 'record'].map(k => b[k]).find(looksLikeOrder);
+    if (!inner || (looksLikeOrder(b) && (b.line_items || b.items || b.variants))) break;
+    b = inner;
+  }
+  return b;
+}
+
 // Items: [{ sku, name, quantity, price }]
 function readItems(b, platform) {
   const list = [b.line_items, b.items, b.products, b.variants, b.cart?.items].find(Array.isArray) || [];
@@ -117,8 +177,17 @@ function readItems(b, platform) {
       price
     };
   }).filter(i => i.name || i.sku);
-  if (!items.length && (b.product || b.sku || b.product_name)) {
-    items.push({ sku: str(b.sku), name: first(b.product_name, b.product, b.sku), quantity: Math.max(1, Math.floor(num(b.quantity)) || 1), price: num(b.price) });
+  if (!items.length) {
+    // One product given as plain fields (forms, sheets): Produit / Quantité / Prix.
+    const flat = flatFields(b);
+    const name = first(typeof b.product === 'string' ? b.product : '', b.product_name, pickAlias(flat, 'product'));
+    const sku = first(b.sku, pickAlias(flat, 'sku'));
+    if (name || sku) {
+      const quantity = Math.max(1, Math.floor(num(b.quantity ?? pickAlias(flat, 'quantity'))) || 1);
+      let price = num(b.price ?? pickAlias(flat, 'price'));
+      if (!price) price = num(pickAlias(flat, 'total')) / quantity;
+      items.push({ sku, name: name || sku, quantity, price });
+    }
   }
   return items;
 }
@@ -128,8 +197,9 @@ function readItems(b, platform) {
  * Returns { lead } or { error } when something required is missing.
  */
 export function normalizeOrder(body, hintedPlatform) {
-  const b = body && typeof body === 'object' ? (body.order && typeof body.order === 'object' && !body.customer ? body.order : body) : {};
+  const b = unwrapOrder(body);
   const platform = detectPlatform(b, hintedPlatform);
+  const fields = flatFields(b);
   const cust = b.customer && typeof b.customer === 'object' ? b.customer : {};
   const firstOf = v => (Array.isArray(v) ? v[0] : v);
   // An address object, possibly nested one level (shipping.address).
@@ -139,25 +209,26 @@ export function normalizeOrder(body, hintedPlatform) {
 
   const customer = first(
     typeof b.customer === 'string' ? b.customer : '', b.customer_name, b.full_name, b.name && platform === 'API' ? b.name : '',
-    ship.name, joinName(ship.first_name, ship.last_name), cust.full_name, cust.name, joinName(cust.first_name, cust.last_name)
+    ship.name, joinName(ship.first_name, ship.last_name), cust.full_name, cust.name, joinName(cust.first_name, cust.last_name),
+    platform === 'API' || platform === 'Google Sheets' ? pickAlias(fields, 'customer') : ''
   );
-  const phone = normalizePhone(first(b.phone, b.customer_phone, b.telephone, ship.phone, cust.phone, b.billing?.phone, b.billing_address?.phone));
-  const city = first(b.city, ship.city, cust.city, ship.region, ship.province);
+  const phone = normalizePhone(first(b.phone, b.customer_phone, b.telephone, ship.phone, cust.phone, b.billing?.phone, b.billing_address?.phone, pickAlias(fields, 'phone'), findPhoneDeep(b)));
+  const city = first(b.city, ship.city, cust.city, ship.region, ship.province, pickAlias(fields, 'city'));
   const address = first(
     typeof b.address === 'string' ? b.address : '', b.customer_address,
     [ship.address1 ?? ship.address_1 ?? (typeof ship.address === 'string' ? ship.address : null) ?? ship.street ?? ship.line1, ship.address2 ?? ship.address_2 ?? ship.line2].map(str).filter(Boolean).join(', '),
-    ship.zone
+    ship.zone, pickAlias(fields, 'address')
   );
   const items = readItems(b, platform);
   const shipping = num(b.shipping_price ?? b.shipping_lines?.[0]?.price ?? b.shipping_total ?? b.total_shipping_price_set?.shop_money?.amount);
   const itemsTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const amount = num(b.total ?? b.total_price ?? b.amount ?? b.grand_total ?? b.total_amount) || itemsTotal + shipping;
+  const amount = num(b.total ?? b.total_price ?? b.amount ?? b.grand_total ?? b.total_amount ?? pickAlias(fields, 'total')) || itemsTotal + shipping;
   const financial = str(b.financial_status ?? b.payment_status ?? b.payment?.status ?? b.status).toLowerCase();
   const gateway = str(b.payment_method ?? b.gateway ?? (Array.isArray(b.payment_gateway_names) ? b.payment_gateway_names.join(' ') : '') ?? b.payment?.method).toLowerCase();
   const prepaid = b.prepaid === true || (financial === 'paid' && !/cod|cash|livraison|delivery/.test(gateway));
-  const externalId = first(b.external_id, b.order_id, b.id, b.ref, b.order_number, b.number, b.name && platform !== 'API' ? b.name : '');
+  const externalId = first(b.external_id, b.order_id, b.id, b._id, b.ref, b.order_number, b.number, pickAlias(fields, 'orderId'), b.name && platform !== 'API' ? b.name : '');
   const displayRef = first(b.order_number && platform === 'Shopify' ? `#${b.order_number}` : '', b.name && platform === 'Shopify' ? b.name : '', b.ref, b.number, b.order_number, externalId);
-  const note = first(b.note, b.notes, b.customer_note, b.comment, b.customer_note_text);
+  const note = first(typeof b.note === 'string' ? b.note : '', typeof b.notes === 'string' ? b.notes : '', b.customer_note, b.comment, b.customer_note_text, pickAlias(fields, 'note'));
   const utm = b.utm && typeof b.utm === 'object' ? b.utm : {};
   const landing = str(b.landing_site);
   const qs = (() => { try { return new URL(landing, 'https://x').searchParams; } catch { return new URLSearchParams(); } })();
@@ -316,7 +387,10 @@ export function registerStoreApi(app, { createLead, findOrder }) {
       return res.json({ ok: true, message: 'Connected to Rosaino.' });
     }
     // Shopify's "Send test notification" is a sample order: it is received like any order.
-    const { lead, error, platform } = normalizeOrder(body, hinted);
+    const parsed = normalizeOrder(body, hinted);
+    const { lead, error } = parsed;
+    // The payload didn't say which platform sent it: use the key's platform.
+    const platform = parsed.platform === 'API' && k.platform && k.platform !== 'Other' ? k.platform : parsed.platform;
     if (error) {
       await note(k, { result: 'rejected', reason: error, platform });
       throw fail(422, error);

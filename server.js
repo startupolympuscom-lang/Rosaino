@@ -384,6 +384,8 @@ app.get('/api/health', async (req, res) => {
     status: db.configured && !db.connected ? 'database_error' : 'ok',
     database: db.connected ? 'connected' : db.configured ? 'unreachable' : 'not_configured',
     ...(db.error ? { error: db.error } : {}),
+    ...(db.target ? { target: db.target } : {}),
+    ...(db.note ? { note: db.note } : {}),
     time: new Date().toISOString()
   });
 });

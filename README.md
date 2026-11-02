@@ -1,6 +1,6 @@
 # Rosaino operations portal
 
-Rosaino sells through its **own online store** (Shopify, YouCan, WooCommerce or a custom site). That store sends each new order to this portal with an **API key**, and the portal is where leads are confirmed, routed, sent to carriers and tracked. The portal is at `/admin/`.
+Rosaino sells through its **own online store** (Shopify, YouCan, WooCommerce, Lightfunnels, a COD form, or a custom site). That store sends each new order to this portal with an **API key**, and the portal is where leads are confirmed, routed, sent to carriers and tracked. The portal is at `/admin/`.
 
 The built-in storefront pages (`/`, `/shop`, `/product`, `/policy`) are retired and redirect to the portal; the customer tracking page `/track` stays. To bring the storefront back, set `STOREFRONT_ENABLED=true` in Vercel, set `STOREFRONT_ENABLED = true` in `admin/demo.js`, and remove the `redirects` in `vercel.json`.
 
@@ -9,8 +9,13 @@ The built-in storefront pages (`/`, `/shop`, `/product`, `/policy`) are retired 
 In the portal, open **Store connection** (first item under Sales) and click **+ Create API key**. Name it, choose the store's platform, and copy the key: it is shown **once** (only a fingerprint is stored). The dialog shows the webhook URL with the key included and the setup steps for that platform:
 
 - **Shopify:** Settings → Notifications → Webhooks → *Create webhook*, event **Order creation**, format **JSON**, URL = the webhook URL. Copy the signing secret Shopify shows into the key's **Signing secret** so Rosaino only accepts orders signed by your store. *Send test* in Shopify creates a sample lead.
-- **YouCan:** add a webhook for *order created* with the webhook URL (or through Zapier / Make).
+- **YouCan:** add a webhook for *order created* with the webhook URL if your plan has webhooks; otherwise use Google Sheets or Zapier / Make below.
 - **WooCommerce:** WooCommerce → Settings → Advanced → Webhooks → *Add webhook*, topic **Order created**, delivery URL = the webhook URL.
+- **Lightfunnels:** a webhook (or automation) for *order created*, POST JSON to the webhook URL.
+- **Google Sheets** (any store or COD form that writes orders to a sheet): the key's *Setup steps* give an Apps Script that sends each new row every minute and writes "Sent" or the error in a **Rosaino** column. Column names can be English, French or Arabic (Nom, Téléphone, Ville, Adresse, Produit, Quantité, Total; الاسم، الهاتف، المدينة…).
+- **Zapier / Make:** trigger *New order* in the store's app, action *Webhooks → POST* JSON to the webhook URL with `order_id`, `customer`, `phone`, `city`, `address`, `product` or `sku`, `quantity`, `total`.
+
+Orders are read from each platform's own format (also when wrapped as `{event, data}` or `{order: …}`, and with phone/city in Shopify COD-app `note_attributes`); the key's platform is used when the payload doesn't say.
 - **Custom site / Zapier / Make:** `POST /api/v1/orders` with `Authorization: Bearer rsk_live_…` (or `X-API-Key`), JSON body:
 
 ```json
