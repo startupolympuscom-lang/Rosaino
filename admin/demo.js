@@ -3713,7 +3713,7 @@ function storeConnection() {
   return title(
     'Store connection',
     'Orders placed on your online store (Shopify, YouCan, WooCommerce or your own site) arrive here as new leads, ready for the call center and your carriers.',
-    '<button class="primary" data-action="new-store-key">+ Create API key</button>'
+    '<button class="primary" data-action="connect-shopify">Connect Shopify</button> <button data-action="new-store-key">+ Create API key</button>'
   ) + `
     <div class="metrics">
       ${metric('Connected stores', active.length, active.length ? active.map(k => esc(k.name)).join(', ') : 'No API key yet')}
@@ -3730,13 +3730,13 @@ function storeConnection() {
           <li><b>Add it to your store</b> as an order webhook (Shopify, YouCan, WooCommerce) or in your site's code. Step-by-step instructions appear when you create the key.</li>
           <li><b>Orders arrive as leads</b> in Leads &amp; orders. Agents confirm them in the call center, and confirmed orders go to your carrier.</li>
         </ol>
-        <p><button class="primary" data-action="new-store-key">+ Create your API key</button></p>
+        <p><button class="primary" data-action="connect-shopify">Connect Shopify in one step</button> <button data-action="new-store-key">+ Create an API key (other stores)</button></p>
       </div>` : `
       <div class="panel">
         <div class="panel-head"><div><h2>API keys</h2><p>Each key lets one store send orders. Revoke a key and its store can no longer send anything.</p></div></div>
         <div class="store-keys">${table(['Store', 'Key', 'Orders received', 'Last order', 'Status', ''], keys.map(k => `
           <tr>
-            <td><b>${esc(k.name)}</b><small>${esc(k.platform)} · created ${new Date(k.createdAt).toLocaleDateString()}${k.createdBy ? ' by ' + esc(k.createdBy) : ''}</small></td>
+            <td><b>${esc(k.name)}</b><small>${esc(k.platform)}${k.shopDomain ? ' · ' + esc(k.shopDomain) + ' · connected automatically' : ''} · created ${new Date(k.createdAt).toLocaleDateString()}${k.createdBy ? ' by ' + esc(k.createdBy) : ''}</small></td>
             <td><code>${esc(k.prefix)}…</code>${k.platform === 'Shopify' ? `<small>${k.hasSigningSecret ? 'Shopify signature checked' : 'No signing secret'}</small>` : ''}</td>
             <td><b>${k.ordersReceived || 0}</b></td>
             <td>${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '<small>Nothing yet</small>'}</td>
@@ -3818,6 +3818,47 @@ function openNewStoreKey() {
   const sync = () => { form.querySelector('.shopify-only').style.display = form.platform.value === 'Shopify' ? '' : 'none'; };
   form.platform.onchange = sync;
   sync();
+}
+
+
+function openConnectShopify() {
+  if (!checkAction('integrations', 'Connect Shopify')) return;
+  modal('Connect Shopify', `
+    <p class="info">Rosaino checks the credentials and adds the order webhook to your store itself. New Shopify orders then arrive here as leads.</p>
+    <div class="form-grid">
+      <label class="full">Store address<input name="shop" required placeholder="your-store.myshopify.com" autocomplete="off"></label>
+      <label class="full">Admin API access token<input name="accessToken" autocomplete="off" placeholder="shpat_…"></label>
+      <p class="full muted" style="margin:0">or, for an app created in the Shopify Dev Dashboard:</p>
+      <label>Client ID<input name="clientId" autocomplete="off"></label>
+      <label>Client secret<input name="clientSecret" type="password" autocomplete="off"></label>
+    </div>
+    <details class="full"><summary>Where do I find these?</summary>
+      <ol class="steps">
+        <li>In Shopify admin open <b>Settings → Apps → Develop apps</b> (or the <b>Dev Dashboard</b>) and create an app named <b>Rosaino</b>.</li>
+        <li>Give it the Admin API scope <b>read_orders</b>, then <b>Install</b> it on your store.</li>
+        <li>Copy the <b>Admin API access token</b> (starts with <code>shpat_</code>), or the app's <b>Client ID</b> and <b>Client secret</b>, into this form.</li>
+        <li>The store address is under <b>Settings → Domains</b> (the one ending in <code>.myshopify.com</code>).</li>
+      </ol>
+    </details>
+    <div id="shopify-connect-error" role="alert" class="form-error"></div>
+  `, 'Connect', f => {
+    const btn = $('#dialog-form button[type="submit"]') || $('#dialog-form .primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+    api('/api/store-keys/shopify-connect', 'POST', {
+      shop: f.get('shop').trim(), accessToken: (f.get('accessToken') || '').trim(),
+      clientId: (f.get('clientId') || '').trim(), clientSecret: (f.get('clientSecret') || '').trim()
+    }).then(async ({ shopName, shop }) => {
+      await loadStoreKeys();
+      render();
+      modal('Shopify connected', `
+        <p class="info">✓ <b>${esc(shopName)}</b> (${esc(shop)}) is connected. Every new order on the store now arrives in <b>Leads &amp; orders</b> within seconds.</p>
+        <p>Place a test order on your Shopify store to see it appear.</p>`, null);
+    }).catch(err => {
+      $('#shopify-connect-error').textContent = err.message;
+      if (btn) { btn.disabled = false; btn.textContent = 'Connect'; }
+    });
+    return false;
+  });
 }
 
 const storeKeyById = id => (storeKeys || []).find(k => k.id === id);
@@ -6366,6 +6407,7 @@ const actions = {
   },
   'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
   'new-store-key': openNewStoreKey,
+  'connect-shopify': openConnectShopify,
   'refresh-store-keys': () => loadStoreKeys().then(() => { render(); toast('Updated'); }),
   'copy-store-secret': () => { const el = $('#store-secret'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('API key copied')).catch(() => toast('Select the key and copy it')); },
   'copy-store-hook': () => { const el = $('#store-hook'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('Webhook URL copied')).catch(() => toast('Select the URL and copy it')); },

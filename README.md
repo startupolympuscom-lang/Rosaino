@@ -8,7 +8,8 @@ The built-in storefront pages (`/`, `/shop`, `/product`, `/policy`) are retired 
 
 In the portal, open **Store connection** (first item under Sales) and click **+ Create API key**. Name it, choose the store's platform, and copy the key: it is shown **once** (only a fingerprint is stored). The dialog shows the webhook URL with the key included and the setup steps for that platform:
 
-- **Shopify:** Settings → Notifications → Webhooks → *Create webhook*, event **Order creation**, format **JSON**, URL = the webhook URL. Copy the signing secret Shopify shows into the key's **Signing secret** so Rosaino only accepts orders signed by your store. *Send test* in Shopify creates a sample lead.
+- **Shopify (one step):** Store connection → **Connect Shopify**, enter the store's `.myshopify.com` address and the Admin API access token (`shpat_…`) of a Shopify app with the `read_orders` scope, or a Dev Dashboard app's Client ID and Client secret. Rosaino checks them, creates the key and registers the *order created* webhook in the store itself (signed with the app secret when the Client secret is given). Reconnecting replaces the previous key and webhook.
+- **Shopify (manual webhook):** Settings → Notifications → Webhooks → *Create webhook*, event **Order creation**, format **JSON**, URL = the webhook URL. Copy the signing secret Shopify shows into the key's **Signing secret** so Rosaino only accepts orders signed by your store. *Send test* in Shopify creates a sample lead.
 - **YouCan:** add a webhook for *order created* with the webhook URL if your plan has webhooks; otherwise use Google Sheets or Zapier / Make below.
 - **WooCommerce:** WooCommerce → Settings → Advanced → Webhooks → *Add webhook*, topic **Order created**, delivery URL = the webhook URL.
 - **Lightfunnels:** a webhook (or automation) for *order created*, POST JSON to the webhook URL.

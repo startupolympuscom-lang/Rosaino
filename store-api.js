@@ -67,7 +67,7 @@ export async function storeConnectionStatus() {
 
 const publicKey = k => ({
   id: k.id, name: k.name, platform: k.platform, prefix: k.prefix, active: k.active !== false,
-  hasSigningSecret: !!k.signingSecretEnc, createdAt: k.createdAt, createdBy: k.createdBy,
+  hasSigningSecret: !!k.signingSecretEnc, shopDomain: k.shopDomain || null, connectedVia: k.connectedVia || null, createdAt: k.createdAt, createdBy: k.createdBy,
   lastUsedAt: k.lastUsedAt || null, ordersReceived: k.ordersReceived || 0, recent: (k.recent || []).slice(0, 15)
 });
 
@@ -297,6 +297,73 @@ async function note(k, entry) {
  * createLead(lead, { platform, keyName }) -> { order, duplicate }
  * findOrder(ref) -> { order, shipment } | null
  */
+
+// ---------------------------------------------------------------------------
+// Shopify one-step connect: the store address plus the credentials of a
+// Shopify app installed on that store (Admin API access token, or the app's
+// Client ID + Client secret). Rosaino checks them, creates a key and
+// registers the "order created" webhook in the store itself.
+// ---------------------------------------------------------------------------
+const SHOPIFY_API_VERSION = '2025-10';
+
+export function shopifyDomain(input) {
+  let s = str(input).toLowerCase().replace(/^https?:\/\//, '').split(/[/?#]/)[0].trim();
+  if (s && !s.includes('.')) s += '.myshopify.com';
+  return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(s) ? s : null;
+}
+
+const shopifyOrigin = shop => process.env.SHOPIFY_API_ORIGIN_FOR_TESTS || `https://${shop}`;
+
+async function shopifyCall(shop, token, method, path, body) {
+  let res;
+  try {
+    res = await fetch(`${shopifyOrigin(shop)}/admin/api/${SHOPIFY_API_VERSION}${path}`, {
+      method, headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000)
+    });
+  } catch (err) {
+    throw fail(502, `Shopify could not be reached (${err.message}). Check the store address.`);
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch {}
+  if (res.status === 401) throw fail(400, 'Shopify rejected the access token. Copy the Admin API access token again (it starts with shpat_).');
+  if (res.status === 403) throw fail(400, 'The Shopify app is missing permissions. In its Admin API scopes, turn on read_orders, then install or update the app and try again.');
+  if (res.status === 404) throw fail(400, 'Shopify did not find this store. Use its .myshopify.com address (Settings → Domains in Shopify).');
+  if (!res.ok) {
+    const why = data?.errors ? (typeof data.errors === 'string' ? data.errors : JSON.stringify(data.errors)) : text.slice(0, 160);
+    throw fail(400, `Shopify refused the request (HTTP ${res.status}): ${why}`);
+  }
+  return data;
+}
+
+// A Dev Dashboard app installed on the merchant's own store gets its token
+// with the client credentials grant (valid 24 h; the webhook stays after).
+async function shopifyClientToken(shop, clientId, clientSecret) {
+  let res;
+  try {
+    res = await fetch(`${shopifyOrigin(shop)}/admin/oauth/access_token`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret }),
+      signal: AbortSignal.timeout(15000)
+    });
+  } catch (err) {
+    throw fail(502, `Shopify could not be reached (${err.message}). Check the store address.`);
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.access_token) {
+    throw fail(400, 'Shopify did not accept the Client ID and Client secret. Check that they are copied correctly and that the app is installed on this store.');
+  }
+  return data.access_token;
+}
+
+function publicOrigin(req) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
 export function registerStoreApi(app, { createLead, findOrder }) {
   // --- Keys (portal) ---------------------------------------------------------
   app.get('/api/store-keys', requireAuth('integrations'), wrap(async (req, res) => {
@@ -319,6 +386,50 @@ export function registerStoreApi(app, { createLead, findOrder }) {
     await audit(req.user, 'store_key.created', `${name} (${platform})`, req);
     // The only time the full key is sent anywhere.
     res.status(201).json({ success: true, key: publicKey(k), secret });
+  }));
+
+
+  // One step: check the Shopify credentials, create the key, add the webhook.
+  app.post('/api/store-keys/shopify-connect', requireAuth('integrations'), wrap(async (req, res) => {
+    const b = req.body || {};
+    const shop = shopifyDomain(b.shop);
+    if (!shop) throw fail(400, 'Enter the store address, e.g. rosaino.myshopify.com (Shopify → Settings → Domains).');
+    const accessToken = str(b.accessToken);
+    const clientId = str(b.clientId), clientSecret = str(b.clientSecret);
+    if (!accessToken && !(clientId && clientSecret)) throw fail(400, 'Paste the Admin API access token, or the app\'s Client ID and Client secret.');
+    const token = accessToken || await shopifyClientToken(shop, clientId, clientSecret);
+
+    const info = (await shopifyCall(shop, token, 'GET', '/shop.json'))?.shop || {};
+    const origin = publicOrigin(req);
+    if (!/^https:\/\//.test(origin) && !process.env.SHOPIFY_API_ORIGIN_FOR_TESTS) throw fail(400, 'Shopify only sends orders to an https address. Open the portal from its https URL and try again.');
+
+    // Replace earlier Rosaino keys and webhooks for this store.
+    const keys = await repo.list();
+    for (const old of keys.filter(x => x.shopDomain === shop && x.active !== false)) {
+      old.active = false;
+      await repo.save(old);
+    }
+    const existing = (await shopifyCall(shop, token, 'GET', '/webhooks.json?topic=orders/create'))?.webhooks || [];
+    for (const w of existing.filter(w => String(w.address || '').startsWith(origin + '/api/v1/orders'))) {
+      await shopifyCall(shop, token, 'DELETE', `/webhooks/${w.id}.json`).catch(() => {});
+    }
+
+    const secret = KEY_PREFIX + crypto.randomBytes(24).toString('base64url');
+    const k = {
+      id: 'key_' + crypto.randomBytes(6).toString('hex'), name: str(info.name || shop).slice(0, 60), platform: 'Shopify',
+      prefix: secret.slice(0, KEY_PREFIX.length + 6), hash: sha256(secret), active: true,
+      // Webhooks an app creates are signed with that app's secret.
+      signingSecretEnc: clientSecret ? encrypt(clientSecret) : (str(b.signingSecret) ? encrypt(str(b.signingSecret)) : null),
+      shopDomain: shop, connectedVia: 'shopify-app',
+      createdAt: new Date().toISOString(), createdBy: req.user?.name || '', ordersReceived: 0, recent: []
+    };
+    const hook = await shopifyCall(shop, token, 'POST', '/webhooks.json', {
+      webhook: { topic: 'orders/create', address: `${origin}/api/v1/orders?key=${secret}`, format: 'json' }
+    });
+    k.shopifyWebhookId = hook?.webhook?.id ? String(hook.webhook.id) : null;
+    await repo.save(k);
+    await audit(req.user, 'store_key.shopify_connected', `${k.name} (${shop})`, req);
+    res.status(201).json({ success: true, key: publicKey(k), shop, shopName: info.name || shop });
   }));
 
   app.patch('/api/store-keys/:id', requireAuth('integrations'), wrap(async (req, res) => {
