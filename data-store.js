@@ -208,6 +208,10 @@ export function describeDbError(err) {
   const t = databaseTarget();
   const where = t ? ` (${t.host}:${t.port})` : '';
   const supabaseDirect = t && supabaseProjectRef(t.host);
+  const raw = String(process.env.DATABASE_URL || '').trim();
+  if (/^https?:\/\//i.test(raw)) return `DATABASE_URL is a web address (${raw.replace(/^https?:\/\//i, '').split('/')[0]}), probably the Supabase Project URL. It must be the Postgres connection string: Supabase → Connect → Transaction pooler, starting with postgresql://, with your database password in place of [YOUR-PASSWORD].`;
+  if (/client password must be a string|SASL/i.test(m)) return `DATABASE_URL has no database password${where}. Use the Transaction pooler string from Supabase → Connect and put your database password in place of [YOUR-PASSWORD].`;
+  if (/\[YOUR-PASSWORD\]/i.test(raw)) return `DATABASE_URL still contains [YOUR-PASSWORD]${where}. Replace it with your Supabase database password.`;
   if (/password authentication failed/i.test(m)) return `Wrong database password in DATABASE_URL${where}. Use the database password of your Supabase project (Project Settings → Database → Reset password if unsure).`;
   if (/No Supabase pooler knows project/i.test(m)) return m;
   if (/ENOTFOUND|getaddrinfo/i.test(m)) return `The database host in DATABASE_URL was not found${where}. The Supabase project may have been deleted: copy the Transaction pooler string from Supabase → Connect.`;
