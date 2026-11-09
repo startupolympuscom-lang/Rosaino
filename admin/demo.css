@@ -362,3 +362,5 @@ code.copyable{user-select:all}
 .steps code{display:inline-block;margin-top:4px}
 .store-keys .row-actions{flex-wrap:wrap;justify-content:flex-start;min-width:260px}
 .store-keys td{white-space:normal}
+.platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}.platform-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;padding:16px;border-radius:12px;font-weight:500}.platform-tile:hover{border-color:#147d86;background:#f2f9f8}.platform-tile b{font-size:14px}.platform-tile small{font-size:11px;line-height:1.4}.platform-mark{font-size:22px}
+.link-btn{border:0;background:none;padding:0;color:#147d86;text-decoration:underline;font-weight:600;font-size:inherit}.link-btn:hover{background:none}

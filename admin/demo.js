@@ -3722,16 +3722,19 @@ function storeConnection() {
       ${metric('Open store leads', fromStore.filter(o => ['New', 'Callback'].includes(o.status)).length, 'To confirm in the call center')}
     </div>
 
+    <div class="panel">
+      <div class="panel-head"><div><h2>Connect a store</h2><p>Choose where your orders come from. Each option shows what you need and the exact steps, then gives you a ready-to-paste key.</p></div></div>
+      <div class="platform-grid">${STORE_PLATFORMS.map(p => `
+        <button type="button" class="platform-tile" data-action="store-platform" data-id="${esc(p)}">
+          <span class="platform-mark">${PLATFORM_GUIDE[p].mark}</span>
+          <b>${p === 'Other' ? 'Other / custom site' : esc(p)}</b>
+          <small>${PLATFORM_GUIDE[p].tagline}</small>
+        </button>`).join('')}
+      </div>
+    </div>
+
     ${!storeKeys ? '<div class="panel empty">Loading…</div>' : !keys.length ? `
-      <div class="panel">
-        <h2>Connect your store in three steps</h2>
-        <ol class="steps">
-          <li><b>Create an API key</b> for your store. It is shown once: keep it like a password.</li>
-          <li><b>Add it to your store</b> as an order webhook (Shopify, YouCan, WooCommerce) or in your site's code. Step-by-step instructions appear when you create the key.</li>
-          <li><b>Orders arrive as leads</b> in Leads &amp; orders. Agents confirm them in the call center, and confirmed orders go to your carrier.</li>
-        </ol>
-        <p><button class="primary" data-action="connect-shopify">Connect Shopify in one step</button> <button data-action="new-store-key">+ Create an API key (other stores)</button></p>
-      </div>` : `
+      <div class="panel empty">No store connected yet. Choose your store above: orders then arrive in Leads &amp; orders, ready for the call center and your carriers.</div>` : `
       <div class="panel">
         <div class="panel-head"><div><h2>API keys</h2><p>Each key lets one store send orders. Revoke a key and its store can no longer send anything.</p></div></div>
         <div class="store-keys">${table(['Store', 'Key', 'Orders received', 'Last order', 'Status', ''], keys.map(k => `
@@ -3821,6 +3824,57 @@ function openNewStoreKey() {
 }
 
 
+
+// What each store platform needs, shown when it is chosen on Store connection.
+const PLATFORM_GUIDE = {
+  Shopify: { mark: '🛍️', tagline: 'One step: paste your app token', time: '2 minutes',
+    how: 'Rosaino adds the "order created" webhook to your Shopify store for you. Every new order, including cash-on-delivery form apps (EasySell, Releasit…), arrives here as a lead.',
+    need: ['Your store address ending in <b>.myshopify.com</b> (Shopify → Settings → Domains)', 'A Shopify app with the <b>read_orders</b> permission, and its <b>Admin API access token</b> (shpat_…) or its <b>Client ID</b> and <b>Client secret</b>'] },
+  YouCan: { mark: '🟣', tagline: 'Webhook, Google Sheets or Zapier', time: '5 minutes',
+    how: 'YouCan sends each new order to your Rosaino webhook URL. If your YouCan plan has no webhooks, connect through Google Sheets (YouCan can save orders to a sheet) or Zapier / Make.',
+    need: ['Access to your YouCan seller area', 'The webhook URL Rosaino gives you in the next step'] },
+  WooCommerce: { mark: '🟪', tagline: 'Built-in WooCommerce webhook', time: '3 minutes',
+    how: 'WooCommerce has webhooks built in: you add one for "Order created" pointing to your Rosaino webhook URL.',
+    need: ['Admin access to your WordPress site', 'The webhook URL Rosaino gives you in the next step'] },
+  Lightfunnels: { mark: '⚡', tagline: 'Webhook on order created', time: '3 minutes',
+    how: 'Lightfunnels sends each new order to your Rosaino webhook URL through a webhook or an automation.',
+    need: ['Access to your Lightfunnels account', 'The webhook URL Rosaino gives you in the next step'] },
+  'Google Sheets': { mark: '📊', tagline: 'For any store or COD form that fills a sheet', time: '5 minutes',
+    how: 'A small script in your orders sheet sends each new row to Rosaino every minute and writes "Sent" next to it. Works with any store, landing page or COD form that saves orders to Google Sheets. Columns can be in English, French or Arabic.',
+    need: ['The Google Sheet your orders go to (edit access)', 'The script Rosaino gives you in the next step (copy and paste)'] },
+  'Zapier / Make': { mark: '🔗', tagline: 'Connect any app without code', time: '5 minutes',
+    how: 'A Zap (or Make scenario) watches for new orders in your store\'s app and sends them to your Rosaino webhook URL.',
+    need: ['A Zapier or Make account', 'The webhook URL Rosaino gives you in the next step'] },
+  Other: { mark: '🧩', tagline: 'Your own site or a developer', time: '15 minutes for a developer',
+    how: 'Your site sends each new order to Rosaino with a simple HTTPS request (JSON). Give your developer the key and the Developer reference below.',
+    need: ['Someone who can edit your site\'s code', 'The API key Rosaino gives you in the next step'] }
+};
+
+function openStorePlatform(platform) {
+  if (!checkAction('integrations', 'Connect a store')) return;
+  const g = PLATFORM_GUIDE[platform] || PLATFORM_GUIDE.Other;
+  const label = platform === 'Other' ? 'your site' : platform;
+  modal(`Connect ${esc(label)}`, `
+    <p class="info"><b>How it works.</b> ${g.how}</p>
+    <p class="info"><b>Time:</b> about ${esc(g.time)}.</p>
+    <h3 class="sub">What you need</h3>
+    <ul class="steps">${g.need.map(n => `<li>${n}</li>`).join('')}</ul>
+    <h3 class="sub">The steps</h3>
+    <p class="info">Click <b>Create my key</b> below: the same steps are shown again with your real key and URL filled in, ready to copy.</p>
+    ${storeSetupSteps(platform)}
+    <div class="form-grid">
+      <label class="full">Name for this connection<input name="name" required maxlength="60" value="${esc(platform === 'Other' ? 'My website' : platform + ' store')}"></label>
+      ${platform === 'Shopify' ? '<label class="full">Shopify webhook signing secret (optional, can be added later)<input name="signingSecret" autocomplete="off"></label>' : ''}
+    </div>
+    <div id="store-key-error" role="alert" class="form-error"></div>
+  `, 'Create my key', f => {
+    api('/api/store-keys', 'POST', { name: f.get('name').trim(), platform, signingSecret: (f.get('signingSecret') || '').trim() })
+      .then(async ({ key, secret }) => { await loadStoreKeys(); render(); showStoreKey(key, secret); })
+      .catch(err => { $('#store-key-error').textContent = err.message; });
+    return false;
+  });
+}
+
 function openConnectShopify() {
   if (!checkAction('integrations', 'Connect Shopify')) return;
   modal('Connect Shopify', `
@@ -3840,6 +3894,7 @@ function openConnectShopify() {
         <li>The store address is under <b>Settings → Domains</b> (the one ending in <code>.myshopify.com</code>).</li>
       </ol>
     </details>
+    <p class="info">Prefer to add the webhook yourself in Shopify? <button type="button" class="link-btn" data-action="store-platform-manual" data-id="Shopify">Use a webhook URL instead</button>.</p>
     <div id="shopify-connect-error" role="alert" class="form-error"></div>
   `, 'Connect', f => {
     const btn = $('#dialog-form button[type="submit"]') || $('#dialog-form .primary');
@@ -6408,6 +6463,8 @@ const actions = {
   'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
   'new-store-key': openNewStoreKey,
   'connect-shopify': openConnectShopify,
+  'store-platform': p => (p === 'Shopify' ? openConnectShopify() : openStorePlatform(p)),
+  'store-platform-manual': p => openStorePlatform(p),
   'refresh-store-keys': () => loadStoreKeys().then(() => { render(); toast('Updated'); }),
   'copy-store-secret': () => { const el = $('#store-secret'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('API key copied')).catch(() => toast('Select the key and copy it')); },
   'copy-store-hook': () => { const el = $('#store-hook'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('Webhook URL copied')).catch(() => toast('Select the URL and copy it')); },
