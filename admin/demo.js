@@ -3726,7 +3726,7 @@ function storeConnection() {
       <div class="panel-head"><div><h2>Connect a store</h2><p>Choose where your orders come from. Each option shows what you need and the exact steps, then gives you a ready-to-paste key.</p></div></div>
       <div class="platform-grid">${STORE_PLATFORMS.map(p => `
         <button type="button" class="platform-tile" data-action="store-platform" data-id="${esc(p)}">
-          <span class="platform-mark">${PLATFORM_GUIDE[p].mark}</span>
+          <span class="platform-mark">${platformLogo(p, 34)}</span>
           <b>${p === 'Other' ? 'Other / custom site' : esc(p)}</b>
           <small>${PLATFORM_GUIDE[p].tagline}</small>
         </button>`).join('')}
@@ -3782,7 +3782,8 @@ function storeConnection() {
 
 // The key is shown once, with the steps for the store's platform.
 function showStoreKey(k, secret) {
-  modal(`API key for ${esc(k.name)}`, `
+  modal(`Connect ${esc(k.platform === 'Other' ? 'your site' : k.platform)}`, `
+    ${connectHero(k.platform, esc(k.name), 'Your key is ready. Follow the steps below; the box at the bottom turns green when the first order arrives.')}
     <p class="info">Copy this key now. For security it is never shown again; if it's lost, revoke it and create a new one.</p>
     <label class="copy-field">API key
       <span><input readonly id="store-secret" value="${esc(secret)}"><button type="button" data-action="copy-store-secret">Copy</button></span>
@@ -3791,9 +3792,10 @@ function showStoreKey(k, secret) {
       <span><input readonly id="store-hook" value="${esc(`${storeEndpoint()}?key=${secret}`)}"><button type="button" data-action="copy-store-hook">Copy</button></span>
     </label>
     <h3 class="sub">Set up ${esc(k.platform === 'Other' ? 'your site' : k.platform)}</h3>
-    <p class="info">Not sure? Every setup uses the same URL; you can also follow the steps for another platform (Setup steps on the key's row).</p>
     ${storeSetupSteps(k.platform, secret)}
+    ${connectStatus(k, k.platform)}
   `, null);
+  watchConnection(k.id, k.platform);
 }
 
 function openNewStoreKey() {
@@ -3825,9 +3827,23 @@ function openNewStoreKey() {
 
 
 
+// Platform logos (Simple Icons, CC0) and simple marks where none exists.
+const brandSvg = (path, hex, label, size = 30) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" role="img" aria-label="${label}"><path fill="#${hex}" d="${path}"/></svg>`;
+const letterMark = (text, bg, label, size = 30) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" role="img" aria-label="${label}"><rect width="24" height="24" rx="6" fill="${bg}"/><text x="12" y="16.5" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="13" fill="#fff">${text}</text></svg>`;
+const LOGO_PATHS = {"Shopify": ["M15.337 23.979l7.216-1.561s-2.604-17.613-2.625-17.73c-.018-.116-.114-.192-.211-.192s-1.929-.136-1.929-.136-1.275-1.274-1.439-1.411c-.045-.037-.075-.057-.121-.074l-.914 21.104h.023zM11.71 11.305s-.81-.424-1.774-.424c-1.447 0-1.504.906-1.504 1.141 0 1.232 3.24 1.715 3.24 4.629 0 2.295-1.44 3.76-3.406 3.76-2.354 0-3.54-1.465-3.54-1.465l.646-2.086s1.245 1.066 2.28 1.066c.675 0 .975-.545.975-.932 0-1.619-2.654-1.694-2.654-4.359-.034-2.237 1.571-4.416 4.827-4.416 1.257 0 1.875.361 1.875.361l-.945 2.715-.02.01zM11.17.83c.136 0 .271.038.405.135-.984.465-2.064 1.639-2.508 3.992-.656.213-1.293.405-1.889.578C7.697 3.75 8.951.84 11.17.84V.83zm1.235 2.949v.135c-.754.232-1.583.484-2.394.736.466-1.777 1.333-2.645 2.085-2.971.193.501.309 1.176.309 2.1zm.539-2.234c.694.074 1.141.867 1.429 1.755-.349.114-.735.231-1.158.366v-.252c0-.752-.096-1.371-.271-1.871v.002zm2.992 1.289c-.02 0-.06.021-.078.021s-.289.075-.714.21c-.423-1.233-1.176-2.37-2.508-2.37h-.115C12.135.209 11.669 0 11.265 0 8.159 0 6.675 3.877 6.21 5.846c-1.194.365-2.063.636-2.16.674-.675.213-.694.232-.772.87-.075.462-1.83 14.063-1.83 14.063L15.009 24l.927-21.166z", "7AB55C"], "WooCommerce": ["M.754 9.58a.754.754 0 00-.754.758v2.525c0 .42.339.758.758.758h3.135l1.431.799-.326-.799h2.373a.757.757 0 00.758-.758v-2.525a.757.757 0 00-.758-.758H.754zm2.709.445h.03c.065.001.124.023.179.067a.26.26 0 01.103.19.29.29 0 01-.033.16c-.13.239-.236.64-.322 1.199-.083.541-.114.965-.094 1.267a.392.392 0 01-.039.219.213.213 0 01-.176.12c-.086.006-.177-.034-.263-.124-.31-.316-.555-.788-.735-1.416-.216.425-.375.744-.478.957-.196.376-.363.568-.502.578-.09.007-.166-.069-.233-.228-.17-.436-.352-1.277-.548-2.524a.297.297 0 01.054-.222c.047-.064.116-.095.21-.102.169-.013.265.065.288.238.103.695.217 1.284.336 1.766l.727-1.387c.066-.126.15-.192.25-.199.146-.01.237.083.273.28.083.441.188.817.315 1.136.086-.844.233-1.453.44-1.828a.255.255 0 01.218-.147zm1.293.36c.056 0 .116.006.18.02.232.05.411.177.53.386.107.18.161.395.161.654 0 .343-.087.654-.26.94-.2.332-.459.5-.781.5a.88.88 0 01-.18-.022.763.763 0 01-.531-.384 1.287 1.287 0 01-.158-.659c0-.342.085-.655.258-.937.202-.333.462-.498.78-.498zm2.084 0c.056 0 .116.006.18.02.236.05.411.177.53.386.107.18.16.395.16.654 0 .343-.086.654-.259.94-.2.332-.459.5-.781.5a.88.88 0 01-.18-.022.763.763 0 01-.531-.384 1.287 1.287 0 01-.16-.659c0-.342.087-.655.26-.937.202-.333.462-.498.78-.498zm4.437.047c-.305 0-.546.102-.718.304-.173.203-.256.49-.256.856 0 .395.086.697.256.906.17.21.418.316.744.316.315 0 .559-.107.728-.316.17-.21.256-.504.256-.883s-.087-.673-.26-.879c-.176-.202-.424-.304-.75-.304zm-1.466.002a1.13 1.13 0 00-.84.326c-.223.22-.332.499-.332.838 0 .362.108.658.328.88.22.223.505.336.861.336.103 0 .22-.016.346-.052v-.54c-.117.034-.216.051-.303.051a.545.545 0 01-.422-.177c-.106-.12-.16-.278-.16-.48 0-.19.053-.348.156-.468a.498.498 0 01.397-.181c.103 0 .212.015.332.049v-.537a1.394 1.394 0 00-.363-.045zm12.414 0a1.135 1.135 0 00-.84.326c-.223.22-.332.499-.332.838 0 .362.108.658.328.88.22.223.506.336.861.336.103 0 .22-.016.346-.052v-.54c-.116.034-.216.051-.303.051a.545.545 0 01-.422-.177c-.106-.12-.16-.278-.16-.48 0-.19.053-.348.156-.468a.498.498 0 01.397-.181c.103 0 .212.015.332.049v-.537a1.394 1.394 0 00-.363-.045zm-9.598.06l-.29 2.264h.579l.156-1.559.395 1.559h.412l.379-1.555.164 1.555h.603l-.304-2.264h-.791l-.12.508c-.03.13-.06.264-.087.4l-.067.352a29.97 29.97 0 00-.258-1.26h-.771zm2.768 0l-.29 2.264h.579l.156-1.559.396 1.559h.412l.375-1.555.165 1.555h.603l-.305-2.264h-.789l-.119.508c-.03.13-.06.264-.086.4l-.066.352c-.063-.352-.15-.771-.26-1.26h-.771zm3.988 0v2.264h.611v-1.031h.012l.494 1.03h.645l-.489-1.019a.61.61 0 00.37-.552.598.598 0 00-.25-.506c-.167-.123-.394-.186-.68-.186h-.713zm3.377 0v2.264H24v-.483h-.63v-.414h.54v-.468h-.54v-.416h.626v-.483H22.76zm-4.793.004v2.264h1.24v-.483h-.627v-.416h.541v-.468h-.54v-.415h.622v-.482h-1.236zm2.025.432c.146.003.25.025.313.072.063.046.091.12.091.227 0 .156-.135.236-.404.24v-.54zm-15.22.011c-.104 0-.205.069-.301.211a1.078 1.078 0 00-.2.639c0 .096.02.2.06.303.049.13.117.198.196.215.083.016.173-.02.27-.106.123-.11.205-.273.252-.492.016-.077.023-.16.023-.246 0-.097-.02-.2-.06-.303-.05-.13-.116-.198-.196-.215a.246.246 0 00-.045-.006zm2.083 0c-.103 0-.204.069-.3.211a1.078 1.078 0 00-.2.639c0 .096.02.2.06.303.049.13.117.198.196.215.083.016.173-.02.27-.106.123-.11.205-.273.252-.492.013-.077.023-.16.023-.246 0-.097-.02-.2-.06-.303-.05-.13-.116-.198-.196-.215a.246.246 0 00-.045-.006zm4.428.006c.233 0 .354.218.354.66-.004.273-.038.46-.098.553a.293.293 0 01-.262.139.266.266 0 01-.242-.139c-.056-.093-.084-.28-.084-.562 0-.436.11-.65.332-.65Z", "96588A"], "Google Sheets": ["M11.318 12.545H7.91v-1.909h3.41v1.91zM14.728 0v6h6l-6-6zm1.363 10.636h-3.41v1.91h3.41v-1.91zm0 3.273h-3.41v1.91h3.41v-1.91zM20.727 6.5v15.864c0 .904-.732 1.636-1.636 1.636H4.909a1.636 1.636 0 0 1-1.636-1.636V1.636C3.273.732 4.005 0 4.909 0h9.318v6.5h6.5zm-3.273 2.773H6.545v7.909h10.91v-7.91zm-6.136 4.636H7.91v1.91h3.41v-1.91z", "34A853"], "Zapier": ["M4.157 0A4.151 4.151 0 0 0 0 4.161v15.678A4.151 4.151 0 0 0 4.157 24h15.682A4.152 4.152 0 0 0 24 19.839V4.161A4.152 4.152 0 0 0 19.839 0H4.157Zm10.61 8.761h.03a.577.577 0 0 1 .23.038.585.585 0 0 1 .201.124.63.63 0 0 1 .162.431.612.612 0 0 1-.162.435.58.58 0 0 1-.201.128.58.58 0 0 1-.23.042.529.529 0 0 1-.235-.042.585.585 0 0 1-.332-.328.559.559 0 0 1-.038-.235.613.613 0 0 1 .17-.431.59.59 0 0 1 .405-.162Zm2.853 1.572c.03.004.061.004.095.004.325-.011.646.064.937.219.238.144.431.355.552.609.128.279.189.582.185.888v.193a2 2 0 0 1 0 .219h-2.498c.003.227.075.45.204.642a.78.78 0 0 0 .646.265.714.714 0 0 0 .484-.136.642.642 0 0 0 .23-.318l.915.257a1.398 1.398 0 0 1-.28.537c-.14.159-.321.284-.521.355a2.234 2.234 0 0 1-.836.136 1.923 1.923 0 0 1-1.001-.245 1.618 1.618 0 0 1-.665-.703 2.221 2.221 0 0 1-.227-1.036 1.95 1.95 0 0 1 .48-1.398 1.9 1.9 0 0 1 1.3-.488Zm-9.607.023c.162.004.325.026.48.079.207.065.4.174.563.314.26.302.393.692.366 1.088v2.276H8.53l-.109-.711h-.065c-.064.163-.155.31-.272.439a1.122 1.122 0 0 1-.374.264 1.023 1.023 0 0 1-.453.083 1.334 1.334 0 0 1-.866-.264.965.965 0 0 1-.329-.801.993.993 0 0 1 .076-.431 1.02 1.02 0 0 1 .242-.363 1.478 1.478 0 0 1 1.043-.303h.952v-.181a.696.696 0 0 0-.136-.454.553.553 0 0 0-.438-.154.695.695 0 0 0-.378.086.48.48 0 0 0-.193.254l-.99-.144a1.26 1.26 0 0 1 .257-.563c.14-.174.321-.302.533-.378.261-.091.54-.136.82-.129.053-.003.106-.007.163-.007Zm4.384.007c.174 0 .347.038.506.114.182.083.34.211.458.374.257.423.377.911.351 1.406a2.53 2.53 0 0 1-.355 1.448 1.148 1.148 0 0 1-1.009.517c-.204 0-.401-.045-.582-.136a1.052 1.052 0 0 1-.48-.457 1.298 1.298 0 0 1-.114-.234h-.045l.004 1.784h-1.059v-4.713h.904l.117.805h.057c.068-.208.177-.401.328-.56a1.129 1.129 0 0 1 .843-.344h.076v-.004Zm7.559.084h.903l.113.805h.053a1.37 1.37 0 0 1 .235-.484.813.813 0 0 1 .313-.242.82.82 0 0 1 .39-.076h.234v1.051h-.401a.662.662 0 0 0-.313.008.623.623 0 0 0-.272.155.663.663 0 0 0-.174.26.683.683 0 0 0-.027.314v1.875h-1.054v-3.666Zm-17.515.003h3.262v.896L3.73 13.104l.034.113h1.973l.042.9H2.4v-.9l1.931-1.754-.045-.117H2.441v-.896Zm11.815 0h1.055v3.659h-1.055V10.45Zm3.443.684.019.016a.69.69 0 0 0-.351.045.756.756 0 0 0-.287.204c-.11.155-.174.336-.189.522h1.545c-.034-.526-.257-.787-.74-.787h.003Zm-5.718.163c-.026 0-.057 0-.083.004a.78.78 0 0 0-.31.053.746.746 0 0 0-.257.189 1.016 1.016 0 0 0-.204.695v.064c-.015.257.057.507.204.711a.634.634 0 0 0 .253.196.638.638 0 0 0 .314.061.644.644 0 0 0 .578-.265c.14-.223.204-.48.189-.74a1.216 1.216 0 0 0-.181-.711.677.677 0 0 0-.503-.257Zm-4.509 1.266a.464.464 0 0 0-.268.102.373.373 0 0 0-.114.276c0 .053.008.106.027.155a.375.375 0 0 0 .087.132.576.576 0 0 0 .397.11v.004a.863.863 0 0 0 .563-.182.573.573 0 0 0 .211-.457v-.14h-.903Z", "FF4F00"], "Make": ["M13.38 3.498c-.27 0-.511.19-.566.465L9.85 18.986a.578.578 0 0 0 .453.678l4.095.826a.58.58 0 0 0 .682-.455l2.963-15.021a.578.578 0 0 0-.453-.678l-4.096-.826a.589.589 0 0 0-.113-.012zm-5.876.098a.576.576 0 0 0-.516.318L.062 17.697a.575.575 0 0 0 .256.774l3.733 1.877a.578.578 0 0 0 .775-.258l6.926-13.781a.577.577 0 0 0-.256-.776L7.762 3.658a.571.571 0 0 0-.258-.062zm11.74.115a.576.576 0 0 0-.576.576v15.426c0 .318.258.578.576.578h4.178a.58.58 0 0 0 .578-.578V4.287a.578.578 0 0 0-.578-.576Z", "6D00CC"]};
+function platformLogo(p, size = 30) {
+  const b = k => brandSvg(LOGO_PATHS[k][0], LOGO_PATHS[k][1], k, size);
+  if (p === 'WooCommerce') return `<svg viewBox="-0.3 9.2 24.6 5.6" width="${Math.round(size * 2.6)}" height="${Math.round(size * 0.6)}" role="img" aria-label="WooCommerce"><path fill="#${LOGO_PATHS.WooCommerce[1]}" d="${LOGO_PATHS.WooCommerce[0]}"/></svg>`;
+  if (LOGO_PATHS[p]) return b(p);
+  if (p === 'Zapier / Make') return `<span class="logo-pair">${brandSvg(LOGO_PATHS.Zapier[0], LOGO_PATHS.Zapier[1], 'Zapier', size)}${brandSvg(LOGO_PATHS.Make[0], LOGO_PATHS.Make[1], 'Make', size)}</span>`;
+  if (p === 'YouCan') return letterMark('YC', '#5b2bd6', 'YouCan', size);
+  if (p === 'Lightfunnels') return letterMark('LF', '#111827', 'Lightfunnels', size);
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" role="img" aria-label="Custom site"><rect width="24" height="24" rx="6" fill="#147d86"/><path d="M9.5 8 6 12l3.5 4M14.5 8 18 12l-3.5 4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
 // What each store platform needs, shown when it is chosen on Store connection.
 const PLATFORM_GUIDE = {
-  Shopify: { mark: '🛍️', tagline: 'One step: paste your app token', time: '2 minutes',
+  Shopify: { mark: '', tagline: 'Easiest: paste one link in Shopify', time: '1 minute',
     how: 'Rosaino adds the "order created" webhook to your Shopify store for you. Every new order, including cash-on-delivery form apps (EasySell, Releasit…), arrives here as a lead.',
     need: ['Your store address ending in <b>.myshopify.com</b> (Shopify → Settings → Domains)', 'A Shopify app with the <b>read_orders</b> permission, and its <b>Admin API access token</b> (shpat_…) or its <b>Client ID</b> and <b>Client secret</b>'] },
   YouCan: { mark: '🟣', tagline: 'Webhook, Google Sheets or Zapier', time: '5 minutes',
@@ -3855,8 +3871,8 @@ function openStorePlatform(platform) {
   const g = PLATFORM_GUIDE[platform] || PLATFORM_GUIDE.Other;
   const label = platform === 'Other' ? 'your site' : platform;
   modal(`Connect ${esc(label)}`, `
+    ${connectHero(platform, `Connect ${esc(label)}`, 'About ' + esc(g.time) + '.')}
     <p class="info"><b>How it works.</b> ${g.how}</p>
-    <p class="info"><b>Time:</b> about ${esc(g.time)}.</p>
     <h3 class="sub">What you need</h3>
     <ul class="steps">${g.need.map(n => `<li>${n}</li>`).join('')}</ul>
     <h3 class="sub">The steps</h3>
@@ -3875,45 +3891,134 @@ function openStorePlatform(platform) {
   });
 }
 
+const connectHero = (p, title, sub) => `<div class="connect-hero">${platformLogo(p, 40)}<div><b>${title}</b><small>${sub}</small></div></div>`;
+
+// Shopify: choose between the one-link setup (nothing to install) and an app token.
 function openConnectShopify() {
   if (!checkAction('integrations', 'Connect Shopify')) return;
   modal('Connect Shopify', `
-    <p class="info">Rosaino checks the credentials and adds the order webhook to your store itself. New Shopify orders then arrive here as leads.</p>
+    ${connectHero('Shopify', 'Bring your Shopify orders into Rosaino', 'Choose one option. Both send every new order here as a lead, within seconds.')}
+    <div class="option-cards">
+      <button type="button" class="option-card recommended" data-action="shopify-quick">
+        <span class="option-tag">Recommended · easiest</span>
+        <b>Paste one link in Shopify</b>
+        <small>About 1 minute. Nothing to install: copy a link from Rosaino and paste it in Shopify's notification settings.</small>
+      </button>
+      <button type="button" class="option-card" data-action="shopify-app">
+        <b>Connect with a Shopify app</b>
+        <small>Paste your store address and app token, and Rosaino sets everything up. Use this if you already have a Shopify app with the read_orders permission.</small>
+      </button>
+    </div>
+  `, null);
+}
+
+function startShopifyQuick() {
+  if (!checkAction('integrations', 'Connect Shopify')) return;
+  api('/api/store-keys', 'POST', { name: 'Shopify store', platform: 'Shopify' })
+    .then(async ({ key, secret }) => { await loadStoreKeys(); render(); showShopifyQuick(key, secret); })
+    .catch(err => toast(err.message));
+}
+
+function showShopifyQuick(k, secret) {
+  modal('Connect Shopify', `
+    ${connectHero('Shopify', 'Paste this link in Shopify', 'Four short steps. Shopify menus in French are shown in brackets.')}
+    <ol class="steps big-steps">
+      <li><b>Copy your link</b>
+        <span class="copy-field"><span><input readonly id="store-hook" value="${esc(`${storeEndpoint()}?key=${secret}`)}"><button type="button" class="primary" data-action="copy-store-hook">Copy link</button></span></span>
+      </li>
+      <li>In your Shopify admin, open <b>Settings → Notifications</b> <span class="fr">(Paramètres → Notifications)</span>, scroll to the bottom and click <b>Webhooks</b>.</li>
+      <li>Click <b>Create webhook</b> <span class="fr">(Créer un webhook)</span> and fill in:
+        <br>Event <b>Order creation</b> <span class="fr">(Création de commande)</span> · Format <b>JSON</b> · URL: <b>paste the link</b> · API version: leave as is.
+        <br>Click <b>Save</b> <span class="fr">(Enregistrer)</span>.</li>
+      <li>Next to your new webhook, click <b>Send test</b> <span class="fr">(Envoyer un test)</span>.</li>
+    </ol>
+    ${connectStatus(k, 'Shopify')}
+    <details><summary>Extra security (optional)</summary>
+      <p class="info">After saving, Shopify shows <i>"Your webhooks will be signed with …"</i> <span class="fr">(« Vos webhooks seront signés avec … »)</span>. Paste that code here so Rosaino only accepts orders really sent by your store.</p>
+      <div class="inline-form"><input id="shopify-signing-secret" autocomplete="off" placeholder="Signing code from Shopify"><button type="button" data-action="save-signing-secret" data-id="${esc(k.id)}">Save</button></div>
+    </details>
+  `, null);
+  watchConnection(k.id, 'Shopify');
+}
+
+function openShopifyApp() {
+  if (!checkAction('integrations', 'Connect Shopify')) return;
+  modal('Connect Shopify', `
+    ${connectHero('Shopify', 'Connect with a Shopify app', 'Rosaino checks the credentials and adds the order webhook to your store itself.')}
     <div class="form-grid">
       <label class="full">Store address<input name="shop" required placeholder="your-store.myshopify.com" autocomplete="off"></label>
       <label class="full">Admin API access token<input name="accessToken" autocomplete="off" placeholder="shpat_…"></label>
-      <p class="full muted" style="margin:0">or, for an app created in the Shopify Dev Dashboard:</p>
+      <p class="full muted" style="margin:0">or, for an app made in the Shopify Dev Dashboard:</p>
       <label>Client ID<input name="clientId" autocomplete="off"></label>
       <label>Client secret<input name="clientSecret" type="password" autocomplete="off"></label>
     </div>
-    <details class="full"><summary>Where do I find these?</summary>
+    <details><summary>Where do I find these?</summary>
       <ol class="steps">
-        <li>In Shopify admin open <b>Settings → Apps → Develop apps</b> (or the <b>Dev Dashboard</b>) and create an app named <b>Rosaino</b>.</li>
-        <li>Give it the Admin API scope <b>read_orders</b>, then <b>Install</b> it on your store.</li>
-        <li>Copy the <b>Admin API access token</b> (starts with <code>shpat_</code>), or the app's <b>Client ID</b> and <b>Client secret</b>, into this form.</li>
-        <li>The store address is under <b>Settings → Domains</b> (the one ending in <code>.myshopify.com</code>).</li>
+        <li>Shopify admin → <b>Settings → Apps and sales channels → Develop apps</b> <span class="fr">(Paramètres → Applications et canaux de vente → Développer des applications)</span> → <b>Create an app</b> named Rosaino.</li>
+        <li><b>Configuration → Admin API integration → Configure</b>: tick <b>read_orders</b>, Save.</li>
+        <li><b>API credentials → Install app</b>, then <b>Reveal token once</b> <span class="fr">(Révéler le jeton une fois)</span> and copy the token (starts with <code>shpat_</code>).</li>
+        <li>No "Develop apps"? Create the app on <b>dev.shopify.com</b>, give it <b>read_orders</b>, install it, and copy its <b>Client ID</b> and <b>Client secret</b> instead.</li>
+        <li>The store address is under <b>Settings → Domains</b>: the one ending in <code>.myshopify.com</code>.</li>
       </ol>
     </details>
-    <p class="info">Prefer to add the webhook yourself in Shopify? <button type="button" class="link-btn" data-action="store-platform-manual" data-id="Shopify">Use a webhook URL instead</button>.</p>
+    <p class="info">Sounds complicated? <button type="button" class="link-btn" data-action="shopify-quick">Paste one link instead (easiest)</button></p>
     <div id="shopify-connect-error" role="alert" class="form-error"></div>
   `, 'Connect', f => {
-    const btn = $('#dialog-form button[type="submit"]') || $('#dialog-form .primary');
+    const btn = $('#dialog-form .primary');
     if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
     api('/api/store-keys/shopify-connect', 'POST', {
       shop: f.get('shop').trim(), accessToken: (f.get('accessToken') || '').trim(),
       clientId: (f.get('clientId') || '').trim(), clientSecret: (f.get('clientSecret') || '').trim()
-    }).then(async ({ shopName, shop }) => {
+    }).then(async ({ shopName, shop, key }) => {
       await loadStoreKeys();
       render();
-      modal('Shopify connected', `
-        <p class="info">✓ <b>${esc(shopName)}</b> (${esc(shop)}) is connected. Every new order on the store now arrives in <b>Leads &amp; orders</b> within seconds.</p>
-        <p>Place a test order on your Shopify store to see it appear.</p>`, null);
+      modal('Connect Shopify', `
+        ${connectHero('Shopify', `✓ ${esc(shopName)} is connected`, esc(shop))}
+        <p>Every new order on your store now arrives in <b>Leads &amp; orders</b> within seconds. Place a test order on your Shopify store to see it.</p>
+        ${connectStatus(key, 'Shopify', 'Waiting for your first Shopify order…')}`, null);
+      watchConnection(key.id, 'Shopify');
     }).catch(err => {
       $('#shopify-connect-error').textContent = err.message;
       if (btn) { btn.disabled = false; btn.textContent = 'Connect'; }
     });
     return false;
   });
+}
+
+// Live "is it connected?" box: turns green as soon as the store's first
+// delivery reaches Rosaino (the portal's own test orders don't count).
+const connectStatus = (k, platform, waiting) => `<div id="connect-status" class="connect-status waiting" role="status" data-key="${esc(k.id)}">
+  <span class="spinner" aria-hidden="true"></span><span class="status-text">${waiting || `Waiting for ${esc(platform === 'Other' ? 'your site' : platform)}… finish the steps above and this turns green.`}</span></div>`;
+
+function watchConnection(keyId, platform) {
+  const tick = async () => {
+    const box = $('#connect-status');
+    if (!box || box.dataset.key !== keyId || !$('#modal').open) return;
+    try {
+      storeKeys = await api('/api/store-keys');
+      const k = storeKeys.find(x => x.id === keyId);
+      const hit = (k?.recent || []).find(r => r.result !== 'test');
+      if (hit) {
+        const name = platform === 'Other' ? 'Your site' : platform;
+        let html;
+        if (hit.result === 'rejected' && /signature/i.test(hit.reason || '')) {
+          box.className = 'connect-status error';
+          html = `${esc(name)} reached Rosaino, but the signature didn't match: check the signing code saved for this connection.`;
+        } else if (hit.result === 'rejected') {
+          box.className = 'connect-status ok';
+          html = `<b>✓ Connected.</b> ${esc(name)} reached Rosaino. Its sample order wasn't added (${esc(hit.reason || 'incomplete')}); real orders with a customer phone will be.`;
+        } else {
+          box.className = 'connect-status ok';
+          html = `<b>✓ Connected!</b> ${esc(name)} is sending orders to Rosaino.${hit.orderId ? ` The first one (${esc(hit.orderId)}) is in Leads &amp; orders.` : ''}`;
+        }
+        box.innerHTML = `<span class="status-text">${html}</span>`;
+        if (page === 'store') render();
+        return;
+      }
+    } catch {}
+    setTimeout(tick, 4000);
+  };
+  setTimeout(tick, 3000);
 }
 
 const storeKeyById = id => (storeKeys || []).find(k => k.id === id);
@@ -6464,7 +6569,16 @@ const actions = {
   'new-store-key': openNewStoreKey,
   'connect-shopify': openConnectShopify,
   'store-platform': p => (p === 'Shopify' ? openConnectShopify() : openStorePlatform(p)),
-  'store-platform-manual': p => openStorePlatform(p),
+  'store-platform-manual': p => (p === 'Shopify' ? startShopifyQuick() : openStorePlatform(p)),
+  'shopify-quick': () => startShopifyQuick(),
+  'shopify-app': () => openShopifyApp(),
+  'save-signing-secret': id => {
+    const v = ($('#shopify-signing-secret')?.value || '').trim();
+    if (!v) return toast('Paste the signing code from Shopify first');
+    api(`/api/store-keys/${encodeURIComponent(id)}`, 'PATCH', { signingSecret: v })
+      .then(() => { toast('Saved: only orders signed by your store are accepted'); loadStoreKeys(); })
+      .catch(err => toast(err.message));
+  },
   'refresh-store-keys': () => loadStoreKeys().then(() => { render(); toast('Updated'); }),
   'copy-store-secret': () => { const el = $('#store-secret'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('API key copied')).catch(() => toast('Select the key and copy it')); },
   'copy-store-hook': () => { const el = $('#store-hook'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('Webhook URL copied')).catch(() => toast('Select the URL and copy it')); },
