@@ -53,7 +53,10 @@ if (fs.existsSync(path.join(__dirname, 'product.html'))) {
 }
 
 // Copy admin demo files
-fs.copyFileSync(path.join(__dirname, 'admin', 'index.html'), path.join(distAdminDir, 'index.html'));
+// Version the admin files so browsers load the new ones after each deploy.
+const buildId = (process.env.VERCEL_GIT_COMMIT_SHA || Date.now().toString(36)).slice(0, 10);
+fs.writeFileSync(path.join(distAdminDir, 'index.html'), fs.readFileSync(path.join(__dirname, 'admin', 'index.html'), 'utf8')
+  .replace('href="demo.css"', `href="demo.css?v=${buildId}"`).replace('src="demo.js"', `src="demo.js?v=${buildId}"`));
 fs.copyFileSync(path.join(__dirname, 'admin', 'demo.css'), path.join(distAdminDir, 'demo.css'));
 fs.copyFileSync(path.join(__dirname, 'admin', 'demo.js'), path.join(distAdminDir, 'demo.js'));
 
