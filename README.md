@@ -47,6 +47,8 @@ What happens to an order:
 
 Your store can also ask where an order is: `GET /api/v1/orders/{store order number or RS-…}` with the same key returns its status, carrier and tracking number. `GET /api/v1/ping` checks a key. A key only sees its own store's orders.
 
+**Analytics** (menu → Analytique; needs the Reports permission): orders, confirmation rate, top source and most wanted product for 7 / 30 / 90 days or all time; orders and confirmation rate per store (Shopify, YouCan, WooCommerce…); units per product; and a dotted world / Morocco map with one dot per city sized by orders (pulsing when ordered today), plus the top cities. Shopify orders carry exact coordinates; other orders are placed by city (Moroccan cities and common diaspora cities, in French, English or Arabic) or by country.
+
 The Store connection page lists each key (orders received, last order, Shopify signature on/off), **Send test order**, **Revoke**, and the last deliveries with the reason for any rejected order.
 
 ## Run locally

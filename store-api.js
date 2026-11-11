@@ -112,6 +112,7 @@ const ALIASES = {
   quantity: ['quantity', 'qty', 'quantite', 'qte', 'الكمية'],
   total: ['total', 'total_price', 'montant', 'montant_total', 'prix_total', 'amount', 'المبلغ', 'المجموع'],
   price: ['price', 'prix', 'unit_price', 'الثمن', 'السعر'],
+  country: ['country', 'country_code', 'pays', 'code_pays', 'الدولة', 'البلد'],
   orderId: ['order_id', 'external_id', 'id_commande', 'numero_commande', 'commande', 'order_number', 'رقم_الطلب', 'sheet_row'],
   note: ['note', 'notes', 'remarque', 'commentaire', 'comment', 'ملاحظة', 'ملاحظات']
 };
@@ -214,6 +215,9 @@ export function normalizeOrder(body, hintedPlatform) {
   );
   const phone = normalizePhone(first(b.phone, b.customer_phone, b.telephone, ship.phone, cust.phone, b.billing?.phone, b.billing_address?.phone, pickAlias(fields, 'phone'), findPhoneDeep(b)));
   const city = first(b.city, ship.city, cust.city, ship.region, ship.province, pickAlias(fields, 'city'));
+  const country = first(ship.country_code, ship.countryCode, ship.country_iso, typeof ship.country === 'string' ? ship.country : ship.country?.code, b.country_code, typeof b.country === 'string' ? b.country : '', pickAlias(fields, 'country'));
+  const latN = Number(ship.latitude ?? ship.lat), lngN = Number(ship.longitude ?? ship.lng ?? ship.lon);
+  const geo = Number.isFinite(latN) && Number.isFinite(lngN) && (latN || lngN) && Math.abs(latN) <= 90 && Math.abs(lngN) <= 180 ? { lat: latN, lng: lngN } : null;
   const address = first(
     typeof b.address === 'string' ? b.address : '', b.customer_address,
     [ship.address1 ?? ship.address_1 ?? (typeof ship.address === 'string' ? ship.address : null) ?? ship.street ?? ship.line1, ship.address2 ?? ship.address_2 ?? ship.line2].map(str).filter(Boolean).join(', '),
@@ -244,6 +248,8 @@ export function normalizeOrder(body, hintedPlatform) {
       customer: customer.slice(0, 120),
       phone: phone.slice(0, 20),
       city: city.slice(0, 80),
+      country: String(country).slice(0, 60),
+      geo,
       address: address.slice(0, 300),
       items: items.slice(0, 50).map(i => ({ ...i, sku: i.sku.slice(0, 80), name: i.name.slice(0, 160) })),
       amount: Math.max(0, Math.round(amount * 100) / 100),

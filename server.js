@@ -598,6 +598,8 @@ registerStoreApi(app, {
       customer: lead.customer,
       phone: lead.phone,
       city: lead.city,
+      ...(lead.country ? { country: lead.country } : {}),
+      ...(lead.geo ? { geo: lead.geo } : {}),
       address: lead.address,
       product: main.product || main.name,
       sku: main.sku,

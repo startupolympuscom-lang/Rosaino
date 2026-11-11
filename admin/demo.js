@@ -27,6 +27,7 @@ const I18N = {
     overview: 'Vue d\'ensemble',
     guide: 'Guide de la plateforme',
     orders: 'Commandes & Prospects',
+    analytics: 'Analytique',
     calls: 'Centre d\'appels',
     routing: 'Routage des prospects',
     shipping: 'Expédition & Colis',
@@ -69,6 +70,7 @@ const I18N = {
     overview: 'Overview',
     guide: 'Platform guide',
     orders: 'Leads & Orders',
+    analytics: 'Analytics',
     calls: 'Call Center',
     routing: 'Lead Routing',
     shipping: 'Shipping & Labels',
@@ -111,6 +113,7 @@ const I18N = {
     overview: 'نظرة عامة',
     guide: 'دليل المنصة',
     orders: 'الطلبيات والعملاء',
+    analytics: 'التحليلات',
     calls: 'مركز الاتصال والتأكيد',
     routing: 'توزيع الطلبيات',
     shipping: 'الشحن والتوصيل',
@@ -632,6 +635,7 @@ let utmContent = 'vid_hook_v1';
 function getNavIcon(id) {
   const s = 'width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
   switch (id) {
+    case 'analytics': return `<svg ${s}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>`;
     case 'overview': return `<svg ${s}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
     case 'orders': return `<svg ${s}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
     case 'calls': return `<svg ${s}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
@@ -665,6 +669,7 @@ const pages = [
   ['guide', 'guide', 'Platform guide', ''], // open to every role
   ['store', 'store', 'Store connection', 'integrations'],
   ['orders', 'orders', 'Leads & orders', 'orders'],
+  ['analytics', 'analytics', 'Analytics', 'reports'],
   ['calls', 'calls', 'Call center', 'calls'],
   ['routing', 'routing', 'Lead routing', 'routing'],
   ['shipping', 'shipping', 'Shipping & Labels', 'shipping'],
@@ -4023,7 +4028,273 @@ function watchConnection(keyId, platform) {
 
 const storeKeyById = id => (storeKeys || []).find(k => k.id === id);
 
-const views = { overview, guide, store: storeConnection, orders, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
+// ---------------------------------------------------------------------------
+// Analytics: where customers come from, what they want, and a live dot map.
+// ---------------------------------------------------------------------------
+// Land as dots, pre-computed from Natural Earth (public domain): rows of
+// alternating sea/land run lengths in base 36.
+const MAP_DOTS = {"world": {"lon0": -180, "lat1": 82, "step": 2, "rows": "19,e,1,7,1,9,2w|16,d,2,p,g,1,1,4,x,3,15|y,2,4,1,7,4,2,r,g,3,1,1,12,1,14|t,1,2,2,2,1,2,3,2,1,f,l,13,4,d,a,c,3,j|s,4,b,2,h,i,12,1,f,c,z|s,2,1,5,1,1,2,2,3,8,a,g,11,2,7,2,2,q,5,5,g|9,a,6,2,5,8,1,4,3,9,6,g,m,5,i,1a,b|0,2,6,p,3,3,2,1,1,3,1,3,2,1,1,4,6,a,o,d,2,1,2,b,1,1h|0,6,1,14,6,3,1,2,5,8,7,1,1,2,e,b,3,1y|a,10,1,3,4,4,7,5,9,3,d,6,1,26,1|8,10,6,4,c,3,o,6,2,1z,1,5,3|7,7,1,1,3,o,9,4,11,7,2,1,2,1r,3,2,8|c,1,a,l,8,7,t,1,7,3,4,1m,8,3,9|a,1,d,n,5,8,s,1,6,3,3,1m,9,4,9|o,p,2,b,o,1,2,1,5,2,1,1p,1,1,7,3,a|r,n,1,c,n,1,1,3,2,1x,7,1,b|q,v,5,1,s,1y,1,1,i|s,u,3,3,o,20,1,1,j|t,u,1,1,t,g,1,1,1,6,2,16,m|s,s,1,1,w,7,1,7,5,4,2,16,3,2,i|s,s,u,6,4,2,2,4,3,1,3,4,2,13,4,1,k|s,p,x,5,7,1,1,3,1,b,2,x,1,3,6,1,k|t,n,y,4,7,2,2,2,1,b,2,x,3,2,5,1,k|u,n,12,5,d,16,3,1,3,3,k|v,l,z,9,c,17,5,3,m|w,i,10,c,2,3,5,17,u|y,c,3,1,10,t,1,z,u|x,1,1,7,7,1,y,v,1,z,u|y,1,1,6,15,p,1,7,3,v,v|z,1,1,5,15,p,2,9,5,p,w|12,4,6,1,1,2,u,r,1,a,5,m,y|12,4,3,2,5,1,t,r,2,8,8,7,3,7,1,1,z|13,7,b,1,o,s,1,8,8,5,6,6,7,1,t|16,4,1,1,y,s,2,5,a,4,8,6,5,1,u|19,4,x,t,1,3,d,3,9,5,6,1,t|1b,2,5,2,q,u,g,2,c,3,10|1c,1,4,6,o,x,d,1,d,1,11|1f,a,n,w,e,1,9,1,b,2,r|1g,a,n,6,2,m,q,1,13|1g,d,u,j,p,1,1,1,5,2,w|1f,e,u,i,r,1,1,1,3,3,w|1e,f,u,h,s,2,3,4,1,1,3,1,q|1e,i,r,g,u,2,3,3,1,1,6,1,1,1,l|1e,l,p,e,w,1,7,2,6,5,i|1e,n,o,d,x,1,g,4,1,1,f|1f,m,o,d,10,2,b,3,1,2,g|1f,m,o,d,14,1,1,1,b,2,f|1g,k,p,e,1a,2,2,1,j|1g,j,q,e,3,2,13,3,3,1,j|1h,i,p,f,2,2,12,6,2,2,i|1j,g,p,d,4,2,11,c,f,1,1|1j,f,r,b,5,2,z,f,g|1j,f,s,a,4,3,x,h,8,1,7|1j,c,v,a,4,2,x,j,f|1j,b,w,9,14,k,e|1j,b,w,9,15,j,e|1j,a,y,7,16,j,e|1j,a,z,5,17,7,2,a,e|1j,9,10,2,1a,2,8,8,f|1i,8,2q,6,b,1,3|1i,8,2r,3,e,2,1|1i,5,3b,1,2|1h,5,2x,2,b,2,3|1i,4,39,2,4|1h,4,39,2,5|1h,5,3f|1h,3,3h|1h,3,3h|1i,3,3g|51"}, "morocco": {"lon0": -17.2, "lat1": 36, "step": 0.2, "rows": "2b|1l,3,n|1l,3,n|1k,5,m|1k,8,2,6,b|1j,l,7|1j,m,6|1i,n,6|1i,o,5|1h,p,5|1g,q,5|1e,s,5|1c,u,5|19,x,5|18,y,5|17,10,4|16,11,4|14,15,2|14,15,2|14,14,3|13,x,b|13,w,c|12,t,g|11,v,f|11,u,g|11,v,f|11,t,h|12,p,k|12,n,m|12,n,m|12,m,n|11,h,t|10,f,1,2,t|10,d,y|z,c,10|y,b,12|w,c,13|u,d,14|t,e,14|r,g,14|o,j,14|l,m,14|l,m,14|k,n,14|k,n,14|j,o,14|j,o,14|i,p,14|g,r,14|e,t,14|e,t,14|d,d,1l|d,d,1l|d,d,1l|c,e,1l|c,e,1l|c,e,1l|c,e,1l|a,g,1l|9,h,1l|8,i,1l|8,i,1l|7,j,1l|6,k,1l|6,h,1o|6,f,1q|5,g,1q|5,g,1q|4,h,1q|3,i,1q|2,j,1q|2,j,1q|2,j,1q|1,k,1q|1,1,29|2b|2b|2b"}};
+
+const CITY_COORDS = (() => {
+  const list = [
+    ['casablanca|casa|dar el beida|الدار البيضاء|الدارالبيضاء', 33.57, -7.59], ['rabat|الرباط', 34.02, -6.84], ['sale|سلا', 34.05, -6.8],
+    ['temara|تمارة', 33.93, -6.91], ['kenitra|القنيطرة', 34.26, -6.58], ['fes|fez|فاس', 34.03, -5.0], ['meknes|مكناس', 33.89, -5.55],
+    ['marrakech|marrakesh|مراكش', 31.63, -8.01], ['agadir|أكادير|اكادير', 30.43, -9.6], ['tanger|tangier|tanja|طنجة', 35.76, -5.83],
+    ['tetouan|tetuan|تطوان', 35.57, -5.37], ['oujda|وجدة', 34.68, -1.91], ['nador|الناظور', 35.17, -2.93], ['al hoceima|alhoceima|الحسيمة', 35.25, -3.93],
+    ['el jadida|eljadida|الجديدة', 33.25, -8.5], ['safi|آسفي|اسفي', 32.3, -9.24], ['essaouira|الصويرة', 31.51, -9.77], ['beni mellal|بني ملال', 32.34, -6.36],
+    ['khouribga|خريبكة', 32.88, -6.91], ['settat|سطات', 33.0, -7.62], ['berrechid|برشيد', 33.27, -7.59], ['mohammedia|المحمدية', 33.69, -7.38],
+    ['khemisset|الخميسات', 33.82, -6.07], ['taza|تازة', 34.21, -4.01], ['errachidia|الرشيدية', 31.93, -4.43], ['ouarzazate|ورزازات', 30.92, -6.89],
+    ['taroudant|تارودانت', 30.47, -8.88], ['tiznit|تزنيت', 29.7, -9.73], ['guelmim|كلميم', 28.99, -10.06], ['laayoune|العيون', 27.15, -13.2],
+    ['dakhla|الداخلة', 23.68, -15.96], ['larache|العرائش', 35.19, -6.16], ['ksar el kebir|القصر الكبير', 35.0, -5.9], ['chefchaouen|chaouen|شفشاون', 35.17, -5.27],
+    ['berkane|بركان', 34.92, -2.32], ['ifrane|إفران', 33.53, -5.11], ['azrou|أزرو', 33.43, -5.22], ['khenifra|خنيفرة', 32.94, -5.67],
+    ['sidi kacem|سيدي قاسم', 34.22, -5.71], ['sidi slimane|سيدي سليمان', 34.26, -5.93], ['inezgane|إنزكان', 30.36, -9.54], ['ait melloul|أيت ملول', 30.33, -9.5],
+    ['skhirat|الصخيرات', 33.85, -7.03], ['bouznika|بوزنيقة', 33.79, -7.16], ['fnideq|الفنيدق', 35.85, -5.36], ['martil|مرتيل', 35.62, -5.27],
+    ['youssoufia|اليوسفية', 32.25, -8.53], ['benguerir|ben guerir|ابن جرير', 32.24, -7.95], ['el kelaa des sraghna|قلعة السراغنة', 32.05, -7.41],
+    ['oued zem|وادي زم', 32.86, -6.57], ['fquih ben salah|الفقيه بن صالح', 32.5, -6.69], ['zagora|زاكورة', 30.33, -5.84], ['tinghir|تنغير', 31.51, -5.53],
+    ['midelt|ميدلت', 32.68, -4.74], ['guercif|جرسيف', 34.23, -3.35], ['taourirt|تاوريرت', 34.41, -2.9], ['sefrou|صفرو', 33.83, -4.84],
+    ['paris', 48.86, 2.35], ['lyon', 45.76, 4.84], ['marseille', 43.3, 5.37], ['toulouse', 43.6, 1.44], ['lille', 50.63, 3.06], ['bordeaux', 44.84, -0.58],
+    ['nice', 43.7, 7.27], ['brussels|bruxelles|brussel', 50.85, 4.35], ['antwerp|anvers|antwerpen', 51.22, 4.4], ['amsterdam', 52.37, 4.9],
+    ['rotterdam', 51.92, 4.48], ['madrid', 40.42, -3.7], ['barcelona|barcelone', 41.39, 2.17], ['malaga', 36.72, -4.42], ['london|londres', 51.51, -0.13],
+    ['berlin', 52.52, 13.4], ['frankfurt', 50.11, 8.68], ['milan|milano', 45.46, 9.19], ['rome|roma', 41.9, 12.5], ['geneva|geneve', 46.2, 6.14],
+    ['montreal', 45.5, -73.57], ['toronto', 43.65, -79.38], ['new york', 40.71, -74.01], ['dubai|دبي', 25.2, 55.27], ['abu dhabi|أبوظبي', 24.45, 54.38],
+    ['riyadh|الرياض', 24.71, 46.68], ['jeddah|جدة', 21.49, 39.19], ['doha|الدوحة', 25.29, 51.53], ['cairo|le caire|القاهرة', 30.04, 31.24],
+    ['algiers|alger|الجزائر', 36.75, 3.06], ['tunis|تونس', 36.81, 10.18], ['dakar', 14.72, -17.47], ['istanbul', 41.01, 28.98], ['lisbon|lisbonne|lisboa', 38.72, -9.14]
+  ];
+  const m = new Map();
+  list.forEach(([names, lat, lng]) => names.split('|').forEach(n => m.set(geoKey(n), { lat, lng, name: names.split('|')[0] })));
+  return m;
+})();
+const COUNTRY_COORDS = (() => {
+  const list = [
+    ['ma|mar|morocco|maroc|المغرب', 'Morocco', 31.8, -7.1], ['fr|fra|france|فرنسا', 'France', 46.6, 2.4], ['es|esp|spain|espagne|espana|إسبانيا', 'Spain', 40.2, -3.6],
+    ['be|bel|belgium|belgique|belgie', 'Belgium', 50.6, 4.6], ['nl|nld|netherlands|pays-bas|pays bas|holland', 'Netherlands', 52.2, 5.5],
+    ['de|deu|germany|allemagne|deutschland', 'Germany', 51.1, 10.4], ['it|ita|italy|italie|italia', 'Italy', 42.8, 12.6],
+    ['gb|uk|gbr|united kingdom|royaume-uni|royaume uni', 'United Kingdom', 54.0, -2.0], ['pt|prt|portugal', 'Portugal', 39.6, -8.0],
+    ['ch|che|switzerland|suisse', 'Switzerland', 46.8, 8.2], ['us|usa|united states|etats-unis|etats unis', 'United States', 39.8, -98.6],
+    ['ca|can|canada', 'Canada', 56.0, -96.0], ['ae|are|united arab emirates|emirats arabes unis|uae|الإمارات', 'United Arab Emirates', 24.0, 54.0],
+    ['sa|sau|saudi arabia|arabie saoudite|السعودية', 'Saudi Arabia', 24.0, 45.0], ['qa|qat|qatar|قطر', 'Qatar', 25.3, 51.2],
+    ['eg|egy|egypt|egypte|مصر', 'Egypt', 26.8, 30.8], ['dz|dza|algeria|algerie|الجزائر', 'Algeria', 28.0, 2.6], ['tn|tun|tunisia|tunisie|تونس', 'Tunisia', 34.0, 9.5],
+    ['sn|sen|senegal', 'Senegal', 14.5, -14.5], ['tr|tur|turkey|turquie|turkiye', 'Turkey', 39.0, 35.0], ['mr|mrt|mauritania|mauritanie', 'Mauritania', 20.0, -10.5],
+    ['ci|civ|cote d ivoire|ivory coast', "Côte d'Ivoire", 7.5, -5.5]
+  ];
+  const m = new Map();
+  list.forEach(([keys, name, lat, lng]) => keys.split('|').forEach(k => m.set(geoKey(k), { lat, lng, name })));
+  return m;
+})();
+function geoKey(v) { return String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); }
+
+// Best known position of an order: Shopify's coordinates, then the city, then the country.
+function orderPlace(o) {
+  const cityKey = geoKey(o.city);
+  const c = cityKey && (CITY_COORDS.get(cityKey) || CITY_COORDS.get(cityKey.split(' ')[0]));
+  const country = COUNTRY_COORDS.get(geoKey(o.country));
+  const label = o.city ? String(o.city).trim() : country ? country.name : '';
+  if (o.geo && Number.isFinite(o.geo.lat)) return { lat: o.geo.lat, lng: o.geo.lng, key: (c?.name || cityKey || `${o.geo.lat.toFixed(1)},${o.geo.lng.toFixed(1)}`), label: label || 'Unknown city', country: country?.name || '' };
+  if (c) return { lat: c.lat, lng: c.lng, key: c.name, label: label || c.name, country: country?.name || '' };
+  if (country) return { lat: country.lat, lng: country.lng, key: 'country:' + country.name, label: o.city ? `${String(o.city).trim()} (${country.name})` : country.name, country: country.name };
+  return null;
+}
+
+let analyticsRange = '30';
+let analyticsMap = 'auto';
+const CONFIRMED_STATUSES = ['Confirmed', 'In transit', 'Delivered', 'Returned'];
+
+function analyticsOrders() {
+  const days = Number(analyticsRange);
+  const since = days ? Date.now() - days * 86400000 : 0;
+  return db.orders.filter(o => o.source !== 'Test' && (!since || new Date(o.date || o.createdAt || 0).getTime() >= since - 86400000));
+}
+
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+
+function sourceMark(src) {
+  const known = STORE_PLATFORMS.includes(src) ? src : src === 'Zapier' || src === 'Make' ? 'Zapier / Make' : null;
+  if (known) return platformLogo(known, known === 'WooCommerce' ? 13 : 22);
+  return `<span class="src-dot" aria-hidden="true">${esc(String(src || '?').slice(0, 1).toUpperCase())}</span>`;
+}
+
+function barList(rows, { valueLabel, extra }) {
+  if (!rows.length) return '<p class="empty">No orders in this period yet.</p>';
+  const max = Math.max(...rows.map(r => r.value), 1);
+  return `<div class="bar-list">${rows.map(r => `
+    <div class="bar-item" tabindex="0" data-tip="${esc(r.tip)}">
+      <div class="bar-label">${r.mark || ''}<span>${esc(r.label)}</span></div>
+      <div class="bar-track2"><div class="bar-fill2" style="width:${Math.max(2, (r.value / max) * 100)}%"></div></div>
+      <div class="bar-value"><b>${r.value.toLocaleString()}</b> <small>${valueLabel}${extra ? ' · ' + extra(r) : ''}</small></div>
+    </div>`).join('')}</div>`;
+}
+
+function dotGrid(view, cell) {
+  let d = '';
+  view.rows.split('|').forEach((row, ri) => {
+    let col = 0, land = false;
+    row.split(',').forEach(run => {
+      const n = parseInt(run, 36);
+      if (land) for (let i = 0; i < n; i++) d += `M${(col + i) * cell} ${ri * cell}h0`;
+      col += n;
+      land = !land;
+    });
+  });
+  return d;
+}
+
+function worldMap(places, which) {
+  const view = MAP_DOTS[which];
+  const cell = which === 'world' ? 6 : 7;
+  const rows = view.rows.split('|');
+  const cols = rows[0].split(',').reduce((s, n) => s + parseInt(n, 36), 0);
+  const W = (cols - 1) * cell, H = (rows.length - 1) * cell;
+  const lon1 = view.lon0 + (cols - 1) * view.step, lat0 = view.lat1 - (rows.length - 1) * view.step;
+  const inView = p => p.lng >= view.lon0 - 0.5 && p.lng <= lon1 + 0.5 && p.lat >= lat0 - 0.5 && p.lat <= view.lat1 + 0.5;
+  const x = lng => ((lng - view.lon0) / view.step) * cell, y = lat => ((view.lat1 - lat) / view.step) * cell;
+  const shown = places.filter(inView);
+  const max = Math.max(...shown.map(p => p.count), 1);
+  const r = n => (which === 'world' ? 4 : 5) + (which === 'world' ? 11 : 14) * Math.sqrt(n / max);
+  const pad = 20;
+  return `
+    <svg class="dot-map" viewBox="${-pad} ${-pad} ${W + pad * 2} ${H + pad * 2}" role="img" aria-label="Map of where orders come from">
+      <path d="${dotGrid(view, cell)}" class="land-dots" stroke-width="${which === 'world' ? 3.2 : 3.6}"/>
+      ${[...shown].sort((a, b) => b.count - a.count).map(p => `
+        <g class="place" tabindex="0" data-tip="${esc(`<b>${esc(p.label)}</b>${p.country && !p.label.includes(p.country) ? ' · ' + esc(p.country) : ''}<br>${p.count} order${p.count > 1 ? 's' : ''} · ${pct(p.confirmed, p.count)}% confirmed${p.top ? '<br>Top product: ' + esc(p.top) : ''}`)}">
+          ${p.today ? `<circle class="pulse" cx="${x(p.lng).toFixed(1)}" cy="${y(p.lat).toFixed(1)}" r="${r(p.count).toFixed(1)}"/>` : ''}
+          <circle class="hit" cx="${x(p.lng).toFixed(1)}" cy="${y(p.lat).toFixed(1)}" r="${(r(p.count) + 6).toFixed(1)}"/>
+          <circle class="client-dot" cx="${x(p.lng).toFixed(1)}" cy="${y(p.lat).toFixed(1)}" r="${r(p.count).toFixed(1)}"/>
+        </g>`).join('')}
+    </svg>`;
+}
+
+function analytics() {
+  const list = analyticsOrders();
+  const total = list.length;
+  const confirmedOf = arr => arr.filter(o => CONFIRMED_STATUSES.includes(o.status)).length;
+  const deliveredOf = arr => arr.filter(o => o.status === 'Delivered').length;
+
+  // Sources
+  const bySource = new Map();
+  list.forEach(o => {
+    const src = o.source || 'Unknown';
+    const e = bySource.get(src) || { label: src, orders: [] };
+    e.orders.push(o);
+    bySource.set(src, e);
+  });
+  const sources = [...bySource.values()].map(e => ({
+    label: e.label, value: e.orders.length, mark: sourceMark(e.label),
+    confirmed: pct(confirmedOf(e.orders), e.orders.length), share: pct(e.orders.length, total),
+    revenue: e.orders.filter(o => o.status === 'Delivered').reduce((s, o) => s + (Number(o.amount) || 0), 0)
+  })).sort((a, b) => b.value - a.value);
+  sources.forEach(r => { r.tip = `<b>${esc(r.label)}</b><br>${r.value} orders · ${r.share}% of all<br>${r.confirmed}% confirmed · ${money(r.revenue)} delivered`; });
+
+  // Products (by units across all items)
+  const byProduct = new Map();
+  list.forEach(o => {
+    const items = Array.isArray(o.items) && o.items.length ? o.items : [{ product: o.product, name: '', quantity: o.quantity || 1, price: o.amount }];
+    const seen = new Set();
+    items.forEach(i => {
+      const prod = db.products.find(p => p.id === i.product);
+      const name = prod?.name || i.name || String(i.product || 'Unknown product');
+      const e = byProduct.get(name) || { label: name, value: 0, orders: 0, confirmed: 0 };
+      e.value += Number(i.quantity) || 1;
+      if (!seen.has(name)) { e.orders++; if (CONFIRMED_STATUSES.includes(o.status)) e.confirmed++; seen.add(name); }
+      byProduct.set(name, e);
+    });
+  });
+  const products = [...byProduct.values()].sort((a, b) => b.value - a.value);
+  products.forEach(r => { r.tip = `<b>${esc(r.label)}</b><br>${r.value} units in ${r.orders} orders<br>${pct(r.confirmed, r.orders)}% of those orders confirmed`; });
+  const topProducts = products.slice(0, 8);
+  if (products.length > 8) {
+    const rest = products.slice(8);
+    const o = { label: `Other (${rest.length} products)`, value: rest.reduce((s, r) => s + r.value, 0), orders: rest.reduce((s, r) => s + r.orders, 0), confirmed: rest.reduce((s, r) => s + r.confirmed, 0) };
+    o.tip = `<b>${esc(o.label)}</b><br>${o.value} units in ${o.orders} orders`;
+    topProducts.push(o);
+  }
+
+  // Places
+  const today = new Date().toISOString().slice(0, 10);
+  const byPlace = new Map();
+  let unplaced = 0;
+  list.forEach(o => {
+    const pl = orderPlace(o);
+    if (!pl) { unplaced++; return; }
+    const e = byPlace.get(pl.key) || { ...pl, count: 0, confirmed: 0, today: false, products: {} };
+    e.count++;
+    if (CONFIRMED_STATUSES.includes(o.status)) e.confirmed++;
+    if ((o.date || '').slice(0, 10) === today) e.today = true;
+    const pn = db.products.find(p => p.id === o.product)?.name || o.items?.[0]?.name || '';
+    if (pn) e.products[pn] = (e.products[pn] || 0) + 1;
+    byPlace.set(pl.key, e);
+  });
+  const places = [...byPlace.values()].map(p => ({ ...p, top: Object.entries(p.products).sort((a, b) => b[1] - a[1])[0]?.[0] || '' })).sort((a, b) => b.count - a.count);
+  const abroad = places.filter(p => p.lng < -17.5 || p.lng > -0.5 || p.lat < 20.5 || p.lat > 36.5).length;
+  const mapView = analyticsMap === 'auto' ? (abroad ? 'world' : 'morocco') : analyticsMap;
+
+  const ranges = [['7', '7 days'], ['30', '30 days'], ['90', '90 days'], ['0', 'All time']];
+  const seg = (items, cur, action) => `<div class="segmented" role="group">${items.map(([v, l]) => `<button type="button" class="${cur === v ? 'active' : ''}" aria-pressed="${cur === v}" data-action="${action}" data-id="${v}">${l}</button>`).join('')}</div>`;
+  const topSource = sources[0], topProduct = products[0];
+
+  return title('Analytics', 'Where your customers come from, what they want, and where they are.', seg(ranges, analyticsRange, 'analytics-range')) + `
+    <div class="metrics">
+      ${metric('Orders', total.toLocaleString(), analyticsRange === '0' ? 'All time' : `Last ${analyticsRange} days`)}
+      ${metric('Confirmation rate', pct(confirmedOf(list), total) + '%', `${deliveredOf(list)} delivered`)}
+      ${metric('Top source', topSource ? esc(topSource.label) : '—', topSource ? `${topSource.share}% of orders` : 'No orders yet')}
+      ${metric('Most wanted product', topProduct ? esc(topProduct.label) : '—', topProduct ? `${topProduct.value} units ordered` : 'No orders yet')}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h2>Where your customers are</h2><p>Each dot is a city; bigger dots mean more orders. Pulsing dots ordered today. Hover a dot for details.</p></div>
+        ${seg([['world', 'World'], ['morocco', 'Morocco']], mapView, 'analytics-map')}
+      </div>
+      <div class="map-layout">
+        <div class="map-wrap">${places.length ? worldMap(places, mapView) : worldMap([], mapView)}
+          <div class="map-legend"><span><i class="lg-dot s"></i><i class="lg-dot m"></i><i class="lg-dot l"></i> Orders per city</span><span><i class="lg-pulse"></i> Ordered today</span></div>
+        </div>
+        <div class="map-side">
+          <h3 class="sub">Top cities</h3>
+          ${places.length ? `<ol class="city-list">${places.slice(0, 10).map(p => `<li><span>${esc(p.label)}</span><b>${p.count}</b></li>`).join('')}</ol>` : '<p class="info">No orders with a city yet.</p>'}
+          ${unplaced ? `<p class="info">${unplaced} order${unplaced > 1 ? 's' : ''} without a recognised city or country.</p>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="grid two-equal">
+      <div class="panel">
+        <div class="panel-head"><div><h2>Where orders come from</h2><p>Orders per store or channel, with the share confirmed by the call center.</p></div></div>
+        ${barList(sources, { valueLabel: 'orders', extra: r => `${r.share}% · ${r.confirmed}% confirmed` })}
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>What customers want</h2><p>Units ordered per product.</p></div></div>
+        ${barList(topProducts, { valueLabel: 'units', extra: r => `${r.orders} orders` })}
+      </div>
+    </div>`;
+}
+
+// One tooltip for every chart mark that has data-tip.
+(() => {
+  const tip = document.createElement('div');
+  tip.id = 'chart-tip';
+  tip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tip);
+  const show = (el, x, y) => {
+    tip.innerHTML = el.dataset.tip;
+    tip.classList.add('show');
+    const r = tip.getBoundingClientRect();
+    tip.style.left = Math.min(window.innerWidth - r.width - 8, Math.max(8, x + 14)) + 'px';
+    tip.style.top = Math.max(8, y - r.height - 12) + 'px';
+  };
+  document.addEventListener('mousemove', e => {
+    const el = e.target.closest?.('[data-tip]');
+    if (el) show(el, e.clientX, e.clientY); else tip.classList.remove('show');
+  });
+  document.addEventListener('focusin', e => {
+    const el = e.target.closest?.('[data-tip]');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    show(el, r.left + r.width / 2, r.top);
+  });
+  document.addEventListener('focusout', () => tip.classList.remove('show'));
+})();
+
+const views = { overview, guide, store: storeConnection, orders, analytics, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
 
 function updateLivePreview() {
   const pId = activeCmsProductId;
@@ -6568,6 +6839,8 @@ const actions = {
   'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
   'new-store-key': openNewStoreKey,
   'connect-shopify': openConnectShopify,
+  'analytics-range': v => { analyticsRange = v; render(); },
+  'analytics-map': v => { analyticsMap = v; render(); },
   'store-platform': p => (p === 'Shopify' ? openConnectShopify() : openStorePlatform(p)),
   'store-platform-manual': p => (p === 'Shopify' ? startShopifyQuick() : openStorePlatform(p)),
   'shopify-quick': () => startShopifyQuick(),
