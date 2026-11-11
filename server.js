@@ -240,6 +240,8 @@ function collectionsFor(req) {
   if (req.method === 'GET' && /^\/(products|cms\/[^/]+)$/.test(req.path)) return ['products', 'cms'];
   if (req.method === 'POST' && req.path === '/contact') return [];
   if (/^\/track\//.test(req.path)) return ['products', 'orders'];
+  // Store webhooks answer fast (Shopify waits 5 s): only what an order needs.
+  if (/^\/v1\//.test(req.path)) return ['products', 'orders', 'settings'];
   if (req.method === 'POST' && req.path === '/orders' && !req.headers.authorization) return ['products', 'cms', 'orders', 'settings'];
   return ALL_COLLECTIONS;
 }

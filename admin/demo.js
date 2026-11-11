@@ -3605,7 +3605,9 @@ let storeKeys = null;
 const STORE_PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Lightfunnels', 'Google Sheets', 'Zapier / Make', 'Other'];
 const storeEndpoint = () => `${location.origin}/api/v1/orders`;
 
+let storeRefused = [];
 async function loadStoreKeys() {
+  api('/api/store-keys/refused').then(l => { storeRefused = Array.isArray(l) ? l : []; }).catch(() => {});
   try {
     storeKeys = await api('/api/store-keys');
   } catch {
@@ -3707,6 +3709,16 @@ function storeWarnings(keys) {
   const host = location.hostname;
   if (/\.vercel\.app$/.test(host) && /-git-|-[a-z0-9]{9}-/.test(host)) {
     out.push(`<div class="alert warn"><b>You're on a Vercel preview address (${esc(host)}).</b> Links and keys made here point to this preview, which Shopify may not be allowed to reach. Open the portal on its main address and create the link there.</div>`);
+  }
+  const lastGood = keys.flatMap(k => (k.recent || []).filter(r => r.result === 'created' || r.result === 'duplicate').map(r => r.at)).sort().pop() || '';
+  const lastDay = storeRefused.filter(r => Date.now() - new Date(r.at).getTime() < 7 * 86400000 && r.at > lastGood);
+  if (lastDay.length) {
+    const r = lastDay[0];
+    const who = r.shop ? `${r.source || 'A store'} (${esc(r.shop)})` : r.source || 'A store';
+    out.push(`<div class="alert danger"><b>${who} tried to send ${lastDay.length} order${lastDay.length > 1 ? 's' : ''} with a link that no longer works</b> (last: ${new Date(r.at).toLocaleString()}; ${esc(r.reason)}${r.keyStart ? `, key ${esc(r.keyStart)}…` : ''}).
+      <ol><li>Click the store's tile below and create a new link (Shopify: <b>Paste one link in Shopify</b> → <b>Copy link</b>).</li>
+      <li>In the store, replace the old link with the new one (Shopify: Paramètres → Notifications → Webhooks: delete the old Rosaino webhook, create a new one with the new link).</li>
+      <li>Send a test: the green box confirms it, and this message stops appearing.</li></ol></div>`);
   }
   keys.filter(k => k.active).forEach(k => {
     const last = (k.recent || []).find(r => r.result !== 'test' && r.result !== 'ignored');

@@ -12,7 +12,7 @@
 //   carrier, tracking number), using the store's own order number.
 import crypto from 'crypto';
 import { requireAuth, audit, serverSecret } from './auth.js';
-import { dataDb, loadCollections, saveRecords } from './data-store.js';
+import { dataDb, loadCollections, saveRecords, getRecord } from './data-store.js';
 
 const KEY_PREFIX = 'rsk_live_';
 export const PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Lightfunnels', 'Google Sheets', 'Zapier / Make', 'Other'];
@@ -384,8 +384,36 @@ function requireDatabaseForKeys() {
   }
 }
 
+// Orders sent with a key Rosaino doesn't know (an old link still set in the
+// store): kept so Store connection can say so instead of failing silently.
+const memRefused = [];
+async function refusedDelivery(req, reason, presented = '') {
+  const entry = {
+    at: new Date().toISOString(), reason,
+    keyStart: presented ? presented.slice(0, KEY_PREFIX.length + 6) : '',
+    source: req.headers['x-shopify-topic'] || req.headers['x-shopify-shop-domain'] ? 'Shopify' : req.headers['x-wc-webhook-source'] ? 'WooCommerce' : '',
+    shop: String(req.headers['x-shopify-shop-domain'] || req.headers['x-wc-webhook-source'] || '').slice(0, 120)
+  };
+  try {
+    if (!(await dataDb())) { memRefused.unshift(entry); memRefused.length = Math.min(memRefused.length, 30); return; }
+    const doc = (await getRecord('settings', 'store_refused')) || { id: 'store_refused', list: [] };
+    doc.list = [entry, ...(doc.list || [])].slice(0, 30);
+    await saveRecords('settings', [doc]);
+  } catch (err) {
+    console.error('[store-api] could not record a refused delivery:', err.message);
+  }
+}
+async function refusedDeliveries() {
+  if (!(await dataDb())) return memRefused;
+  return (await getRecord('settings', 'store_refused'))?.list || [];
+}
+
 export function registerStoreApi(app, { createLead, findOrder }) {
   // --- Keys (portal) ---------------------------------------------------------
+  app.get('/api/store-keys/refused', requireAuth('integrations'), wrap(async (req, res) => {
+    res.json(await refusedDeliveries());
+  }));
+
   app.get('/api/store-keys', requireAuth('integrations'), wrap(async (req, res) => {
     res.json((await repo.list()).map(publicKey).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   }));
@@ -484,9 +512,15 @@ export function registerStoreApi(app, { createLead, findOrder }) {
   // --- Store → Rosaino ---------------------------------------------------------
   async function authenticate(req) {
     const presented = presentedKey(req);
-    if (!presented.startsWith(KEY_PREFIX)) throw fail(401, 'Send your Rosaino API key in the Authorization header (Bearer …), the X-API-Key header, or ?key=… in the URL.');
+    if (!presented.startsWith(KEY_PREFIX)) {
+      await refusedDelivery(req, presented ? 'not a Rosaino key' : 'no key in the link');
+      throw fail(401, 'Send your Rosaino API key in the Authorization header (Bearer …), the X-API-Key header, or ?key=… in the URL.');
+    }
     const k = await repo.byHash(sha256(presented));
-    if (!k || k.active === false) throw fail(401, 'This API key is not valid or has been revoked.');
+    if (!k || k.active === false) {
+      await refusedDelivery(req, !k ? 'key not found (deleted, or made before the database was connected)' : 'key revoked', presented);
+      throw fail(401, 'This API key is not valid or has been revoked.');
+    }
     if (!allowed(k.id)) throw fail(429, 'Too many requests. Slow down to 120 per minute.');
     return k;
   }
