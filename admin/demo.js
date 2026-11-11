@@ -3694,15 +3694,41 @@ function sendNewOrders() {
   return steps[platform] || steps.Other;
 }
 
+// Problems that stop store orders from arriving, with what to do.
+function storeWarnings(keys) {
+  const out = [];
+  if (setupStatus && !setupStatus.database) {
+    out.push(`<div class="alert danger"><b>Store orders can't be saved: the database is not connected.</b>
+      <ol><li>Supabase → your project → <b>Connect</b> → <b>Transaction pooler</b>: copy the string and put your database password in place of [YOUR-PASSWORD].</li>
+      <li>Vercel → Settings → Environment Variables: set <code>DATABASE_URL</code> to it, then <b>Redeploy</b>.</li>
+      <li>Come back here: this message disappears and the top bar says "Database connected".</li></ol>
+      ${setupStatus.databaseError ? `<small>Reason: ${esc(setupStatus.databaseError)}</small>` : ''}</div>`);
+  }
+  const host = location.hostname;
+  if (/\.vercel\.app$/.test(host) && /-git-|-[a-z0-9]{9}-/.test(host)) {
+    out.push(`<div class="alert warn"><b>You're on a Vercel preview address (${esc(host)}).</b> Links and keys made here point to this preview, which Shopify may not be allowed to reach. Open the portal on its main address and create the link there.</div>`);
+  }
+  keys.filter(k => k.active).forEach(k => {
+    const last = (k.recent || []).find(r => r.result !== 'test' && r.result !== 'ignored');
+    if (last && last.result === 'rejected') {
+      const sig = /signature/i.test(last.reason || '');
+      out.push(`<div class="alert warn"><b>${esc(k.name)}: the last order was refused</b> (${new Date(last.at).toLocaleString()}): ${esc(last.reason || '')}.
+        ${sig ? ` The signing code saved for this connection doesn't match Shopify's. Click <b>Signing secret</b> on its row and paste the code again from Shopify (Settings → Notifications → Webhooks), or clear it.` : ' Real orders need a customer name, a phone number or email, and at least one product.'}</div>`);
+    }
+  });
+  return out.join('');
+}
+
 function storeConnection() {
   if (!storeKeys) loadStoreKeys().then(() => page === 'store' && render());
+  if (!setupStatus) api('/api/setup-status').then(st => { setupStatus = st; if (page === 'store') render(); }).catch(() => {});
   const keys = storeKeys || [];
   const active = keys.filter(k => k.active);
   const received = keys.reduce((n, k) => n + (k.ordersReceived || 0), 0);
   const last = keys.map(k => k.lastUsedAt).filter(Boolean).sort().pop();
   const recent = keys.flatMap(k => (k.recent || []).map(r => ({ ...r, keyName: k.name }))).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20);
   const fromStore = db.orders.filter(o => o.storeKeyId);
-  const resultBadge = r => ({ created: badge('New'), duplicate: '<span class="badge">Already received</span>', rejected: '<span class="badge cancelled">Rejected</span>', test: '<span class="badge in-transit">Test</span>', ping: '<span class="badge in-transit">Connection check</span>' }[r] || esc(r));
+  const resultBadge = r => ({ created: badge('New'), duplicate: '<span class="badge">Already received</span>', rejected: '<span class="badge cancelled">Rejected</span>', test: '<span class="badge in-transit">Test</span>', ping: '<span class="badge in-transit">Connection check</span>', ignored: '<span class="badge">Not an order</span>' }[r] || esc(r));
   const example = JSON.stringify({
     order_id: '1042',
     customer: 'Hind Berrada',
@@ -3719,7 +3745,7 @@ function storeConnection() {
     'Store connection',
     'Orders placed on your online store (Shopify, YouCan, WooCommerce or your own site) arrive here as new leads, ready for the call center and your carriers.',
     '<button class="primary" data-action="connect-shopify">Connect Shopify</button> <button data-action="new-store-key">+ Create API key</button>'
-  ) + `
+  ) + storeWarnings(keys) + `
     <div class="metrics">
       ${metric('Connected stores', active.length, active.length ? active.map(k => esc(k.name)).join(', ') : 'No API key yet')}
       ${metric('Orders received', received, 'Since the first key was created')}

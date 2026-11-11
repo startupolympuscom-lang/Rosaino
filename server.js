@@ -599,6 +599,7 @@ registerStoreApi(app, {
       phone: lead.phone,
       city: lead.city,
       ...(lead.country ? { country: lead.country } : {}),
+      ...(lead.email ? { email: lead.email } : {}),
       ...(lead.geo ? { geo: lead.geo } : {}),
       address: lead.address,
       product: main.product || main.name,

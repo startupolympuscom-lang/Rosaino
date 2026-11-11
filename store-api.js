@@ -112,6 +112,7 @@ const ALIASES = {
   quantity: ['quantity', 'qty', 'quantite', 'qte', 'الكمية'],
   total: ['total', 'total_price', 'montant', 'montant_total', 'prix_total', 'amount', 'المبلغ', 'المجموع'],
   price: ['price', 'prix', 'unit_price', 'الثمن', 'السعر'],
+  email: ['email', 'e_mail', 'mail', 'courriel', 'البريد_الالكتروني', 'البريد'],
   country: ['country', 'country_code', 'pays', 'code_pays', 'الدولة', 'البلد'],
   orderId: ['order_id', 'external_id', 'id_commande', 'numero_commande', 'commande', 'order_number', 'رقم_الطلب', 'sheet_row'],
   note: ['note', 'notes', 'remarque', 'commentaire', 'comment', 'ملاحظة', 'ملاحظات']
@@ -213,6 +214,7 @@ export function normalizeOrder(body, hintedPlatform) {
     ship.name, joinName(ship.first_name, ship.last_name), cust.full_name, cust.name, joinName(cust.first_name, cust.last_name),
     platform === 'API' || platform === 'Google Sheets' ? pickAlias(fields, 'customer') : ''
   );
+  const email = first(b.email, b.contact_email, cust.email, ship.email, b.billing?.email, b.billing_address?.email, pickAlias(fields, 'email'));
   const phone = normalizePhone(first(b.phone, b.customer_phone, b.telephone, ship.phone, cust.phone, b.billing?.phone, b.billing_address?.phone, pickAlias(fields, 'phone'), findPhoneDeep(b)));
   const city = first(b.city, ship.city, cust.city, ship.region, ship.province, pickAlias(fields, 'city'));
   const country = first(ship.country_code, ship.countryCode, ship.country_iso, typeof ship.country === 'string' ? ship.country : ship.country?.code, b.country_code, typeof b.country === 'string' ? b.country : '', pickAlias(fields, 'country'));
@@ -232,12 +234,15 @@ export function normalizeOrder(body, hintedPlatform) {
   const prepaid = b.prepaid === true || (financial === 'paid' && !/cod|cash|livraison|delivery/.test(gateway));
   const externalId = first(b.external_id, b.order_id, b.id, b._id, b.ref, b.order_number, b.number, pickAlias(fields, 'orderId'), b.name && platform !== 'API' ? b.name : '');
   const displayRef = first(b.order_number && platform === 'Shopify' ? `#${b.order_number}` : '', b.name && platform === 'Shopify' ? b.name : '', b.ref, b.number, b.order_number, externalId);
-  const note = first(typeof b.note === 'string' ? b.note : '', typeof b.notes === 'string' ? b.notes : '', b.customer_note, b.comment, b.customer_note_text, pickAlias(fields, 'note'));
+  const noteBase = first(typeof b.note === 'string' ? b.note : '', typeof b.notes === 'string' ? b.notes : '', b.customer_note, b.comment, b.customer_note_text, pickAlias(fields, 'note'));
+  const note = [noteBase, !phone && email ? `No phone number in the order: contact the customer at ${email}.` : ''].filter(Boolean).join(' · ');
   const utm = b.utm && typeof b.utm === 'object' ? b.utm : {};
   const landing = str(b.landing_site);
   const qs = (() => { try { return new URL(landing, 'https://x').searchParams; } catch { return new URLSearchParams(); } })();
 
-  const missing = [!customer && 'customer name', !phone && 'phone', !items.length && 'at least one item'].filter(Boolean);
+  // No phone but an email (e.g. a Shopify checkout that only asks for email):
+  // keep the order so it isn't lost; the call center contacts them by email.
+  const missing = [!customer && 'customer name', !phone && !email && 'phone', !items.length && 'at least one item'].filter(Boolean);
   if (missing.length) return { error: `Missing ${missing.join(', ')}.`, platform };
 
   return {
@@ -249,6 +254,7 @@ export function normalizeOrder(body, hintedPlatform) {
       phone: phone.slice(0, 20),
       city: city.slice(0, 80),
       country: String(country).slice(0, 60),
+      email: String(email).slice(0, 120),
       geo,
       address: address.slice(0, 300),
       items: items.slice(0, 50).map(i => ({ ...i, sku: i.sku.slice(0, 80), name: i.name.slice(0, 160) })),
@@ -370,6 +376,14 @@ function publicOrigin(req) {
   return `${proto}://${host}`;
 }
 
+// On Vercel each request can run on a different server: without a database a
+// key (and the orders it receives) would only exist on one of them.
+function requireDatabaseForKeys() {
+  if (process.env.VERCEL && !process.env.DATABASE_URL?.trim()) {
+    throw fail(503, 'Connect the database first: set DATABASE_URL in Vercel (Supabase → Connect → Transaction pooler) and redeploy. Without it, store orders would be lost.');
+  }
+}
+
 export function registerStoreApi(app, { createLead, findOrder }) {
   // --- Keys (portal) ---------------------------------------------------------
   app.get('/api/store-keys', requireAuth('integrations'), wrap(async (req, res) => {
@@ -377,6 +391,7 @@ export function registerStoreApi(app, { createLead, findOrder }) {
   }));
 
   app.post('/api/store-keys', requireAuth('integrations'), wrap(async (req, res) => {
+    requireDatabaseForKeys();
     const b = req.body || {};
     const name = str(b.name).slice(0, 60);
     if (!name) throw fail(400, 'Give the key a name, e.g. "Shopify store".');
@@ -397,6 +412,7 @@ export function registerStoreApi(app, { createLead, findOrder }) {
 
   // One step: check the Shopify credentials, create the key, add the webhook.
   app.post('/api/store-keys/shopify-connect', requireAuth('integrations'), wrap(async (req, res) => {
+    requireDatabaseForKeys();
     const b = req.body || {};
     const shop = shopifyDomain(b.shop);
     if (!shop) throw fail(400, 'Enter the store address, e.g. rosaino.myshopify.com (Shopify → Settings → Domains).');
@@ -492,10 +508,22 @@ export function registerStoreApi(app, { createLead, findOrder }) {
 
   app.post('/api/v1/orders', wrap(async (req, res) => {
     const k = await authenticate(req);
-    const hinted = req.headers['x-shopify-topic'] ? 'Shopify' : (req.query.platform && PLATFORMS.includes(req.query.platform) ? req.query.platform : null);
+    const topic = String(req.headers['x-shopify-topic'] || '');
+    const fromShopify = !!(topic || req.headers['x-shopify-hmac-sha256'] || req.headers['x-shopify-shop-domain']);
+    const hinted = fromShopify ? 'Shopify' : (req.query.platform && PLATFORMS.includes(req.query.platform) ? req.query.platform : null);
+    // Shopify deletes a webhook that keeps getting errors, so a refused Shopify
+    // delivery is answered 200 and the reason is shown in Store connection.
+    const refuse = async (status, reason) => {
+      if (fromShopify) return res.status(200).json({ success: false, accepted: false, reason });
+      throw fail(status, reason);
+    };
+    if (topic && !/^(orders|draft_orders)\//.test(topic)) {
+      await note(k, { result: 'ignored', reason: `Shopify event "${topic}" is not an order`, platform: 'Shopify' });
+      return res.json({ success: true, ignored: true });
+    }
     if (req.headers['x-shopify-hmac-sha256'] && !verifyShopify(req, k)) {
-      await note(k, { result: 'rejected', reason: 'Shopify signature did not match the signing secret' });
-      throw fail(401, 'Shopify signature does not match. Check the webhook signing secret saved with this key.');
+      await note(k, { result: 'rejected', reason: 'Shopify signature did not match the signing code saved with this connection', platform: 'Shopify' });
+      return refuse(401, 'Shopify signature does not match. Check the webhook signing code saved with this key.');
     }
     // WooCommerce checks a new webhook with a ping that only has webhook_id.
     const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -510,7 +538,7 @@ export function registerStoreApi(app, { createLead, findOrder }) {
     const platform = parsed.platform === 'API' && k.platform && k.platform !== 'Other' ? k.platform : parsed.platform;
     if (error) {
       await note(k, { result: 'rejected', reason: error, platform });
-      throw fail(422, error);
+      return refuse(422, error);
     }
     const { order, duplicate } = await createLead(lead, { platform, keyName: k.name, keyId: k.id });
     if (!duplicate) k.ordersReceived = (k.ordersReceived || 0) + 1;
