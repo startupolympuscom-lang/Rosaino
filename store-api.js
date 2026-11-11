@@ -243,11 +243,7 @@ export function normalizeOrder(body, hintedPlatform) {
   // No phone but an email (e.g. a Shopify checkout that only asks for email):
   // keep the order so it isn't lost; the call center contacts them by email.
   const missing = [!customer && 'customer name', !phone && !email && 'phone', !items.length && 'at least one item'].filter(Boolean);
-  if (missing.length) return { error: `Missing ${missing.join(', ')}.`, platform };
-
-  return {
-    platform,
-    lead: {
+  const lead = {
       externalId: externalId || null,
       externalRef: displayRef || externalId || null,
       customer: customer.slice(0, 120),
@@ -266,8 +262,10 @@ export function normalizeOrder(body, hintedPlatform) {
       creative: first(utm.content, b.utm_content, qs.get('utm_content')).slice(0, 120),
       adSource: first(utm.source, b.utm_source, qs.get('utm_source'), b.source_name).slice(0, 60),
       currency: first(b.currency, 'MAD').slice(0, 8)
-    }
   };
+  // What could be read is returned with the error, so staff can complete it.
+  if (missing.length) return { error: `Missing ${missing.join(', ')}.`, platform, draft: lead };
+  return { platform, lead };
 }
 
 // ---------------------------------------------------------------------------
@@ -460,10 +458,71 @@ function describeReceived(req, body, format) {
   return `received ${format} (${ct})${keys.length ? `, fields: ${keys.join(', ')}` : ', no fields'}`;
 }
 
+// Refused store orders are kept (what was received) so staff can complete
+// and add them from Store connection instead of losing them.
+const memInbox = new Map();
+const inbox = {
+  async save(rec) {
+    if (!(await dataDb())) return void memInbox.set(rec.id, rec);
+    await saveRecords('store_inbox', [rec]);
+  },
+  async get(id) {
+    if (!(await dataDb())) return memInbox.get(id) || null;
+    return getRecord('store_inbox', id);
+  }
+};
+
 export function registerStoreApi(app, { createLead, findOrder }) {
   // --- Keys (portal) ---------------------------------------------------------
   app.get('/api/store-keys/refused', requireAuth('integrations'), wrap(async (req, res) => {
     res.json(await refusedDeliveries());
+  }));
+
+
+  // A refused order: what was read from it, to complete it in the portal.
+  app.get('/api/store-keys/:id/inbox/:inboxId', requireAuth('integrations', 'orders'), wrap(async (req, res) => {
+    const rec = await inbox.get(req.params.inboxId);
+    if (!rec || rec.keyId !== req.params.id) throw fail(404, 'This delivery is no longer available.');
+    const parsed = normalizeOrder(rec.body || {}, rec.hinted);
+    res.json({ id: rec.id, at: rec.at, format: rec.format, error: parsed.error || null, resolvedOrderId: rec.resolvedOrderId || null,
+      fields: Object.keys(rec.body || {}).slice(0, 40), draft: parsed.lead || parsed.draft || null });
+  }));
+
+  // Complete a refused order (staff fill in what was missing) and add it as a lead.
+  app.post('/api/store-keys/:id/inbox/:inboxId', requireAuth('integrations', 'orders'), wrap(async (req, res) => {
+    const k = (await repo.list()).find(x => x.id === req.params.id);
+    const rec = await inbox.get(req.params.inboxId);
+    if (!k || !rec || rec.keyId !== k.id) throw fail(404, 'This delivery is no longer available.');
+    if (rec.resolvedOrderId) return res.json({ success: true, id: rec.resolvedOrderId, duplicate: true });
+    const parsed = normalizeOrder(rec.body || {}, rec.hinted);
+    const base = parsed.lead || parsed.draft || {};
+    const b = req.body || {};
+    const lead = { ...base };
+    if (b.customer !== undefined) lead.customer = str(b.customer).slice(0, 120);
+    if (b.phone !== undefined) lead.phone = normalizePhone(b.phone).slice(0, 20);
+    if (b.city !== undefined) lead.city = str(b.city).slice(0, 80);
+    if (b.address !== undefined) lead.address = str(b.address).slice(0, 300);
+    if (str(b.product)) {
+      const quantity = Math.max(1, Math.round(num(b.quantity) || 1));
+      const total = num(b.amount);
+      lead.items = [{ name: str(b.product).slice(0, 160), sku: str(b.sku).slice(0, 80), quantity, price: total ? Math.round((total / quantity) * 100) / 100 : 0 }];
+    }
+    if (b.amount !== undefined && num(b.amount)) lead.amount = num(b.amount);
+    lead.items ||= [];
+    lead.externalId ||= 'manual-' + rec.id;
+    const missing = [!lead.customer && 'customer name', !lead.phone && !lead.email && 'phone', !lead.items.length && 'product'].filter(Boolean);
+    if (missing.length) throw fail(400, `Still missing: ${missing.join(', ')}.`);
+    const platform = rec.platform || k.platform;
+    const { order, duplicate } = await createLead(lead, { platform, keyName: k.name, keyId: k.id });
+    rec.resolvedOrderId = order.id;
+    rec.resolvedBy = req.user?.name || '';
+    await inbox.save(rec);
+    const entry = (k.recent || []).find(r => r.inboxId === rec.id);
+    if (entry) Object.assign(entry, { result: 'created', orderId: order.id, ref: lead.externalRef, reason: `Completed and added by ${req.user?.name || 'staff'}` });
+    if (!duplicate) k.ordersReceived = (k.ordersReceived || 0) + 1;
+    await repo.save(k);
+    await audit(req.user, 'store_order.completed', `${order.id} from ${k.name}`, req);
+    res.json({ success: true, id: order.id, duplicate });
   }));
 
   app.get('/api/store-keys', requireAuth('integrations'), wrap(async (req, res) => {
@@ -624,7 +683,11 @@ export function registerStoreApi(app, { createLead, findOrder }) {
     const platform = parsed.platform === 'API' && k.platform && k.platform !== 'Other' ? k.platform : parsed.platform;
     if (error) {
       const why = `${error} (${describeReceived(req, body, format)})`;
-      await note(k, { result: 'rejected', reason: why, platform });
+      const inboxId = 'in_' + crypto.randomBytes(6).toString('hex');
+      const keep = JSON.stringify(body).length < 400000;
+      await inbox.save({ id: inboxId, keyId: k.id, at: new Date().toISOString(), format, topic: req.headers['x-shopify-topic'] || '', hinted, platform, error, body: keep ? body : {} })
+        .catch(err => console.error('[store-api] could not keep the refused order:', err.message));
+      await note(k, { result: 'rejected', reason: why, platform, inboxId });
       return refuse(422, format === 'JSON' || format === 'XML' ? error : `${error} The request body could not be read: send JSON.`);
     }
     const { order, duplicate } = await createLead(lead, { platform, keyName: k.name, keyId: k.id });

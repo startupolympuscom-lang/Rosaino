@@ -3738,7 +3738,7 @@ function storeConnection() {
   const active = keys.filter(k => k.active);
   const received = keys.reduce((n, k) => n + (k.ordersReceived || 0), 0);
   const last = keys.map(k => k.lastUsedAt).filter(Boolean).sort().pop();
-  const recent = keys.flatMap(k => (k.recent || []).map(r => ({ ...r, keyName: k.name }))).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20);
+  const recent = keys.flatMap(k => (k.recent || []).map(r => ({ ...r, keyName: k.name, keyId: k.id }))).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20);
   const fromStore = db.orders.filter(o => o.storeKeyId);
   const resultBadge = r => ({ created: badge('New'), duplicate: '<span class="badge">Already received</span>', rejected: '<span class="badge cancelled">Rejected</span>', test: '<span class="badge in-transit">Test</span>', ping: '<span class="badge in-transit">Connection check</span>', ignored: '<span class="badge">Not an order</span>' }[r] || esc(r));
   const example = JSON.stringify({
@@ -3803,7 +3803,7 @@ function storeConnection() {
             <td>${esc(r.keyName)}<small>${esc(r.platform || '')}</small></td>
             <td>${resultBadge(r.result)}</td>
             <td>${r.orderId && r.orderId !== 'pending' ? `<button data-action="order" data-id="${esc(r.orderId)}">${esc(r.orderId)}</button>${r.ref ? `<small>Store ref ${esc(r.ref)}</small>` : ''}` : '—'}</td>
-            <td>${r.reason ? `<small class="form-error">${esc(r.reason)}</small>` : r.customer ? esc(r.customer) : ''}</td>
+            <td>${r.reason ? `<small class="${r.result === 'rejected' ? 'form-error' : ''}">${esc(r.reason)}</small>` : r.customer ? esc(r.customer) : ''}${r.result === 'rejected' && r.inboxId ? `<button class="fix-btn" data-action="fix-delivery" data-id="${esc(r.keyId + '|' + r.inboxId)}">Fix &amp; add to orders</button>` : ''}</td>
           </tr>`)) : '<div class="empty">Nothing received yet. Use <b>Send test order</b>, or place an order on your store.</div>'}
       </div>`}
 
@@ -4062,6 +4062,45 @@ function watchConnection(keyId, platform) {
     setTimeout(tick, 4000);
   };
   setTimeout(tick, 3000);
+}
+
+// A refused store order: show what arrived, let staff fill in the rest, add it.
+async function openFixDelivery(ref) {
+  const [keyId, inboxId] = String(ref).split('|');
+  let info;
+  try { info = await api(`/api/store-keys/${encodeURIComponent(keyId)}/inbox/${encodeURIComponent(inboxId)}`); } catch (err) { return toast(err.message); }
+  if (info.resolvedOrderId) return toast(`Already added as ${info.resolvedOrderId}`);
+  const d = info.draft || {};
+  const item = (d.items || [])[0] || {};
+  const field = (name, label, value, extra = '') => `<label>${label}<input name="${name}" value="${esc(value ?? '')}" ${extra}></label>`;
+  modal('Fix & add this order', `
+    <p class="info">This order was refused: <b>${esc(info.error || 'incomplete')}</b> It arrived as ${esc(info.format || '?')}${info.fields?.length ? ` with: <code>${esc(info.fields.join(', '))}</code>` : ' with no readable fields'}.
+    ${!info.fields?.length ? 'Nothing could be read, so copy the details from the order in your store (e.g. Shopify → Orders).' : 'Check the details below and fill in what is missing.'}</p>
+    <div class="form-grid">
+      ${field('customer', 'Customer name', d.customer, 'required')}
+      ${field('phone', 'Phone', d.phone, 'inputmode="tel"')}
+      ${field('city', 'City', d.city)}
+      ${field('address', 'Address', d.address)}
+      ${field('product', 'Product', item.name || '', 'required')}
+      ${field('sku', 'SKU (optional)', item.sku || '')}
+      ${field('quantity', 'Quantity', item.quantity || 1, 'type="number" min="1"')}
+      ${field('amount', 'Total (MAD)', d.amount || '', 'type="number" min="0" step="0.01"')}
+    </div>
+    ${d.email ? `<p class="info">Customer email: ${esc(d.email)}</p>` : ''}
+    <div id="fix-error" role="alert" class="form-error"></div>
+  `, 'Add to orders', f => {
+    const body = Object.fromEntries(['customer', 'phone', 'city', 'address', 'product', 'sku', 'quantity', 'amount'].map(k => [k, (f.get(k) || '').trim()]));
+    if (!body.phone && !d.email) { $('#fix-error').textContent = 'Add a phone number so the call center can confirm the order.'; return false; }
+    api(`/api/store-keys/${encodeURIComponent(keyId)}/inbox/${encodeURIComponent(inboxId)}`, 'POST', body)
+      .then(async r => {
+        $('#modal').close();
+        toast(r.duplicate ? `This order was already in your orders (${r.id})` : `Added to orders as ${r.id}`);
+        await Promise.all([loadStoreKeys(), pullOrders()]);
+        render();
+      })
+      .catch(err => { $('#fix-error').textContent = err.message; });
+    return false;
+  });
 }
 
 const storeKeyById = id => (storeKeys || []).find(k => k.id === id);
@@ -6877,6 +6916,7 @@ const actions = {
   'new-carrier': () => { if (checkAction('integrations', 'Add carrier')) openCarrierDialog(null); },
   'new-store-key': openNewStoreKey,
   'connect-shopify': openConnectShopify,
+  'fix-delivery': ref => openFixDelivery(ref),
   'analytics-range': v => { analyticsRange = v; render(); },
   'analytics-map': v => { analyticsMap = v; render(); },
   'store-platform': p => (p === 'Shopify' ? openConnectShopify() : openStorePlatform(p)),
