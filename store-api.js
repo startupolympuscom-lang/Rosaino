@@ -408,6 +408,58 @@ async function refusedDeliveries() {
   return (await getRecord('settings', 'store_refused'))?.list || [];
 }
 
+// Minimal XML → object for store webhooks (Shopify's XML format):
+// <line-items type="array"><line-item>…</line-item></line-items> becomes
+// line_items: [{…}], hyphens become underscores, nil="true" becomes null.
+export function xmlToObject(xml) {
+  const text = String(xml || '').replace(/<\?[\s\S]*?\?>/g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/<!DOCTYPE[^>]*>/gi, '');
+  const decode = v => v.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16))).replace(/&amp;/g, '&');
+  const key = n => n.replace(/^.*:/, '').replace(/-/g, '_');
+  const root = { children: {}, array: false };
+  const stack = [root];
+  const re = /<(\/?)([A-Za-z_][\w.:-]*)([^>]*?)(\/?)>|([^<]+)|(<!\[CDATA\[[\s\S]*?\]\]>)/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const top = stack[stack.length - 1];
+    if (m[5] != null || m[6] != null) { top.text = (top.text || '') + (m[6] ?? m[5]); continue; }
+    const [, closing, name, attrs, selfClose] = m;
+    if (closing) {
+      const node = stack.pop();
+      const parent = stack[stack.length - 1];
+      let value;
+      if (node.array) value = Object.values(node.children).flat();
+      else if (Object.keys(node.children).length) value = Object.fromEntries(Object.entries(node.children).map(([k, v]) => [k, v.length > 1 ? v : v[0]]));
+      else value = node.nil ? null : decode((node.text || '').trim());
+      (parent.children[node.key] ||= []).push(value);
+      continue;
+    }
+    const node = { key: key(name), children: {}, array: /type\s*=\s*["']array["']/.test(attrs), nil: /nil\s*=\s*["']true["']/.test(attrs) };
+    if (selfClose) { (top.children[node.key] ||= []).push(node.array ? [] : null); continue; }
+    stack.push(node);
+  }
+  const first = Object.values(root.children)[0];
+  return first ? first[0] : {};
+}
+
+// The webhook body as an object, whatever format the store used.
+function readBody(req) {
+  const b = req.body;
+  if (b && typeof b === 'object' && !Buffer.isBuffer(b) && Object.keys(b).length) return { body: b, format: 'JSON' };
+  const raw = typeof b === 'string' ? b : req.rawBody ? req.rawBody.toString('utf8') : '';
+  const t = raw.trim();
+  if (t.startsWith('<')) return { body: xmlToObject(t), format: 'XML' };
+  if (t.startsWith('{') || t.startsWith('[')) { try { return { body: JSON.parse(t), format: 'JSON' }; } catch {} }
+  return { body: {}, format: t ? 'unreadable' : 'empty' };
+}
+
+// What was received, for the "Recent deliveries" details (field names only).
+function describeReceived(req, body, format) {
+  const ct = String(req.headers['content-type'] || 'none').split(';')[0];
+  const keys = Object.keys(body || {}).slice(0, 12);
+  return `received ${format} (${ct})${keys.length ? `, fields: ${keys.join(', ')}` : ', no fields'}`;
+}
+
 export function registerStoreApi(app, { createLead, findOrder }) {
   // --- Keys (portal) ---------------------------------------------------------
   app.get('/api/store-keys/refused', requireAuth('integrations'), wrap(async (req, res) => {
@@ -560,7 +612,7 @@ export function registerStoreApi(app, { createLead, findOrder }) {
       return refuse(401, 'Shopify signature does not match. Check the webhook signing code saved with this key.');
     }
     // WooCommerce checks a new webhook with a ping that only has webhook_id.
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const { body, format } = readBody(req);
     if (body.webhook_id && Object.keys(body).length === 1) {
       await note(k, { result: 'ping', platform: 'WooCommerce' });
       return res.json({ ok: true, message: 'Connected to Rosaino.' });
@@ -571,8 +623,9 @@ export function registerStoreApi(app, { createLead, findOrder }) {
     // The payload didn't say which platform sent it: use the key's platform.
     const platform = parsed.platform === 'API' && k.platform && k.platform !== 'Other' ? k.platform : parsed.platform;
     if (error) {
-      await note(k, { result: 'rejected', reason: error, platform });
-      return refuse(422, error);
+      const why = `${error} (${describeReceived(req, body, format)})`;
+      await note(k, { result: 'rejected', reason: why, platform });
+      return refuse(422, format === 'JSON' || format === 'XML' ? error : `${error} The request body could not be read: send JSON.`);
     }
     const { order, duplicate } = await createLead(lead, { platform, keyName: k.name, keyId: k.id });
     if (!duplicate) k.ordersReceived = (k.ordersReceived || 0) + 1;

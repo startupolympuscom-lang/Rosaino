@@ -38,6 +38,8 @@ const HOST = '0.0.0.0';
 // rawBody: Shopify webhooks are verified against the exact bytes received.
 app.use(express.json({ limit: '50mb', verify: (req, res, buf) => { if (req.url.startsWith('/api/v1/')) req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Store webhooks may also arrive as XML (Shopify's "XML" webhook format) or plain text.
+app.use('/api/v1', express.text({ type: ['application/xml', 'text/xml', 'application/*+xml', 'text/plain'], limit: '5mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 
 // Uploaded images. Serverless hosts (Vercel) have a read-only code folder, so
 // uploads go to the system temp folder there; never crash on startup over it.
