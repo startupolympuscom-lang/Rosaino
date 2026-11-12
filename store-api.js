@@ -67,7 +67,7 @@ export async function storeConnectionStatus() {
 
 const publicKey = k => ({
   id: k.id, name: k.name, platform: k.platform, prefix: k.prefix, active: k.active !== false,
-  hasSigningSecret: !!k.signingSecretEnc, shopDomain: k.shopDomain || null, connectedVia: k.connectedVia || null, createdAt: k.createdAt, createdBy: k.createdBy,
+  hasSigningSecret: !!k.signingSecretEnc, canShowLink: !!k.secretEnc, origin: k.origin || null, shopDomain: k.shopDomain || null, connectedVia: k.connectedVia || null, createdAt: k.createdAt, createdBy: k.createdBy,
   lastUsedAt: k.lastUsedAt || null, ordersReceived: k.ordersReceived || 0, recent: (k.recent || []).slice(0, 15)
 });
 
@@ -367,6 +367,14 @@ async function shopifyClientToken(shop, clientId, clientSecret) {
   return data.access_token;
 }
 
+// The portal's main address: links given to stores always point there, even
+// when the portal is opened on a Vercel preview or deployment address.
+export function productionOrigin(req) {
+  if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  return publicOrigin(req);
+}
+
 function publicOrigin(req) {
   if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/+$/, '');
   const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
@@ -550,14 +558,25 @@ export function registerStoreApi(app, { createLead, findOrder }) {
       id: 'key_' + crypto.randomBytes(6).toString('hex'), name, platform,
       prefix: secret.slice(0, KEY_PREFIX.length + 6), hash: sha256(secret), active: true,
       signingSecretEnc: str(b.signingSecret) ? encrypt(str(b.signingSecret)) : null,
+      // Kept encrypted so the same link can be shown again (no new link each time).
+      secretEnc: encrypt(secret), origin: productionOrigin(req),
       createdAt: new Date().toISOString(), createdBy: req.user?.name || '', ordersReceived: 0, recent: []
     };
     await repo.save(k);
     await audit(req.user, 'store_key.created', `${name} (${platform})`, req);
-    // The only time the full key is sent anywhere.
-    res.status(201).json({ success: true, key: publicKey(k), secret });
+    res.status(201).json({ success: true, key: publicKey(k), secret, link: `${k.origin}/api/v1/orders?key=${secret}` });
   }));
 
+
+  // The full link of an existing key (kept encrypted), to paste it again.
+  app.get('/api/store-keys/:id/link', requireAuth('integrations'), wrap(async (req, res) => {
+    const k = (await repo.list()).find(x => x.id === req.params.id);
+    if (!k) throw fail(404, 'Key not found.');
+    const secret = k.secretEnc ? decrypt(k.secretEnc) : '';
+    if (!secret) throw fail(410, 'This key was made before links could be shown again. Create a new link.');
+    const origin = productionOrigin(req);
+    res.json({ secret, link: `${origin}/api/v1/orders?key=${secret}`, origin });
+  }));
 
   // One step: check the Shopify credentials, create the key, add the webhook.
   app.post('/api/store-keys/shopify-connect', requireAuth('integrations'), wrap(async (req, res) => {
@@ -571,7 +590,7 @@ export function registerStoreApi(app, { createLead, findOrder }) {
     const token = accessToken || await shopifyClientToken(shop, clientId, clientSecret);
 
     const info = (await shopifyCall(shop, token, 'GET', '/shop.json'))?.shop || {};
-    const origin = publicOrigin(req);
+    const origin = productionOrigin(req);
     if (!/^https:\/\//.test(origin) && !process.env.SHOPIFY_API_ORIGIN_FOR_TESTS) throw fail(400, 'Shopify only sends orders to an https address. Open the portal from its https URL and try again.');
 
     // Replace earlier Rosaino keys and webhooks for this store.

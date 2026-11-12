@@ -3603,9 +3603,12 @@ function guide() {
 // or custom code) sends its orders here with an API key.
 let storeKeys = null;
 const STORE_PLATFORMS = ['Shopify', 'YouCan', 'WooCommerce', 'Lightfunnels', 'Google Sheets', 'Zapier / Make', 'Other'];
-const storeEndpoint = () => `${location.origin}/api/v1/orders`;
+// Links for stores always use the portal's main address (never a preview).
+const portalOrigin = () => setupStatus?.productionOrigin || location.origin;
+const storeEndpoint = () => `${portalOrigin()}/api/v1/orders`;
 
 let storeRefused = [];
+let showRevokedKeys = false;
 async function loadStoreKeys() {
   const refused = api('/api/store-keys/refused').then(l => { storeRefused = Array.isArray(l) ? l : []; }).catch(() => {});
   try {
@@ -3806,10 +3809,10 @@ function storeConnection() {
       <div class="panel empty">No store connected yet. Choose your store above: orders then arrive in Leads &amp; orders, ready for the call center and your carriers.</div>` : `
       <div class="panel">
         <div class="panel-head"><div><h2>API keys</h2><p>Each key lets one store send orders. Revoke a key and its store can no longer send anything.</p></div></div>
-        <div class="store-keys">${table(['Store', 'Key', 'Orders received', 'Last order', 'Status', ''], keys.map(k => `
+        <div class="store-keys">${table(['Store', 'Key', 'Orders received', 'Last order', 'Status', ''], keys.filter(k => k.active || showRevokedKeys).map(k => `
           <tr>
             <td><b>${esc(k.name)}</b><small>${esc(k.platform)}${k.shopDomain ? ' · ' + esc(k.shopDomain) + ' · connected automatically' : ''} · created ${new Date(k.createdAt).toLocaleDateString()}${k.createdBy ? ' by ' + esc(k.createdBy) : ''}</small></td>
-            <td><code>${esc(k.prefix)}…</code>${k.platform === 'Shopify' ? `<small>${k.hasSigningSecret ? 'Shopify signature checked' : 'No signing secret'}</small>` : ''}</td>
+            <td><code>${esc(k.prefix)}…</code>${k.platform === 'Shopify' ? `<small>${k.hasSigningSecret ? 'Shopify signature checked' : 'No signing secret'}</small>` : ''}${k.origin ? `<small>Sends to ${esc(k.origin.replace(/^https?:\/\//, ''))}</small>` : ''}${k.active && k.canShowLink ? `<button class="fix-btn" data-action="show-store-link" data-id="${esc(k.id)}">Show link</button>` : ''}</td>
             <td><b>${k.ordersReceived || 0}</b></td>
             <td>${k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '<small>Nothing yet</small>'}</td>
             <td>${k.active ? badge('Active') : '<span class="badge cancelled">Revoked</span>'}</td>
@@ -3820,6 +3823,7 @@ function storeConnection() {
               <button class="${k.active ? 'danger' : ''}" data-action="store-key-toggle" data-id="${esc(k.id)}">${k.active ? 'Revoke' : 'Activate'}</button>
             </div></td>
           </tr>`))}</div>
+        ${keys.some(k => !k.active) ? `<p class="info"><button type="button" class="link-btn" data-action="toggle-revoked-keys">${showRevokedKeys ? 'Hide' : 'Show'} ${keys.filter(k => !k.active).length} revoked link${keys.filter(k => !k.active).length > 1 ? 's' : ''}</button> (they no longer accept orders).</p>` : ''}
       </div>
       <div class="panel">
         <div class="panel-head"><div><h2>Recent deliveries</h2><p>What your store sent, and what Rosaino did with it.</p></div><button data-action="refresh-store-keys">Refresh</button></div>
@@ -3981,11 +3985,26 @@ function openConnectShopify() {
   `, null);
 }
 
-function startShopifyQuick() {
+// One Shopify link, always the same: show the active one again if it exists.
+async function startShopifyQuick({ fresh = false } = {}) {
   if (!checkAction('integrations', 'Connect Shopify')) return;
-  api('/api/store-keys', 'POST', { name: 'Shopify store', platform: 'Shopify' })
-    .then(async ({ key, secret }) => { await loadStoreKeys(); render(); showShopifyQuick(key, secret); })
-    .catch(err => toast(err.message));
+  try {
+    if (!setupStatus) setupStatus = await api('/api/setup-status').catch(() => null);
+    await loadStoreKeys();
+    const current = (storeKeys || []).find(k => k.platform === 'Shopify' && k.active && k.canShowLink && !k.shopDomain);
+    if (current && !fresh) {
+      const { secret } = await api(`/api/store-keys/${encodeURIComponent(current.id)}/link`);
+      return showShopifyQuick(current, secret);
+    }
+    const { key, secret } = await api('/api/store-keys', 'POST', { name: 'Shopify store', platform: 'Shopify' });
+    // A new link replaces the previous one, so only one Shopify link is ever in use.
+    if (current) await api(`/api/store-keys/${encodeURIComponent(current.id)}`, 'PATCH', { active: false }).catch(() => {});
+    await loadStoreKeys();
+    render();
+    showShopifyQuick(key, secret);
+  } catch (err) {
+    toast(err.message);
+  }
 }
 
 function showShopifyQuick(k, secret) {
@@ -4001,6 +4020,7 @@ function showShopifyQuick(k, secret) {
         <br>Click <b>Save</b> <span class="fr">(Enregistrer)</span>.</li>
       <li>Next to your new webhook, click <b>Send test</b> <span class="fr">(Envoyer un test)</span>.</li>
     </ol>
+    <p class="info">This is your Shopify link: it stays the same every time you open this window. In Shopify there must be exactly <b>one</b> webhook with this link, event <b>Création de commande</b>. <button type="button" class="link-btn" data-action="shopify-new-link">Make a new link instead</button> (the current one then stops working).</p>
     ${connectStatus(k, 'Shopify')}
     <details><summary>Extra security (optional)</summary>
       <p class="info">After saving, Shopify shows <i>"Your webhooks will be signed with …"</i> <span class="fr">(« Vos webhooks seront signés avec … »)</span>. Paste that code here so Rosaino only accepts orders really sent by your store.</p>
@@ -6948,6 +6968,13 @@ const actions = {
   'store-platform': p => (p === 'Shopify' ? openConnectShopify() : openStorePlatform(p)),
   'store-platform-manual': p => (p === 'Shopify' ? startShopifyQuick() : openStorePlatform(p)),
   'shopify-quick': () => startShopifyQuick(),
+  'shopify-new-link': () => { if (confirm('Make a new Shopify link? The current link stops working, so you must paste the new one in Shopify.')) startShopifyQuick({ fresh: true }); },
+  'toggle-revoked-keys': () => { showRevokedKeys = !showRevokedKeys; render(); },
+  'show-store-link': id => {
+    const k = storeKeyById(id);
+    if (!k) return;
+    api(`/api/store-keys/${encodeURIComponent(id)}/link`).then(({ secret }) => (k.platform === 'Shopify' && !k.shopDomain ? showShopifyQuick(k, secret) : showStoreKey(k, secret))).catch(err => toast(err.message));
+  },
   'shopify-app': () => openShopifyApp(),
   'save-signing-secret': id => {
     const v = ($('#shopify-signing-secret')?.value || '').trim();

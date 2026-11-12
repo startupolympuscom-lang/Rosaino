@@ -7,7 +7,7 @@ import { registerAuthRoutes, requireAuth, optionalAuth, can, audit, getStore } f
 import { emailConfigured, sendContactNotification } from './mailer.js';
 import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers, autoDispatchOrder, refreshForTracking } from './carriers.js';
 import { registerCallRoutes } from './calls.js';
-import { registerStoreApi, storeConnectionStatus } from './store-api.js';
+import { registerStoreApi, storeConnectionStatus, productionOrigin } from './store-api.js';
 import { loadCollections, saveRecords, getRecord, updateRecord, dataDb, claimRecord, releaseClaim, reclaimStale, seedIfEmpty, databaseHealth, describeDbError } from './data-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -558,6 +558,7 @@ app.get('/api/setup-status', requireAuth(), async (req, res) => {
   status.databaseConfigured = db.configured;
   status.databaseError = db.error || null;
   status.version = DEPLOYED_VERSION;
+  status.productionOrigin = productionOrigin(req);
   status.records = db.records || {};
   try {
     const store = await getStore();
