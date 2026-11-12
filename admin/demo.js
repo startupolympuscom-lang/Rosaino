@@ -7423,6 +7423,17 @@ function refreshDbPill() {
   }).catch(() => {});
 }
 
+// Opened on another Vercel address (a preview or old deployment)? Stores can't
+// reach those (Vercel asks them to log in), so go to the main address.
+// Add ?stay=1 to the URL to stay (e.g. to try a preview).
+(async () => {
+  try {
+    if (!/\.vercel\.app$/.test(location.hostname) || /[?&]stay=1/.test(location.search)) return;
+    const h = await fetch('/api/health', { cache: 'no-store' }).then(r => r.json());
+    const main = h.productionOrigin && new URL(h.productionOrigin);
+    if (main && main.hostname !== location.hostname) location.replace(main.origin + location.pathname + location.search + location.hash);
+  } catch {}
+})();
 checkAuth();
 render();
 persist();

@@ -394,6 +394,7 @@ app.get('/api/health', async (req, res) => {
     ...(db.target ? { target: db.target } : {}),
     ...(db.note ? { note: db.note } : {}),
     version: DEPLOYED_VERSION,
+    productionOrigin: productionOrigin(req),
     time: new Date().toISOString()
   });
 });
