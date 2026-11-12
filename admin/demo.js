@@ -3748,6 +3748,8 @@ function shopifyCheck(keys) {
   row(active.length ? 'ok' : 'bad', 'Shopify link', active.length ? `${active.length} active Shopify connection${active.length > 1 ? 's' : ''}: ${active.map(k => esc(k.name)).join(', ')}.` : 'No active Shopify connection: click the Shopify tile below and create the link.');
   if (active.length) row(active.some(k => k.hasSigningSecret) ? 'ok' : 'wait', 'Shopify signature', active.some(k => k.hasSigningSecret) ? 'Signing secret saved: only orders signed by your store are accepted.' : 'Optional: paste Shopify\'s signing secret with the Signing secret button for extra security.');
   if (refused && (!last || refused.at > last.at)) row('bad', 'Old link still in Shopify', `Shopify sent orders with a link that no longer works (${new Date(refused.at).toLocaleString()}). Replace the webhook URL in Shopify with a new link.`);
+  const wrongEvent = recentAll.filter(r => r.result === 'ignored').sort((a, b) => b.at.localeCompare(a.at))[0];
+  if (wrongEvent && (!last || wrongEvent.at > last.at)) row('bad', 'Shopify webhook event', `The webhook is set to the wrong event${wrongEvent.topic ? ` (<code>${esc(wrongEvent.topic)}</code>)` : ''}. In Shopify → Settings → Notifications → Webhooks (Paramètres → Notifications → Webhooks), edit the Rosaino webhook and choose <b>Order creation</b> (<b>Création de commande</b>), not "Création du paiement". Then click Send test.`);
   if (!last) row(active.length ? 'wait' : 'bad', 'Orders from Shopify', active.length ? 'Nothing received yet. In Shopify → Settings → Notifications → Webhooks, click <b>Send test</b> next to the Rosaino webhook.' : 'Waiting for a link.');
   else if (last.result === 'created' || last.result === 'duplicate') row('ok', 'Orders from Shopify', `Last order received ${new Date(last.at).toLocaleString()}${last.orderId ? ` (${esc(last.orderId)})` : ''}. Everything works.`);
   else row('bad', 'Orders from Shopify', `The last delivery (${new Date(last.at).toLocaleString()}) was refused: ${esc(last.reason || '')}. Use <b>Fix &amp; add to orders</b> in Recent deliveries, and send the details to support if it repeats.`);
@@ -3763,7 +3765,7 @@ function storeConnection() {
   const last = keys.map(k => k.lastUsedAt).filter(Boolean).sort().pop();
   const recent = keys.flatMap(k => (k.recent || []).map(r => ({ ...r, keyName: k.name, keyId: k.id }))).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 20);
   const fromStore = db.orders.filter(o => o.storeKeyId);
-  const resultBadge = r => ({ created: badge('New'), duplicate: '<span class="badge">Already received</span>', rejected: '<span class="badge cancelled">Rejected</span>', test: '<span class="badge in-transit">Test</span>', ping: '<span class="badge in-transit">Connection check</span>', ignored: '<span class="badge">Not an order</span>' }[r] || esc(r));
+  const resultBadge = r => ({ created: badge('New'), duplicate: '<span class="badge">Already received</span>', rejected: '<span class="badge cancelled">Rejected</span>', test: '<span class="badge in-transit">Test</span>', ping: '<span class="badge in-transit">Connection check</span>', ignored: '<span class="badge callback">Wrong event</span>' }[r] || esc(r));
   const example = JSON.stringify({
     order_id: '1042',
     customer: 'Hind Berrada',

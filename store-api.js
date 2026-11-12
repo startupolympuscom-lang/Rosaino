@@ -472,6 +472,16 @@ const inbox = {
   }
 };
 
+// Shopify webhook events in English and French (as shown in Shopify's settings).
+const SHOPIFY_EVENT_NAMES = {
+  'checkouts/create': 'Checkout creation (Création du paiement)', 'checkouts/update': 'Checkout update (Mise à jour du paiement)',
+  'checkouts/delete': 'Checkout deletion', 'carts/create': 'Cart creation (Création de panier)', 'carts/update': 'Cart update (Mise à jour du panier)',
+  'customers/create': 'Customer creation (Création de client)', 'customers/update': 'Customer update (Mise à jour du client)',
+  'products/create': 'Product creation (Création de produit)', 'products/update': 'Product update (Mise à jour du produit)',
+  'fulfillments/create': 'Fulfillment creation (Création de traitement)', 'fulfillments/update': 'Fulfillment update',
+  'refunds/create': 'Refund creation (Création de remboursement)', 'collections/create': 'Collection creation', 'app/uninstalled': 'App uninstalled'
+};
+
 export function registerStoreApi(app, { createLead, findOrder }) {
   // --- Keys (portal) ---------------------------------------------------------
   app.get('/api/store-keys/refused', requireAuth('integrations'), wrap(async (req, res) => {
@@ -662,13 +672,23 @@ export function registerStoreApi(app, { createLead, findOrder }) {
       if (fromShopify) return res.status(200).json({ success: false, accepted: false, reason });
       throw fail(status, reason);
     };
-    if (topic && !/^(orders|draft_orders)\//.test(topic)) {
-      await note(k, { result: 'ignored', reason: `Shopify event "${topic}" is not an order`, platform: 'Shopify' });
-      return res.json({ success: true, ignored: true });
-    }
     if (req.headers['x-shopify-hmac-sha256'] && !verifyShopify(req, k)) {
       await note(k, { result: 'rejected', reason: 'Shopify signature did not match the signing code saved with this connection', platform: 'Shopify' });
       return refuse(401, 'Shopify signature does not match. Check the webhook signing code saved with this key.');
+    }
+    // Which Shopify event this is. Anything that is really an order is
+    // received, whatever the event's spelling (orders/create, ORDERS_CREATE…).
+    if (topic) {
+      const t = topic.trim().toLowerCase().replace(/_/g, '/').replace(/^draft\/orders/, 'draft_orders');
+      const peek = readBody(req).body;
+      const p = unwrapOrder(peek);
+      const orderShaped = !!(p && (p.order_number != null || p.financial_status || p.confirmation_number || (Array.isArray(p.line_items) && (p.name || p.order_id))) && !p.abandoned_checkout_url && !p.cart_token_only);
+      if (!/^(orders|draft_orders)\//.test(t) && !orderShaped) {
+        const label = SHOPIFY_EVENT_NAMES[t] || topic;
+        const reason = `Shopify sent the event "${label}", which is not an order. In Shopify → Settings → Notifications → Webhooks, edit the Rosaino webhook and choose the event "Order creation" (Création de commande).`;
+        await note(k, { result: 'ignored', reason, platform: 'Shopify', topic });
+        return res.json({ success: true, ignored: true, reason });
+      }
     }
     // WooCommerce checks a new webhook with a ping that only has webhook_id.
     const { body, format } = readBody(req);
