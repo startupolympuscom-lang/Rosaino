@@ -8,7 +8,7 @@ import { emailConfigured, sendContactNotification } from './mailer.js';
 import { registerCarrierRoutes, findShipmentForTracking, countActiveCarriers, autoDispatchOrder, refreshForTracking } from './carriers.js';
 import { registerCallRoutes } from './calls.js';
 import { registerStoreApi, storeConnectionStatus } from './store-api.js';
-import { loadCollections, saveRecords, getRecord, updateRecord, dataDb, claimRecord, seedIfEmpty, databaseHealth, describeDbError } from './data-store.js';
+import { loadCollections, saveRecords, getRecord, updateRecord, dataDb, claimRecord, releaseClaim, reclaimStale, seedIfEmpty, databaseHealth, describeDbError } from './data-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -381,6 +381,9 @@ const maskAddress = a => {
 registerAuthRoutes(app);
 
 // Public health check: is the database reachable? (no secrets returned)
+// Which code is running (Vercel sets the commit), to check a deploy went live.
+const DEPLOYED_VERSION = (process.env.VERCEL_GIT_COMMIT_SHA || 'local').slice(0, 7);
+
 app.get('/api/health', async (req, res) => {
   const db = await databaseHealth();
   res.setHeader('Cache-Control', 'no-store');
@@ -390,6 +393,7 @@ app.get('/api/health', async (req, res) => {
     ...(db.error ? { error: db.error } : {}),
     ...(db.target ? { target: db.target } : {}),
     ...(db.note ? { note: db.note } : {}),
+    version: DEPLOYED_VERSION,
     time: new Date().toISOString()
   });
 });
@@ -553,6 +557,7 @@ app.get('/api/setup-status', requireAuth(), async (req, res) => {
   status.database = db.connected;
   status.databaseConfigured = db.configured;
   status.databaseError = db.error || null;
+  status.version = DEPLOYED_VERSION;
   status.records = db.records || {};
   try {
     const store = await getStore();
@@ -579,16 +584,36 @@ const productByName = name => {
 registerStoreApi(app, {
   async createLead(lead, { platform, keyName, keyId }) {
     // Each store order is received once, even if the store sends it twice.
-    if (lead.externalId) {
-      const first = await claimRecord('store_refs', `${keyId}:${lead.externalId}`, { at: new Date().toISOString() });
+    const claimId = lead.externalId ? `${keyId}:${lead.externalId}` : null;
+    if (claimId) {
+      const first = await claimRecord('store_refs', claimId, { at: new Date().toISOString() });
       if (!first) {
         await syncFromDb(['orders']);
         const existing = memoryOrders.find(o => o.storeKeyId === keyId && String(o.externalId) === String(lead.externalId));
         if (existing) return { order: existing, duplicate: true };
-        // Claimed by a request still being processed: report it as received.
-        return { order: { id: 'pending', status: 'New' }, duplicate: true };
+        // Claimed but never saved (that request failed or was cut off):
+        // after a minute, this delivery takes over and saves the order.
+        if (!(await reclaimStale('store_refs', claimId, 60000))) {
+          return { order: { id: 'pending', status: 'New' }, duplicate: true };
+        }
       }
     }
+    try {
+      return await saveNewLead(lead, { platform, keyName, keyId });
+    } catch (err) {
+      // Let Shopify's retry save it instead of being told "already received".
+      if (claimId) await releaseClaim('store_refs', claimId).catch(() => {});
+      throw err;
+    }
+  },
+
+  async findOrder(ref, keyId) {
+    return findStoreOrder(ref, keyId);
+  }
+});
+
+async function saveNewLead(lead, { platform, keyName, keyId }) {
+  {
     const items = lead.items.map(i => {
       const p = productBySku(i.sku) || productByName(i.name);
       return { product: p ? p.id : null, name: p?.name || i.name, sku: i.sku || p?.sku || '', quantity: i.quantity, price: i.price };
@@ -640,9 +665,11 @@ registerStoreApi(app, {
     await persist('orders', order);
     memoryOrders.unshift(order);
     return { order, duplicate: false };
-  },
+  }
+}
 
-  async findOrder(ref, keyId) {
+async function findStoreOrder(ref, keyId) {
+  {
     await syncFromDb(['orders']);
     const r = ref.trim().toUpperCase();
     const order = memoryOrders.find(o => o.storeKeyId === keyId && [o.id, o.externalId, o.externalRef, o.externalRef && String(o.externalRef).replace(/^#/, '')]
@@ -650,7 +677,7 @@ registerStoreApi(app, {
     if (!order) return null;
     return { order, shipment: await findShipmentForTracking(order.id) };
   }
-});
+}
 
 // Carriers (transporteurs): dispatch orders to carrier APIs and receive status updates.
 registerCarrierRoutes(app, {

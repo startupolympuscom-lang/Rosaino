@@ -49,6 +49,16 @@ Your store can also ask where an order is: `GET /api/v1/orders/{store order numb
 
 **Analytics** (menu → Analytique; needs the Reports permission): orders, confirmation rate, top source and most wanted product for 7 / 30 / 90 days or all time; orders and confirmation rate per store (Shopify, YouCan, WooCommerce…); units per product; and a dotted world / Morocco map with one dot per city sized by orders (pulsing when ordered today), plus the top cities. Shopify orders carry exact coordinates; other orders are placed by city (Moroccan cities and common diaspora cities, in French, English or Arabic) or by country.
 
+## Shopify setup (step by step)
+
+1. **Database first.** Vercel → Settings → Environment Variables: `DATABASE_URL` = Supabase → Connect → *Transaction pooler* string with your database password, and `AUTH_SECRET` = a long random text. Redeploy. `https://<your-portal>/api/health` must show `"database":"connected"` and `"version"` = the latest commit on `main`.
+2. **Create the link.** Portal (main address, not a preview) → Store connection → **Shopify** → *Paste one link in Shopify* → **Copy link**.
+3. **Add the webhook in Shopify.** Settings → Notifications → scroll to **Webhooks** (FR: Paramètres → Notifications → Webhooks) → *Create webhook*: event **Order creation** (Création de commande), format **JSON** (XML also works), URL = the link, latest API version → Save. Delete any older Rosaino webhook.
+4. **Optional signature.** Shopify then shows "Your webhooks will be signed with …": paste that code with **Signing secret** on the key's row.
+5. **Test.** Click **Send test** (Envoyer un test) next to the webhook. The *Shopify connection check* on Store connection turns green and a sample lead appears in Leads & orders. Then place one real order.
+
+If anything is refused, Recent deliveries says why (and what was received), and **Fix & add to orders** adds the order after filling in what was missing. Orders that Shopify sends with an old or deleted link show as a red box with the steps to replace it.
+
 The Store connection page lists each key (orders received, last order, Shopify signature on/off), **Send test order**, **Revoke**, and the last deliveries with the reason for any rejected order.
 
 ## Run locally

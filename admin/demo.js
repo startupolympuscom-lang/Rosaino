@@ -3607,9 +3607,10 @@ const storeEndpoint = () => `${location.origin}/api/v1/orders`;
 
 let storeRefused = [];
 async function loadStoreKeys() {
-  api('/api/store-keys/refused').then(l => { storeRefused = Array.isArray(l) ? l : []; }).catch(() => {});
+  const refused = api('/api/store-keys/refused').then(l => { storeRefused = Array.isArray(l) ? l : []; }).catch(() => {});
   try {
     storeKeys = await api('/api/store-keys');
+    await refused;
   } catch {
     storeKeys = storeKeys || [];
   }
@@ -3731,6 +3732,28 @@ function storeWarnings(keys) {
   return out.join('');
 }
 
+// Shopify connection check: each link of the chain, with what to do.
+function shopifyCheck(keys) {
+  const shop = keys.filter(k => k.platform === 'Shopify');
+  const active = shop.filter(k => k.active);
+  const recentAll = active.flatMap(k => (k.recent || []).map(r => ({ ...r, key: k })));
+  const real = recentAll.filter(r => r.result !== 'test' && r.result !== 'ignored').sort((a, b) => b.at.localeCompare(a.at));
+  const last = real[0];
+  const refused = storeRefused.find(r => r.source === 'Shopify');
+  const rows = [];
+  const row = (state, label, detail) => rows.push(`<li class="chk ${state}"><span class="chk-icon" aria-hidden="true">${state === 'ok' ? '✓' : state === 'bad' ? '✕' : '…'}</span><div><b>${label}</b><small>${detail}</small></div></li>`);
+  const db = setupStatus?.database;
+  row(setupStatus ? (db ? 'ok' : 'bad') : 'wait', 'Database', setupStatus ? (db ? 'Connected: orders are saved and shared by every server.' : 'Not connected: fix DATABASE_URL in Vercel first (see the red box above).') : 'Checking…');
+  row('ok', 'Portal version', `Running version <code>${esc(setupStatus?.version || '…')}</code>. It should match the latest commit on GitHub main; if not, redeploy in Vercel.`);
+  row(active.length ? 'ok' : 'bad', 'Shopify link', active.length ? `${active.length} active Shopify connection${active.length > 1 ? 's' : ''}: ${active.map(k => esc(k.name)).join(', ')}.` : 'No active Shopify connection: click the Shopify tile below and create the link.');
+  if (active.length) row(active.some(k => k.hasSigningSecret) ? 'ok' : 'wait', 'Shopify signature', active.some(k => k.hasSigningSecret) ? 'Signing secret saved: only orders signed by your store are accepted.' : 'Optional: paste Shopify\'s signing secret with the Signing secret button for extra security.');
+  if (refused && (!last || refused.at > last.at)) row('bad', 'Old link still in Shopify', `Shopify sent orders with a link that no longer works (${new Date(refused.at).toLocaleString()}). Replace the webhook URL in Shopify with a new link.`);
+  if (!last) row(active.length ? 'wait' : 'bad', 'Orders from Shopify', active.length ? 'Nothing received yet. In Shopify → Settings → Notifications → Webhooks, click <b>Send test</b> next to the Rosaino webhook.' : 'Waiting for a link.');
+  else if (last.result === 'created' || last.result === 'duplicate') row('ok', 'Orders from Shopify', `Last order received ${new Date(last.at).toLocaleString()}${last.orderId ? ` (${esc(last.orderId)})` : ''}. Everything works.`);
+  else row('bad', 'Orders from Shopify', `The last delivery (${new Date(last.at).toLocaleString()}) was refused: ${esc(last.reason || '')}. Use <b>Fix &amp; add to orders</b> in Recent deliveries, and send the details to support if it repeats.`);
+  return `<div class="panel"><div class="panel-head"><div><h2>Shopify connection check</h2><p>Each step from your Shopify store to the Orders page. Green everywhere means it works.</p></div><button data-action="refresh-store-keys">Check again</button></div><ul class="chk-list">${rows.join('')}</ul></div>`;
+}
+
 function storeConnection() {
   if (!storeKeys) loadStoreKeys().then(() => page === 'store' && render());
   if (!setupStatus) api('/api/setup-status').then(st => { setupStatus = st; if (page === 'store') render(); }).catch(() => {});
@@ -3765,6 +3788,7 @@ function storeConnection() {
       ${metric('Open store leads', fromStore.filter(o => ['New', 'Callback'].includes(o.status)).length, 'To confirm in the call center')}
     </div>
 
+    ${storeKeys ? shopifyCheck(storeKeys) : ''}
     <div class="panel">
       <div class="panel-head"><div><h2>Connect a store</h2><p>Choose where your orders come from. Each option shows what you need and the exact steps, then gives you a ready-to-paste key.</p></div></div>
       <div class="platform-grid">${STORE_PLATFORMS.map(p => `
@@ -6930,7 +6954,7 @@ const actions = {
       .then(() => { toast('Saved: only orders signed by your store are accepted'); loadStoreKeys(); })
       .catch(err => toast(err.message));
   },
-  'refresh-store-keys': () => loadStoreKeys().then(() => { render(); toast('Updated'); }),
+  'refresh-store-keys': () => Promise.all([loadStoreKeys(), api('/api/setup-status').then(st => { setupStatus = st; }).catch(() => {})]).then(() => { render(); toast('Updated'); }),
   'copy-store-secret': () => { const el = $('#store-secret'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('API key copied')).catch(() => toast('Select the key and copy it')); },
   'copy-store-hook': () => { const el = $('#store-hook'); el.select(); (navigator.clipboard?.writeText(el.value) || Promise.reject()).then(() => toast('Webhook URL copied')).catch(() => toast('Select the URL and copy it')); },
   'store-key-setup': id => {

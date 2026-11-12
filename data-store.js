@@ -91,6 +91,24 @@ export async function claimRecord(collection, id, data = {}) {
   return rowCount === 1;
 }
 
+// Undo a claim (the work it protected failed), or take over a claim left by
+// a request that never finished (older than maxAgeMs).
+export async function releaseClaim(collection, id) {
+  const s = await dataDb();
+  if (!s) return void memClaims.delete(`${collection}:${id}`);
+  await s.query('DELETE FROM app_records WHERE collection = $1 AND id = $2', [collection, String(id)]);
+}
+export async function reclaimStale(collection, id, maxAgeMs) {
+  const s = await dataDb();
+  if (!s) return false;
+  const { rowCount } = await s.query(
+    `UPDATE app_records SET data = jsonb_set(data, '{at}', to_jsonb($3::text)), updated_at = NOW()
+     WHERE collection = $1 AND id = $2 AND updated_at < NOW() - ($4::int * INTERVAL '1 millisecond')`,
+    [collection, String(id), new Date().toISOString(), maxAgeMs]
+  );
+  return rowCount === 1;
+}
+
 // Change one stored record inside a transaction: the row is locked, so two
 // simultaneous edits are applied one after the other instead of the slower
 // one overwriting the faster. fn(data, tx) returns the new data; tx.adjust
