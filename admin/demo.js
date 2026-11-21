@@ -3714,16 +3714,45 @@ function storeWarnings(keys) {
   if (/\.vercel\.app$/.test(host) && /-git-|-[a-z0-9]{9}-/.test(host)) {
     out.push(`<div class="alert warn"><b>You're on a Vercel preview address (${esc(host)}).</b> Links and keys made here point to this preview, which Shopify may not be allowed to reach. Open the portal on its main address and create the link there.</div>`);
   }
-  const lastGood = keys.flatMap(k => (k.recent || []).filter(r => r.result === 'created' || r.result === 'duplicate').map(r => r.at)).sort().pop() || '';
-  const lastDay = storeRefused.filter(r => Date.now() - new Date(r.at).getTime() < 7 * 86400000 && r.at > lastGood);
-  if (lastDay.length) {
-    const r = lastDay[0];
-    const who = r.shop ? `${r.source || 'A store'} (${esc(r.shop)})` : r.source || 'A store';
-    out.push(`<div class="alert danger"><b>${who} tried to send ${lastDay.length} order${lastDay.length > 1 ? 's' : ''} with a link that no longer works</b> (last: ${new Date(r.at).toLocaleString()}; ${esc(r.reason)}${r.keyStart ? `, key ${esc(r.keyStart)}…` : ''}).
-      <ol><li>Click the store's tile below and create a new link (Shopify: <b>Paste one link in Shopify</b> → <b>Copy link</b>).</li>
-      <li>In the store, replace the old link with the new one (Shopify: Paramètres → Notifications → Webhooks: delete the old Rosaino webhook, create a new one with the new link).</li>
-      <li>Send a test: the green box confirms it, and this message stops appearing.</li></ol></div>`);
-  }
+  // Orders a store sent with an old link. Either the store has a second, old
+  // webhook next to the working one (nothing lost), or the old link is the
+  // only one (orders refused: re-activating it lets the store resend them).
+  const good = keys.filter(k => k.active).flatMap(k => (k.recent || []).filter(r => r.result === 'created' || r.result === 'duplicate').map(r => ({ at: r.at, key: k })));
+  const lastGoodAt = good.map(g => g.at).sort().pop() || '';
+  const groups = new Map();
+  storeRefused.filter(r => Date.now() - new Date(r.at).getTime() < 7 * 86400000).forEach(r => {
+    const id = r.keyStart || r.reason;
+    (groups.get(id) || groups.set(id, []).get(id)).push(r);
+  });
+  groups.forEach(list => {
+    const r = list[0];
+    const linkKey = r.keyStart ? keys.find(k => k.prefix === r.keyStart) : null;
+    const near = list.some(x => good.some(g => Math.abs(new Date(g.at) - new Date(x.at)) < 10 * 60000));
+    const store = r.shop ? `${esc(r.source || 'Your store')} (${esc(r.shop)})` : esc(r.source || 'Your store');
+    const oldLink = r.keyStart ? `<code>${esc(r.keyStart)}…</code>` : 'an old link';
+    const current = good.length ? good.sort((x, y) => y.at.localeCompare(x.at))[0].key : keys.find(k => k.active && k.platform === (r.source || 'Shopify'));
+    const where = r.source === 'Shopify' || !r.source ? 'Shopify → <b>Paramètres → Notifications → Webhooks</b>' : 'your store\'s webhook settings';
+    const n = list.length, ord = `order${n > 1 ? 's' : ''}`;
+    if (near) {
+      if (list.every(x => x.at < lastGoodAt) && r.at < lastGoodAt && Date.now() - new Date(r.at).getTime() > 86400000) return;
+      out.push(`<div class="alert warn"><b>${store} still has an old webhook using the revoked link ${oldLink}.</b>
+        Your orders are arriving through your current link${current ? ` (<code>${esc(current.prefix)}…</code>)` : ''}, so <b>nothing was lost</b>: the old webhook just sends a second copy, which is refused (${n} so far, last ${new Date(r.at).toLocaleString()}).
+        <br>To stop it: in ${where}, <b>delete the webhook whose URL contains ${oldLink}</b>${current ? ` and keep the one containing <code>${esc(current.prefix)}</code>` : ''}.
+        <div class="alert-actions"><button type="button" data-action="dismiss-refused">Done, hide this</button></div></div>`);
+    } else if (linkKey && !linkKey.active) {
+      out.push(`<div class="alert danger"><b>${store} is sending orders to the link ${oldLink}, which was revoked: ${n} ${ord} refused</b> (last ${new Date(r.at).toLocaleString()}).
+        <br>Fix it in one click: re-activate that link. ${r.source === 'Shopify' || !r.source ? 'Shopify resends refused orders for up to 48 hours, so they will arrive by themselves.' : ''}
+        <div class="alert-actions"><button type="button" class="primary" data-action="reactivate-key" data-id="${esc(linkKey.id)}">Re-activate ${esc(r.keyStart)}…</button>
+        <button type="button" data-action="dismiss-refused">Hide</button></div>
+        <small>Or put your current link in ${where} instead of the old one.</small></div>`);
+    } else {
+      out.push(`<div class="alert danger"><b>${store} is sending orders to a link that doesn't exist (${oldLink}): ${n} ${ord} refused</b> (last ${new Date(r.at).toLocaleString()}).
+        <ol><li>Click the store's tile below → copy your link (Shopify: <b>Paste one link in Shopify</b> → <b>Copy link</b>).</li>
+        <li>In ${where}, edit the webhook whose URL contains ${oldLink} and paste the new link (or delete it and create a new one with event <b>Création de commande</b>).</li>
+        <li>Send a test, then click Hide.</li></ol>
+        <div class="alert-actions"><button type="button" data-action="dismiss-refused">Hide</button></div></div>`);
+    }
+  });
   keys.filter(k => k.active).forEach(k => {
     const last = (k.recent || []).find(r => r.result !== 'test' && r.result !== 'ignored');
     if (last && last.result === 'rejected') {
@@ -3750,7 +3779,12 @@ function shopifyCheck(keys) {
   row('ok', 'Portal version', `Running version <code>${esc(setupStatus?.version || '…')}</code>. It should match the latest commit on GitHub main; if not, redeploy in Vercel.`);
   row(active.length ? 'ok' : 'bad', 'Shopify link', active.length ? `${active.length} active Shopify connection${active.length > 1 ? 's' : ''}: ${active.map(k => esc(k.name)).join(', ')}.` : 'No active Shopify connection: click the Shopify tile below and create the link.');
   if (active.length) row(active.some(k => k.hasSigningSecret) ? 'ok' : 'wait', 'Shopify signature', active.some(k => k.hasSigningSecret) ? 'Signing secret saved: only orders signed by your store are accepted.' : 'Optional: paste Shopify\'s signing secret with the Signing secret button for extra security.');
-  if (refused && (!last || refused.at > last.at)) row('bad', 'Old link still in Shopify', `Shopify sent orders with a link that no longer works (${new Date(refused.at).toLocaleString()}). Replace the webhook URL in Shopify with a new link.`);
+  if (refused && (!last || refused.at > last.at || Math.abs(new Date(last.at) - new Date(refused.at)) < 10 * 60000)) {
+    const copies = last && (last.result === 'created' || last.result === 'duplicate') && Math.abs(new Date(last.at) - new Date(refused.at)) < 10 * 60000;
+    row(copies ? 'wait' : 'bad', 'Old webhook still in Shopify', copies
+      ? `A second, old webhook (link <code>${esc(refused.keyStart || '')}…</code>) sends refused copies. Nothing is lost; delete that webhook in Shopify (see the box above).`
+      : `Shopify sends orders to a link that no longer works (<code>${esc(refused.keyStart || '')}…</code>). See the red box above for the one-click fix.`);
+  }
   const wrongEvent = recentAll.filter(r => r.result === 'ignored').sort((a, b) => b.at.localeCompare(a.at))[0];
   if (wrongEvent && (!last || wrongEvent.at > last.at)) row('bad', 'Shopify webhook event', `The webhook is set to the wrong event${wrongEvent.topic ? ` (<code>${esc(wrongEvent.topic)}</code>)` : ''}. In Shopify → Settings → Notifications → Webhooks (Paramètres → Notifications → Webhooks), edit the Rosaino webhook and choose <b>Order creation</b> (<b>Création de commande</b>), not "Création du paiement". Then click Send test.`);
   if (!last) row(active.length ? 'wait' : 'bad', 'Orders from Shopify', active.length ? 'Nothing received yet. In Shopify → Settings → Notifications → Webhooks, click <b>Send test</b> next to the Rosaino webhook.' : 'Waiting for a link.');
@@ -6969,6 +7003,8 @@ const actions = {
   'store-platform-manual': p => (p === 'Shopify' ? startShopifyQuick() : openStorePlatform(p)),
   'shopify-quick': () => startShopifyQuick(),
   'shopify-new-link': () => { if (confirm('Make a new Shopify link? The current link stops working, so you must paste the new one in Shopify.')) startShopifyQuick({ fresh: true }); },
+  'dismiss-refused': () => api('/api/store-keys/refused', 'DELETE').then(async () => { storeRefused = []; await loadStoreKeys(); render(); toast('Hidden'); }).catch(err => toast(err.message)),
+  'reactivate-key': id => api(`/api/store-keys/${encodeURIComponent(id)}`, 'PATCH', { active: true }).then(async () => { await loadStoreKeys(); render(); toast('Link re-activated: orders from it are accepted again'); }).catch(err => toast(err.message)),
   'toggle-revoked-keys': () => { showRevokedKeys = !showRevokedKeys; render(); },
   'show-store-link': id => {
     const k = storeKeyById(id);

@@ -495,6 +495,13 @@ export function registerStoreApi(app, { createLead, findOrder }) {
   app.get('/api/store-keys/refused', requireAuth('integrations'), wrap(async (req, res) => {
     res.json(await refusedDeliveries());
   }));
+  // Dismiss the "old link" warnings (e.g. after deleting the old webhook in Shopify).
+  app.delete('/api/store-keys/refused', requireAuth('integrations'), wrap(async (req, res) => {
+    if (!(await dataDb())) memRefused.length = 0;
+    else await saveRecords('settings', [{ id: 'store_refused', list: [] }]);
+    await audit(req.user, 'store_key.refused_dismissed', '', req);
+    res.json({ success: true });
+  }));
 
 
   // A refused order: what was read from it, to complete it in the portal.
