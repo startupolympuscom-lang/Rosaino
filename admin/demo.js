@@ -28,6 +28,7 @@ const I18N = {
     guide: 'Guide de la plateforme',
     orders: 'Commandes & Prospects',
     analytics: 'Analytique',
+    livemap: 'Carte en direct',
     calls: 'Centre d\'appels',
     routing: 'Routage des prospects',
     shipping: 'Expédition & Colis',
@@ -71,6 +72,7 @@ const I18N = {
     guide: 'Platform guide',
     orders: 'Leads & Orders',
     analytics: 'Analytics',
+    livemap: 'Live map',
     calls: 'Call Center',
     routing: 'Lead Routing',
     shipping: 'Shipping & Labels',
@@ -114,6 +116,7 @@ const I18N = {
     guide: 'دليل المنصة',
     orders: 'الطلبيات والعملاء',
     analytics: 'التحليلات',
+    livemap: 'الخريطة المباشرة',
     calls: 'مركز الاتصال والتأكيد',
     routing: 'توزيع الطلبيات',
     shipping: 'الشحن والتوصيل',
@@ -635,6 +638,7 @@ let utmContent = 'vid_hook_v1';
 function getNavIcon(id) {
   const s = 'width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
   switch (id) {
+    case 'livemap': return `<svg ${s}><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>`;
     case 'analytics': return `<svg ${s}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>`;
     case 'overview': return `<svg ${s}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
     case 'orders': return `<svg ${s}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
@@ -670,6 +674,7 @@ const pages = [
   ['store', 'store', 'Store connection', 'integrations'],
   ['orders', 'orders', 'Leads & orders', 'orders'],
   ['analytics', 'analytics', 'Analytics', 'reports'],
+  ['livemap', 'livemap', 'Live map', 'reports'],
   ['calls', 'calls', 'Call center', 'calls'],
   ['routing', 'routing', 'Lead routing', 'routing'],
   ['shipping', 'shipping', 'Shipping & Labels', 'shipping'],
@@ -4451,7 +4456,256 @@ function analytics() {
   document.addEventListener('focusout', () => tip.classList.remove('show'));
 })();
 
-const views = { overview, guide, store: storeConnection, orders, analytics, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
+// ---------------------------------------------------------------------------
+// Live map: a dotted globe with where orders come from (like Shopify Live View).
+// ---------------------------------------------------------------------------
+// Land as evenly spaced dots: bit i set = point i of a 60k-point Fibonacci
+// sphere is on land (Natural Earth data, public domain).
+const GLOBE_LAND = { n: 60000, bits: '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kBQSAlJTQAgKBQGpKSwEpIaAkBQSAlJTQAhKAQGhKSQEpIaAUBQSAlJTUAhKCQGhKSQEpKaAEBQCAkJTSAhICQGhKCQEpKaAEJQCAkJTSAhIDQGhKCSEhKawEJQSAkJRSAhITQGhKAQEhKKQEJASAkJRSAhITQEhKAUEhKKQEJCSAkJRSAgITWEhKCUEhKKQEJCaAkJQCAgIRWEhICUEhKKQEBCKAkJQCggIRWEhICUFhKKQEBCKQkJQSggIRSEhIAUFhKCUEBCCQkJACggIRSEhIASEhaCUEBCKQkJACgoIQSEhIASFhYAUEBCKwkJACggIQSkhIBSFhIAUUBCKQkJACAgJQSkgIBSFhIAUFBCCQkJACAgJASmgIBSFhYAQEBCCUkBASAoJASkoIASFhIAQEBACUkBBKAoLASGgIASFhICQEBYCUkBBKCoJASGhIASkgIIQFBYCUlBRCAoJASEhKASkgIJQFBYCQkJBCAgJBSGhLASkpIBQVBICQkJBCEgJBaGgJASEhIIQUBIKQkJRCEgJBaGoJASEhIIQUBIKQkBBCEhJBaGgJASEhIIQkBIKQkBJCAgJBSGgJBSEhKJQkBICQkBZCAgJBSGgJBSEgIJQEJIKQkFJKAgJBaEgJRSFgLIQkBIKQkFJKAgBRSEgJBWEgJJQEBIKQkFJKAgBZaEgJBWEgJJQEAKKQkBJKAgBZaEgJRSEgpJQEAKKQkBIKggBJaEgJBSFgpJQEAKKQkFKKggBJaEgBBSEgJJQEALKQkFKKAgBJaEgBBSFgJBQEAJKQkEIKAgBJaEgBBSEgpRUEAJKQkEIKAgBJaEgBBSEghBUEAJKQlEIKAoBJaEgAJSEghBQEAJKQkEIKAgFIakoAJSEohBQEAJKQkEAKAgFJaggAJSEogBQEApKUkEAKElFJaAgBJSEogBQEApKUEEAKElFBaAgBJSEggBQEApKUEEAKAlFAaAgFBSgggBQkIoKQEEIKAgFAaAgFBWgggBQkooKQEEAKAgFAaAgFBWgggBQEAoKQEEgKEAFAaAgFRWAggBQEAoCQEEgKkAFAaAgFRWAgkBQAAoCQEEoKgAFAaAgFRSAgkBUgAoCQEEoKgAFAaAAFASAglBUgAoCQEEqKEAFgagAFASAglBUAAoCUAEqCAAFgagAFQSAglBUAAoCUQEoCAAFoagAFQSAAlRQAAoCUQEoCAAFoagAFASiAlQQAApCUQEoCAAFoKgAFASiAlQQAApCUQEqCEQFqKAAFASiAlQQgApAUQEoCkQFqCAAFIWiAlAQgApAUQEoCEQFqCgAFICiAlAUiApQQQEoCEUFqCgAFYCiAlAQiApQUQAoCkUFqCgQFYCCAlAQiApQQQAqAEUFqCAQFaCiAlAQigpQQSAqAAUFoCAQFaCCAFAAigpAQSAqAAUBoCAUFaCCQFQAigpAQSAqQgUFoAAUFaCiQFQACgpAQSAqQgUFoAAUFYCCQFQEigpAASgqQkWFqAAUFICCQFSECgpAASgqQAWFqAAVFICCQFSAigpBASgoAEWFqAgUBYACUFSACgpRASgoQgWBqAgVFYACUFSACgpRASgqAgWAqAAVFIICUFCECgpRASgKAgWgqAAVFKICUFCECghRESoqAAWgoAgVFKIiUFQECghRASooBEWkoAgVEIIiUFAEikhRESooBAWgqAgUEYIiVFQMCkhBESogBAWgqAgUEKIiVFAMikhBESggBAWgoAgUkIIiVFAMCkBBESggREWgqBgUkIIiVEAICsBBESggBEWooBgUkIIiUEAICkBRMSggBUWogBgUkKMiUEAICkBBMSggBUWogBAUgIIiUEAICkBBMSggB0WggBAUkINiUEAKClABMSggRUWggBAUgIJiUEAOikABMSggBUWggBgUgAJiUEAKilABMSgAB8WggBwUgAJiUEAKikABISgABcWggBQUoQJiUEQKikABISgABcSggBQUoQJCUAAOilEBKSgABcSogBQUoQJCUAAKilERKShCBcSggBQUoQJCUAAKiEEBKShCBYSgABQUowJSUAQKiEEBKSgCBYSgABQQogJSUAQKiEEBKShCBYSgCBQQogJSUAQKCEEBKCpEBaSgABQQowJSUAQKCFEBKCAEBaSoABQQgwJQUAQKSFEBKCIEBaSoCBQQggJQUAgKSEEBKCAGBaCgCBQQggJQRAgKSEEBKCAGBaCgABSQggJQQAgKSEEBKCAGBaCoEBSQogJwQAwKQEEBKCAEBaCAEBSQggJQQAwKQFEBKCAFBaCAEBSAggJQQAwKQEEhKCAFBaCAEBSAogJQQAgKQAEhKAAFBaCAEBSAggJQQAoKQAEhKAAFRaCAEBSAAkJQAAoKQAEhKAAFBaCIFBSAAkJQAAoKQAEhKAAFBaAAFBSAAkJQAAoKQAEhKAAFhKAIFBSAAkJQBAoKQAEpKAAFhKAIFBSBAkJQAAoKQBEoKAAFhKAIFBSAIlJQAAoIQVEoKAAFhKAAFBSAIlBQAAoIQREoKAJFpKAAFBCAIlBQAAoIQQEoKABFoKAAFBCColBQBAoIQQEoKABFoKAAFBCCIlBQBIpIQQEoIARFoaAAFBCCIlBQAIpAQQEoIgRFoaAIFJGCAlBQAIpCQQEoIAQFoKAIFIGCAlBECIpCQREoIAQFoKAIFIWCAlBECIpAQREoIgUFoIgAFIWCAlBECApAQREoAgUFoIgAHIWCIlBECgpAUREoCgUFoIgQFIGCIlBECgpAEQEoCgVFoIgUFIGCIlAUCgpAEQEoAgVFoKgUFIAiAlAUCgpAEQEoAkVFoCgUFIAiA1AUCopAUQkoAkVEoCgUFIAiAlAEiopAUSkoAkUEoCgUFIEiAlAEiohAUSgoAEUEoAgUFYGiElAEioxAUSgoAkUE4AgUEYGiUFAEighAUSgoAkUloAgUEYGiUFAEighAESgiAkUhoAgUEYGiUFAEighAESgiAkUhoAgUEYAiUEQEikpAESgiAkWhoAgUEYAiUEQEikJAESgiAkWhgAgUEYAiUEQEikJAESgiAEWgiAgUhYAiUEQEikIBESgiAEWgiAgUhYAiUEQEikARESgqAEWgiAgUhSIiUEQEikARESgKAUWgiAgUhSIiUEQAikARETgKQUWgiAgUgSIiUBQAikARESgKRUSgiAgUgSIiUBSCikARESgCRUSgKAAVgSIiUBSCikARESgCRUSgKAAVgSIicASKiEBRESoCRUSgKAQVgSIiUASKiEBRACoCRUSgKBQVgSIiVASKiEBRACoCRUSgCBQRgaIgVASKiEBRCCoCRUSoCBQRgaIgVASKiEARKCICRUCoCBQRgaIAVASKgFARKCICRUGoCBQRgaJQVASKgFARKCICRUGoCBQBgSJQRASKglARKCICRQGoCBQBoSJQRASKglARKAICRaCoCBQBoSJQBASKglARKAJCRaCICBQFoSJQBASKQlERKAJCRaAICBQFoSJQBASKQBERKAJCRaAICBQFISJQBISKQBERKApCRaAICBSBIyJQBISKQBEQKAJCRKAICBSBIiJQBISKQBEQKAJGRKAICBWBIiBQBISIQBEQKAJHRKAICBWBIiBQBISIQBEQKgJFQKAICBWBIiBQBIyIQBEQKgJFQKAICBGBIiBQBIqIQBEQKgJFQKAIGBGBIiBUBIqAQBEQKgJFQKAIGBGBIiBUBIqAQBEQIgJFQKAIFBGBIiBUBIqAQBEwIgJFQKgIFAGBIiBEBIqAQBEwIgJFQKgIFAGBImBEBIqAQBEoAgJFQKgIFAGBImBEBIqAUBEoAgJFQIgIFAGBIkAEBIqAUBEoAgJFwIgIFAGBIlAEBIqAEBEoAgJFwAgIFAGhIlAEBIqAEBEoAgJFgAgIFAEhIlAEBIqAEREoAkJFoAgIFAEhIlAEBIoAERAoAkJEoAgIFAEjIFAEBIoAERAoAkJEoAgIFAEjIFAEhIhAERAoAkZAoAgIFAEiIFAEhIhAERAoAkZAoAgIEAEiIFAAhIhAERAoAkRAoAgIEYEiIFAAjIBAERAgAkRAoAAIEYEiIFAAjIBAARAgAkRAoAAIAYECIFAAiIBAARAiAkVAoAAYAYECIEAEiIBAARACAgVAgAAQAYECIEAEioBAATACAgVAgAAQAYECIEQECoAAASACAgVAgAAQAYECIAQECoAAASAAAgRAiAgQAAECQAQECoAAASAAAgRACAAUAAEAQAAECIAAESAAAgTACAAQAAEAQAAECIAAACAAAgSAAAgQAAEAQAAECIABACAAAgCAAAgQAAEAQAAECAABACAAAgCAQAgQAAEgQAAECAABECAAAgCAAAgQAAIAQAAEAAABECAAAgCAAAgQAAIAQAAEAACBECAABgCAAAgQAAIgQAAEAACBECAABACAAAgAAAIgQAAMAAABECAABACAAAgAAAIhQAAIAACBEAAABECAAAAAAAIhQAAIAAABEAAABECAABAAAAIBAAAIAAABAAAABEKAABAAAAIgAAAIAAABAAAABAIAABAAAAIAAAAIBAAAIAAABAAAABAAAAAAAAAIBAAAIAAABAAAABAAAABAAAAIBAAAIAAABAAAABAIAABAAAAIAAAAIAAAAAAAABAIAABAAAAIAAAAIAAAAIAAABAAAABAIAAAgAAAIBAAAIAAAAAAAQBAIAAAAAEAIAAAAIAAAAAAAQBAAAAAAAAAAAACAIBAAAAAAABAAAAAAAEAAAACAIAAAAAAAABAAAAAAIEAAAACAIAAAAAAAgAAAAQAAAEAAAAEAIAAAAAAAgEAAAQAAAEAAAAEAIAAAAAAAgAAAAAAAAEAAAAEAgAAAAAAAgAAAAAEAAEAAAAEAAAAAAAAAgAAAAgEAAAAAAAEAAAAEAgAAgAAAAgAAAAAAAAEAAAAEAgAAAAAAAgAAAAAEAAEAAAAEAgAAAAAAAgAAAAAEAAAAAAAEAAAAAAgAAgAAAAgEAAAAAAAEAAAAEAgAAAAAAAgAAAAAAAAEAAAAEAgAAAAAAAgAAAAgAAAEAAAAEAAAAAAAAAgAAAAgAAAEAAAAEAAAAAAAAAgAAAAgAAAAAAAAEAAAAAAAAAgAAAAgAAAAAAAAEAAAAAAAQAAAAAAgAAAAAACAEAAAAAAAQAAAAAAgAAAAAACAAAAAAAAAQAAAAAAgAEAAAACAAAAAAAAAQAAAAQAAAAAAAACAAAAAAAAAQAAAAQAAAAAAAACAAAAAAAAAAAAAAQAAAAAAAACAAAACAAAAAAAAAQAAAAAAAAAAAAACAAAAAAAAAQAAAAQAAAAAEAACAAAAAAAAAQAAAAAAAAAAAAACAAAAAAAAAAAAAAQAAAAAAAACAAAAAAAAAAAAAAQAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAACAAAAAAAAAQAAAAAAAACAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' };
+const GLOBE_HUB = { lat: 33.57, lng: -7.59, name: 'Casablanca' }; // where orders ship from
+let liveRange = '30';
+const globeState = { lng: -7, lat: 24, zoom: 1, targetLng: null, targetLat: null, targetZoom: null, auto: true, lastInteract: 0, token: 0, hover: null };
+let globeLandPts = null;
+
+function globeLand() {
+  if (globeLandPts) return globeLandPts;
+  const bytes = Uint8Array.from(atob(GLOBE_LAND.bits), c => c.charCodeAt(0));
+  const pts = [], n = GLOBE_LAND.n, golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    if (!(bytes[i >> 3] & (1 << (i & 7)))) continue;
+    const y = 1 - (i + 0.5) * 2 / n, r = Math.sqrt(1 - y * y), th = golden * i;
+    const lat = Math.asin(y), lng = Math.atan2(Math.sin(th) * r, Math.cos(th) * r);
+    pts.push(Math.sin(lat), Math.cos(lat), lng);
+  }
+  return (globeLandPts = new Float32Array(pts));
+}
+
+function liveOrders() {
+  const days = Number(liveRange);
+  const since = days ? Date.now() - days * 86400000 : 0;
+  return db.orders.filter(o => o.source !== 'Test' && (!since || new Date(o.date || o.createdAt || 0).getTime() >= since - 86400000));
+}
+
+function livePlaces(list) {
+  const today = new Date().toISOString().slice(0, 10);
+  const by = new Map();
+  let unplaced = 0;
+  list.forEach(o => {
+    const pl = orderPlace(o);
+    if (!pl) { unplaced++; return; }
+    const e = by.get(pl.key) || { ...pl, count: 0, confirmed: 0, recent: false, products: {} };
+    e.count++;
+    if (CONFIRMED_STATUSES.includes(o.status)) e.confirmed++;
+    if ((o.date || '').slice(0, 10) === today) e.recent = true;
+    const pn = db.products.find(p => p.id === o.product)?.name || o.items?.[0]?.name || '';
+    if (pn) e.products[pn] = (e.products[pn] || 0) + 1;
+    by.set(pl.key, e);
+  });
+  const places = [...by.values()].map(p => ({ ...p, top: Object.entries(p.products).sort((a, b) => b[1] - a[1])[0]?.[0] || '' })).sort((a, b) => b.count - a.count);
+  return { places, unplaced };
+}
+
+function livemap() {
+  const list = liveOrders();
+  const { places, unplaced } = livePlaces(list);
+  const countries = new Set(places.map(p => p.country || 'Morocco'));
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCount = db.orders.filter(o => o.source !== 'Test' && (o.date || '').slice(0, 10) === today).length;
+  const max = Math.max(...places.map(p => p.count), 1);
+  const ranges = [['1', 'Today'], ['7', '7 days'], ['30', '30 days'], ['0', 'All time']];
+  const feed = list.slice(0, 7);
+  const when = o => (o.date || '').slice(0, 10) === today ? 'Today' : new Date(o.date || o.createdAt || Date.now()).toLocaleDateString();
+  window.__livePlaces = places;
+  setTimeout(initGlobe, 0);
+  return title('Live map', 'Where your customers order from. Drag the globe to turn it.',
+    `<div class="segmented" role="group">${ranges.map(([v, l]) => `<button type="button" class="${liveRange === v ? 'active' : ''}" aria-pressed="${liveRange === v}" data-action="live-range" data-id="${v}">${l}</button>`).join('')}</div>`) + `
+    <div class="live-map">
+      <div class="globe-wrap" id="globe-wrap">
+        <canvas id="globe" role="img" aria-label="Globe showing ${places.length} cities with orders"></canvas>
+        <div class="globe-hud">
+          <div class="hud-big"><b>${list.length.toLocaleString()}</b><span>orders${liveRange === '0' ? '' : liveRange === '1' ? ' today' : ` · last ${liveRange} days`}</span></div>
+          <div class="hud-live"><i></i>${todayCount} today</div>
+        </div>
+        <div class="globe-controls">
+          <button type="button" data-action="globe-focus" data-id="morocco">Morocco</button>
+          <button type="button" data-action="globe-focus" data-id="world">World</button>
+          <button type="button" aria-label="Zoom in" data-action="globe-zoom" data-id="in">+</button>
+          <button type="button" aria-label="Zoom out" data-action="globe-zoom" data-id="out">−</button>
+        </div>
+        <div class="globe-legend">
+          <span><i class="gl-dot s"></i><i class="gl-dot m"></i><i class="gl-dot l"></i>Orders per city</span>
+          <span><i class="gl-pulse"></i>Ordered today</span>
+          <span><i class="gl-arc"></i>Today's orders from ${GLOBE_HUB.name}</span>
+        </div>
+        ${places.length ? '' : '<div class="globe-empty">Orders appear here as soon as they arrive, at the customer\'s city.</div>'}
+        <div class="globe-tip" id="globe-tip" role="tooltip"></div>
+      </div>
+      <div class="live-side">
+        <div class="live-stats">
+          <div><b>${places.length}</b><span>Cities</span></div>
+          <div><b>${countries.size}</b><span>Countries</span></div>
+          <div><b>${pct(list.filter(o => CONFIRMED_STATUSES.includes(o.status)).length, list.length)}%</b><span>Confirmed</span></div>
+        </div>
+        <h3 class="sub">Top cities</h3>
+        ${places.length ? `<ol class="live-cities">${places.slice(0, 8).map(p => `
+          <li><span class="lc-name">${esc(p.label)}</span><span class="lc-bar"><i style="width:${Math.max(4, p.count / max * 100)}%"></i></span><b>${p.count}</b></li>`).join('')}</ol>` : '<p class="info">No orders with a city yet.</p>'}
+        ${unplaced ? `<p class="info">${unplaced} order${unplaced > 1 ? 's' : ''} without a known city.</p>` : ''}
+        <h3 class="sub">Latest orders</h3>
+        ${feed.length ? `<ul class="live-feed">${feed.map(o => {
+          const pl = orderPlace(o);
+          const prod = db.products.find(p => p.id === o.product)?.name || o.items?.[0]?.name || '';
+          return `<li><span class="lf-mark">${sourceMark(o.source || 'Other')}</span><div><b>${esc(pl?.label || o.city || 'Unknown city')}</b><small>${esc(prod)}${prod ? ' · ' : ''}${money(Number(o.amount) || 0)}</small></div><time>${when(o)}</time></li>`;
+        }).join('')}</ul>` : '<p class="info">No orders in this period.</p>'}
+      </div>
+    </div>`;
+}
+
+function initGlobe() {
+  const canvas = $('#globe');
+  if (!canvas) return;
+  const st = globeState;
+  const token = ++st.token;
+  const ctx = canvas.getContext('2d');
+  const land = globeLand();
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const rad = Math.PI / 180;
+  let W = 0, H = 0, dpr = 1;
+  const size = () => {
+    const wrap = $('#globe-wrap');
+    if (!wrap) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = wrap.clientWidth; H = wrap.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  };
+  size();
+  const places = window.__livePlaces || [];
+  const max = Math.max(...places.map(p => p.count), 1);
+  const project = (sinLat, cosLat, lng, cs, cc, R, cx, cy) => {
+    const d = lng - st.lng * rad;
+    const cosD = Math.cos(d);
+    const cosc = cs.sinC * sinLat + cs.cosC * cosLat * cosD;
+    return [cx + R * cosLat * Math.sin(d), cy - R * (cs.cosC * sinLat - cs.sinC * cosLat * cosD), cosc];
+  };
+  const toward = (a, b, k) => a + (b - a) * k;
+  const arcs = places.filter(p => p.recent).slice(0, 24);
+
+  function frame(t) {
+    if (token !== st.token || !canvas.isConnected) return;
+    // Motion: glide to a target, or turn slowly when idle.
+    if (st.targetLng != null) {
+      let dl = ((st.targetLng - st.lng + 540) % 360) - 180;
+      st.lng += dl * 0.08; st.lat = toward(st.lat, st.targetLat, 0.08); st.zoom = toward(st.zoom, st.targetZoom, 0.08);
+      if (Math.abs(dl) < 0.05 && Math.abs(st.lat - st.targetLat) < 0.05 && Math.abs(st.zoom - st.targetZoom) < 0.002) st.targetLng = null;
+    } else if (st.auto && !reduce && !st.dragging && !st.hover && Date.now() - st.lastInteract > 3500) {
+      st.lng += 0.06;
+    }
+    const R = Math.min(W, H) * 0.42 * st.zoom, cx = W / 2, cy = H / 2;
+    const cs = { sinC: Math.sin(st.lat * rad), cosC: Math.cos(st.lat * rad) };
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    // Atmosphere and sphere.
+    const glow = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, R * 1.25);
+    glow.addColorStop(0, 'rgba(45,212,191,0.16)'); glow.addColorStop(1, 'rgba(45,212,191,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, R * 1.25, 0, Math.PI * 2); ctx.fill();
+    const sphere = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
+    sphere.addColorStop(0, '#13303c'); sphere.addColorStop(1, '#0a1c25');
+    ctx.fillStyle = sphere; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    // Land dots, fading toward the edge.
+    const ds = Math.max(1.1, Math.min(2.4, 1.15 * st.zoom));
+    for (let i = 0; i < land.length; i += 3) {
+      const [x, y, c] = project(land[i], land[i + 1], land[i + 2], cs, null, R, cx, cy);
+      if (c <= 0.02) continue;
+      if (x < -4 || x > W + 4 || y < -4 || y > H + 4) continue;
+      ctx.fillStyle = `rgba(150,196,206,${(0.18 + 0.5 * c).toFixed(2)})`;
+      ctx.fillRect(x - ds / 2, y - ds / 2, ds, ds);
+    }
+    // Arcs from the hub to cities that ordered today.
+    const hub = { sin: Math.sin(GLOBE_HUB.lat * rad), cos: Math.cos(GLOBE_HUB.lat * rad), lng: GLOBE_HUB.lng * rad };
+    const vec = (lat, lng) => [Math.cos(lat * rad) * Math.cos(lng * rad), Math.cos(lat * rad) * Math.sin(lng * rad), Math.sin(lat * rad)];
+    arcs.forEach((p, ai) => {
+      const a = vec(GLOBE_HUB.lat, GLOBE_HUB.lng), b = vec(p.lat, p.lng);
+      const dot = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])), om = Math.acos(dot);
+      if (om < 0.004) return;
+      const lift = Math.min(0.35, om * 0.5), steps = 40, pts = [];
+      for (let k = 0; k <= steps; k++) {
+        const f = k / steps, s1 = Math.sin((1 - f) * om) / Math.sin(om), s2 = Math.sin(f * om) / Math.sin(om);
+        const v = [a[0] * s1 + b[0] * s2, a[1] * s1 + b[1] * s2, a[2] * s1 + b[2] * s2];
+        const h = 1 + lift * Math.sin(Math.PI * f);
+        const lat = Math.asin(v[2] / Math.hypot(...v)), lng = Math.atan2(v[1], v[0]);
+        const [x, y, c] = project(Math.sin(lat), Math.cos(lat), lng, cs, null, R * h, cx, cy);
+        pts.push([x, y, c > -0.15]);
+      }
+      const phase = reduce ? 1 : ((t / 2400 + ai * 0.17) % 1.4);
+      ctx.lineWidth = 1.5;
+      for (let k = 1; k < pts.length; k++) {
+        if (!pts[k][2] || !pts[k - 1][2]) continue;
+        const f = k / steps, alpha = reduce ? 0.55 : Math.max(0.08, 0.7 - Math.abs(f - phase) * 1.6);
+        ctx.strokeStyle = `rgba(94,234,212,${alpha.toFixed(2)})`;
+        ctx.beginPath(); ctx.moveTo(pts[k - 1][0], pts[k - 1][1]); ctx.lineTo(pts[k][0], pts[k][1]); ctx.stroke();
+      }
+    });
+    // City points: glow, core, and a pulse for orders today.
+    st.screen = [];
+    const ordered = [...places].sort((x, y) => x.count - y.count);
+    ordered.forEach(p => {
+      const [x, y, c] = project(Math.sin(p.lat * rad), Math.cos(p.lat * rad), p.lng * rad, cs, null, R, cx, cy);
+      if (c <= 0) return;
+      const r = (3 + 9 * Math.sqrt(p.count / max)) * Math.min(1.6, 0.85 + st.zoom * 0.15);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+      g.addColorStop(0, 'rgba(45,212,191,0.45)'); g.addColorStop(1, 'rgba(45,212,191,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 3, 0, Math.PI * 2); ctx.fill();
+      if (p.recent && !reduce) {
+        const k = (t / 1800 + (p.lat + p.lng) * 0.01) % 1;
+        ctx.strokeStyle = `rgba(94,234,212,${(0.6 * (1 - k)).toFixed(2)})`; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(x, y, r + k * r * 2.6, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = st.hover === p ? '#ffffff' : '#5eead4';
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#0a1c25'; ctx.lineWidth = 1.5; ctx.stroke();
+      st.screen.push({ p, x, y, r });
+    });
+    // Hub marker.
+    const [hx, hy, hc] = project(hub.sin, hub.cos, hub.lng, cs, null, R, cx, cy);
+    if (hc > 0) { ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(hx, hy, 2.5, 0, Math.PI * 2); ctx.fill(); }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // Drag to turn, wheel or pinch-free buttons to zoom, hover for details.
+  const tip = $('#globe-tip');
+  let last = null;
+  canvas.onpointerdown = e => { last = [e.clientX, e.clientY]; st.dragging = true; st.targetLng = null; canvas.setPointerCapture(e.pointerId); };
+  canvas.onpointerup = canvas.onpointercancel = () => { last = null; st.dragging = false; st.lastInteract = Date.now(); };
+  canvas.onpointermove = e => {
+    const rect = canvas.getBoundingClientRect();
+    if (last) {
+      const R = Math.min(W, H) * 0.42 * st.zoom, k = 57 / R;
+      st.lng -= (e.clientX - last[0]) * k; st.lat = Math.max(-75, Math.min(75, st.lat + (e.clientY - last[1]) * k));
+      last = [e.clientX, e.clientY]; st.lastInteract = Date.now();
+    }
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hit = null;
+    (st.screen || []).forEach(s => { const d = Math.hypot(s.x - mx, s.y - my); if (d < Math.max(10, s.r + 6) && (!hit || d < hit.d)) hit = { ...s, d }; });
+    st.hover = hit ? hit.p : null;
+    canvas.style.cursor = hit ? 'pointer' : last ? 'grabbing' : 'grab';
+    if (hit && tip) {
+      const p = hit.p;
+      tip.innerHTML = `<b>${esc(p.label)}</b>${p.country && !p.label.includes(p.country) ? ` · ${esc(p.country)}` : ''}<br>${p.count} order${p.count > 1 ? 's' : ''} · ${pct(p.confirmed, p.count)}% confirmed${p.top ? `<br>Top: ${esc(p.top)}` : ''}${p.recent ? '<br><span class="tip-live">Ordered today</span>' : ''}`;
+      tip.style.left = Math.min(W - 200, hit.x + 14) + 'px'; tip.style.top = Math.max(8, hit.y - 14) + 'px';
+      tip.classList.add('show');
+    } else if (tip) tip.classList.remove('show');
+  };
+  canvas.onpointerleave = () => { st.hover = null; tip?.classList.remove('show'); };
+  canvas.onwheel = e => { e.preventDefault(); st.targetLng = null; st.zoom = Math.max(0.8, Math.min(6, st.zoom * (e.deltaY < 0 ? 1.1 : 0.9))); st.lastInteract = Date.now(); };
+  // Fill the card, whatever its size (the side panel can make it taller).
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => { if (!canvas.isConnected || token !== st.token) return ro.disconnect(); size(); });
+    ro.observe($('#globe-wrap'));
+  } else window.onresize = () => { if (canvas.isConnected) size(); };
+}
+
+const views = { overview, guide, store: storeConnection, orders, analytics, livemap, calls, routing, shipping, carriers, products, cms, suppliers, finance, reconciliation, reports, stores, integrations, team, security, settings };
 
 function updateLivePreview() {
   const pId = activeCmsProductId;
@@ -6998,6 +7252,9 @@ const actions = {
   'connect-shopify': openConnectShopify,
   'fix-delivery': ref => openFixDelivery(ref),
   'analytics-range': v => { analyticsRange = v; render(); },
+  'live-range': v => { liveRange = v; render(); },
+  'globe-focus': where => Object.assign(globeState, where === 'morocco' ? { targetLng: -8, targetLat: 30, targetZoom: 2.8 } : { targetLng: -7, targetLat: 24, targetZoom: 1 }, { lastInteract: Date.now() }),
+  'globe-zoom': dir => Object.assign(globeState, { targetLng: globeState.lng, targetLat: globeState.lat, targetZoom: Math.max(0.8, Math.min(6, globeState.zoom * (dir === 'in' ? 1.4 : 0.7))), lastInteract: Date.now() }),
   'analytics-map': v => { analyticsMap = v; render(); },
   'store-platform': p => (p === 'Shopify' ? openConnectShopify() : openStorePlatform(p)),
   'store-platform-manual': p => (p === 'Shopify' ? startShopifyQuick() : openStorePlatform(p)),
